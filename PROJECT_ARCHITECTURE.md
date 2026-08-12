@@ -187,9 +187,23 @@ verified server-side with `crypto.timingSafeEqual`. Credentials
 - `OfflineIndicator` shows a persistent banner from `navigator.onLine` +
   `online`/`offline` events; no order/menu action pretends to succeed
   while offline.
-- Icons/logo are **placeholders** generated from the Gujarati letter જ
-  (Noto Sans Gujarati Bold on a solid brand-color square) — see §14, no
-  official logo asset was supplied.
+- `public/brand/logo.png` is the official supplied logo (cloche/steam mark +
+  જમાવટ wordmark + tagline), background-cleaned. `public/brand/icon-mark.png`
+  is a cropped icon-only version (mark, no text — wordmarks don't read at
+  favicon/app-icon sizes), used as the source for every generated icon size
+  in `public/icons/` and `src/app/favicon.ico`. If the logo changes, redo
+  both crops rather than hand-editing individual icon sizes.
+- `AppLogo` renders `/brand/logo.png` with `unoptimized` on `next/image` —
+  **deliberately bypassing** the `/_next/image` optimizer. Its dev-mode
+  cache key didn't account for the source file's content changing (only
+  url/width/quality), so overwriting `logo.png` in place kept serving the
+  old bytes to any browser that had already loaded it, even after a hard
+  reload — confirmed via curl (fresh) vs the browser (stale) returning
+  different bytes for the identical URL. Static files under `public/` use
+  Node's standard size+mtime ETag instead, which does change when the file
+  changes. If you reintroduce `next/image` optimization for brand assets,
+  either accept dev-mode staleness after hot-swapping a file, or version
+  the filename (`logo.v2.png`) instead of overwriting in place.
 
 ## 10. Environment Variables
 
@@ -280,7 +294,6 @@ surface area the brief explicitly excludes for v1.
 - [ ] Production environment variables (set in Vercel, not committed)
 - [ ] `ADMIN_SESSION_SECRET` for production (generate a fresh one, don't
       reuse the local dev one)
-- [ ] Official જમાવટ logo file (current icons/wordmark are placeholders —
-      see §9)
+- [x] Official જમાવટ logo file — supplied and integrated (see §9)
 - [ ] Final menu items/prices for launch
 - [ ] Any restaurant-specific business rules not yet defined

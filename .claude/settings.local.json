@@ -31,7 +31,11 @@
       "Bash(curl -s -o /dev/null -w \"manifest: %{http_code}\\\\n\" http://localhost:41199/manifest.webmanifest)",
       "Bash(curl -s -o /dev/null -w \"pending page: %{http_code} time_total=%{time_total}\\\\n\" http://localhost:35499/pending-order)",
       "Bash(curl -s -o /dev/null -w \"api/orders/pending: %{http_code} time_total=%{time_total}\\\\n\" http://localhost:35499/api/orders/pending)",
-      "Bash(curl -s -o /dev/null -w \"home: %{http_code} time_total=%{time_total}\\\\n\" http://localhost:35499/)"
+      "Bash(curl -s -o /dev/null -w \"home: %{http_code} time_total=%{time_total}\\\\n\" http://localhost:35499/)",
+      "Bash(find /tmp/claude-1000/-home-happypet-006-Downloads-JAMAVAT -newer /home/happypet_006/Downloads/JAMAVAT/package.json -type f 2>/dev/null | grep -iv node_modules | head -50 *)",
+      "Bash(find /home -maxdepth 6 -iname \"*.png\" -newermt \"-10 minutes\" 2>/dev/null | head -50 *)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 /tmp/claude-1000/-home-happypet-006-Downloads-JAMAVAT/335765f3-6e8f-4d2c-98c2-6430db98b94f/scratchpad/crop_logo.py)"
     ]
   }
 }

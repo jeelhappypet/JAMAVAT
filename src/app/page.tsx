@@ -29,7 +29,7 @@ const ICONS = {
 export default function HomePage() {
   return (
     <main className="flex flex-1 flex-col items-center gap-10 px-6 py-10">
-      <AppLogo size="lg" withWordmark={false} />
+      <AppLogo size="lg" />
 
       <div className="grid w-full max-w-2xl grid-cols-2 gap-4">
         <HomeActionCard href="/new-order" label="નવો ઓર્ડર" icon={ICONS.newOrder} accent="brand" />

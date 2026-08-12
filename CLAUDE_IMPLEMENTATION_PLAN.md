@@ -36,10 +36,11 @@ PROJECT_ARCHITECTURE.md §12 for exactly what was checked.
    confirm the app is still correct if they don't (kill the socket
    connection in devtools and check that polling/resync still shows
    correct state within ~20s).
-6. Drop in the real jamavat logo (`public/brand/logo.png` + regenerate
-   `public/icons/*`) once supplied — current assets are placeholders (see
-   PROJECT_ARCHITECTURE.md §9).
-7. Replace the 3 sample menu items with the real opening menu via `/menu`.
+6. Replace the 3 sample menu items with the real opening menu via `/menu`.
+
+The real logo is already integrated (`public/brand/logo.png` +
+`icon-mark.png` + all of `public/icons/*` + favicon, see
+PROJECT_ARCHITECTURE.md §9) — no longer a placeholder.
 
 ## Known non-blocking items
 

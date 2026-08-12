@@ -1,38 +1,33 @@
 import Image from "next/image";
 
-const SIZE_PX: Record<"sm" | "md" | "lg", number> = {
-  sm: 32,
-  md: 48,
-  lg: 96,
+// Matches public/brand/logo.png's actual aspect ratio, so the wordmark and
+// tagline baked into the artwork never get squeezed/distorted.
+const LOGO_ASPECT = 600 / 558;
+
+const HEIGHT_PX: Record<"sm" | "md" | "lg", number> = {
+  sm: 48,
+  md: 96,
+  lg: 176,
 };
 
 interface AppLogoProps {
   size?: "sm" | "md" | "lg";
-  withWordmark?: boolean;
   className?: string;
 }
 
-export function AppLogo({ size = "md", withWordmark = true, className = "" }: AppLogoProps) {
-  const px = SIZE_PX[size];
+export function AppLogo({ size = "md", className = "" }: AppLogoProps) {
+  const height = HEIGHT_PX[size];
+  const width = Math.round(height * LOGO_ASPECT);
 
   return (
-    <div className={`inline-flex items-center gap-3 ${className}`}>
-      <Image
-        src="/brand/logo.png"
-        alt="જમાવટ"
-        width={px}
-        height={px}
-        className="rounded-xl"
-        priority
-      />
-      {withWordmark ? (
-        <span
-          className="font-bold text-brand"
-          style={{ fontSize: px * 0.5 }}
-        >
-          જમાવટ
-        </span>
-      ) : null}
-    </div>
+    <Image
+      src="/brand/logo.png"
+      alt="જમાવટ — રેસ્ટોરન્ટ મેનેજમેન્ટ સોફ્ટવેર"
+      width={width}
+      height={height}
+      className={className}
+      unoptimized
+      priority
+    />
   );
 }
