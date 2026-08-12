@@ -12,8 +12,11 @@ import { SwipeToSend } from "@/components/orders/SwipeToSend";
 import { SuccessDialog } from "@/components/ui/SuccessDialog";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
+import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
 import { MENU_CATEGORIES } from "@/types";
 import type { MenuItemDTO } from "@/types";
+
+const POLL_MS = 30000;
 
 interface SuccessInfo {
   customerName?: string;
@@ -49,6 +52,7 @@ export default function NewOrderPage() {
     loadMenu();
   }, [loadMenu]);
 
+  usePeriodicRefresh(loadMenu, POLL_MS);
   useRealtime({ [REALTIME_EVENTS.MENU_UPDATED]: loadMenu });
 
   const menuItemById = useMemo(() => new Map(menuItems.map((item) => [item.id, item])), [menuItems]);

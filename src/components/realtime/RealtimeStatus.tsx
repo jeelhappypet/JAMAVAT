@@ -3,13 +3,15 @@ export type RealtimeConnectionState = "connecting" | "connected" | "disconnected
 const LABELS: Record<RealtimeConnectionState, string> = {
   connecting: "જોડાણ થઈ રહ્યું છે…",
   connected: "લાઈવ",
-  disconnected: "જોડાણ તૂટ્યું",
+  // Not an error state — data still refreshes automatically on a timer.
+  // Realtime push may simply be unavailable on this hosting setup.
+  disconnected: "સ્વયં તાજું થાય છે",
 };
 
 const DOT_CLASS: Record<RealtimeConnectionState, string> = {
   connecting: "bg-amber-500 animate-pulse",
   connected: "bg-success",
-  disconnected: "bg-danger",
+  disconnected: "bg-text-muted",
 };
 
 export function RealtimeStatus({ state }: { state: RealtimeConnectionState }) {

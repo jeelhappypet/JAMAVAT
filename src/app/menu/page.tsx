@@ -10,8 +10,11 @@ import { CategorySection } from "@/components/menu/CategorySection";
 import { MenuItemCard } from "@/components/menu/MenuItemCard";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
+import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
 import { MENU_CATEGORIES } from "@/types";
 import type { MenuItemDTO } from "@/types";
+
+const POLL_MS = 30000;
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItemDTO[]>([]);
@@ -37,6 +40,7 @@ export default function MenuPage() {
     load();
   }, [load]);
 
+  usePeriodicRefresh(load, POLL_MS);
   useRealtime({ [REALTIME_EVENTS.MENU_UPDATED]: load });
 
   async function toggleActive(item: MenuItemDTO) {

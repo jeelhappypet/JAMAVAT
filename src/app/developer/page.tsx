@@ -5,9 +5,13 @@ import { HomeButton } from "@/components/ui/HomeButton";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { AdminStatCard } from "@/components/developer/AdminStatCard";
+import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
+import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
 import type { DeveloperStats } from "@/types";
+
+const POLL_MS = 20000;
 
 type AuthStatus = "checking" | "guest" | "authenticated";
 
@@ -40,7 +44,9 @@ export default function DeveloperPage() {
     loadStats();
   }, [loadStats]);
 
-  useRealtime({
+  usePeriodicRefresh(loadStats, POLL_MS);
+
+  const { state: connectionState } = useRealtime({
     [REALTIME_EVENTS.ADMIN_STATS_UPDATED]: () => {
       if (authStatus === "authenticated") loadStats();
     },
@@ -81,9 +87,12 @@ export default function DeveloperPage() {
         <HomeButton />
         <h1 className="text-xl font-bold">એડમિન</h1>
         {authStatus === "authenticated" ? (
-          <Button variant="secondary" onClick={handleLogout}>
-            લોગઆઉટ
-          </Button>
+          <div className="flex items-center gap-3">
+            <RealtimeStatus state={connectionState} />
+            <Button variant="secondary" onClick={handleLogout}>
+              લોગઆઉટ
+            </Button>
+          </div>
         ) : (
           <span className="w-11" />
         )}
