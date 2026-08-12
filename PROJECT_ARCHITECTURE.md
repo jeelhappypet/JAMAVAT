@@ -100,10 +100,11 @@ the atomic token generator (see §6).
 |---|---|---|
 | GET/POST/PATCH | `/api/menu` | list (all, or `?activeOnly=1`) / bulk-create / update (incl. soft-delete via `isActive`) |
 | POST | `/api/orders` | create order, idempotent on `clientRequestId` |
-| GET | `/api/orders/live` | active (`PENDING`, today) orders — counter view |
-| GET | `/api/orders/pending` | same data — kitchen view |
-| PATCH | `/api/orders/[id]/complete` | atomic `PENDING → COMPLETED` |
-| PATCH | `/api/orders/[id]/cancel` | atomic `PENDING → CANCELLED` |
+| GET | `/api/orders/live` | today's `PENDING` + `READY` orders — counter view |
+| GET | `/api/orders/pending` | today's `PENDING` orders only — kitchen view |
+| PATCH | `/api/orders/[id]/ready` | atomic `PENDING → READY` — kitchen's only action |
+| PATCH | `/api/orders/[id]/complete` | atomic `(PENDING\|READY) → COMPLETED` — counter only |
+| PATCH | `/api/orders/[id]/cancel` | atomic `(PENDING\|READY) → CANCELLED` — counter only |
 | POST | `/api/developer/login` \| `/logout` | admin session cookie |
 | GET | `/api/developer/stats` | aggregated stats, requires session |
 
