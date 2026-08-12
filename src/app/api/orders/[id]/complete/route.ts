@@ -11,7 +11,7 @@ export async function PATCH(_request: Request, { params }: { params: Promise<{ i
     const { id } = await params;
 
     const updated = await Order.findOneAndUpdate(
-      { _id: id, status: "PENDING" },
+      { _id: id, status: { $in: ["PENDING", "READY"] } },
       { $set: { status: "COMPLETED", completedAt: new Date() } },
       { returnDocument: "after" }
     ).lean();

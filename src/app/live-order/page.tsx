@@ -12,7 +12,7 @@ import { useActiveOrders } from "@/lib/orders/useActiveOrders";
 
 export default function LiveOrderPage() {
   const router = useRouter();
-  const { orders, loading, error, connectionState, refetch } = useActiveOrders("/api/orders/live");
+  const { orders, loading, error, connectionState, refetch } = useActiveOrders("live");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -80,6 +80,7 @@ export default function LiveOrderPage() {
               tokenNumber={order.tokenNumber}
               customerName={order.customerName}
               totalAmount={order.totalAmount}
+              status={order.status}
               busy={busyId === order.id}
               onComplete={() => handleComplete(order.id)}
               onCancel={() => setCancelTarget(order.id)}

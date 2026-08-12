@@ -80,7 +80,7 @@ export async function GET() {
       totalOrders,
       completedOrders: totalsByStatus.COMPLETED ?? 0,
       cancelledOrders: totalsByStatus.CANCELLED ?? 0,
-      pendingOrders: totalsByStatus.PENDING ?? 0,
+      pendingOrders: (totalsByStatus.PENDING ?? 0) + (totalsByStatus.READY ?? 0),
       todayOrders: result.today[0]?.orders ?? 0,
       todayRevenue: result.today[0]?.revenue ?? 0,
       dateWise: result.dateWise.map((d) => ({

@@ -1,21 +1,40 @@
 import { Card } from "@/components/ui/Card";
+import type { OrderStatus } from "@/types";
 
 interface OrderCardProps {
   tokenNumber: number;
   customerName?: string;
   totalAmount: number;
+  status: OrderStatus;
   onComplete: () => void;
   onCancel: () => void;
   busy?: boolean;
 }
 
-export function OrderCard({ tokenNumber, customerName, totalAmount, onComplete, onCancel, busy }: OrderCardProps) {
+export function OrderCard({
+  tokenNumber,
+  customerName,
+  totalAmount,
+  status,
+  onComplete,
+  onCancel,
+  busy,
+}: OrderCardProps) {
   return (
     <Card className="flex flex-col gap-4 p-5">
       <div className="flex items-start justify-between">
         <div>
           {customerName ? <p className="text-base text-text-muted">{customerName}</p> : null}
           <p className="text-5xl font-extrabold text-brand">{tokenNumber}</p>
+          {status === "READY" ? (
+            <span className="mt-1 inline-block rounded-full bg-success-light px-2.5 py-0.5 text-xs font-semibold text-success">
+              તૈયાર છે
+            </span>
+          ) : (
+            <span className="mt-1 inline-block rounded-full bg-surface-muted px-2.5 py-0.5 text-xs font-semibold text-text-muted">
+              બની રહ્યું છે
+            </span>
+          )}
         </div>
         <p className="text-2xl font-bold">₹{totalAmount}</p>
       </div>

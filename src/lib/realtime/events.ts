@@ -1,5 +1,6 @@
 export const REALTIME_EVENTS = {
   ORDER_CREATED: "order:created",
+  ORDER_READY: "order:ready",
   ORDER_COMPLETED: "order:completed",
   ORDER_CANCELLED: "order:cancelled",
   MENU_UPDATED: "menu:updated",

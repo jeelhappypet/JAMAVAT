@@ -4,48 +4,26 @@ import { useState } from "react";
 import { HomeButton } from "@/components/ui/HomeButton";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { KitchenTicket } from "@/components/orders/KitchenTicket";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
 import { useActiveOrders } from "@/lib/orders/useActiveOrders";
 
 export default function PendingOrderPage() {
-  const { orders, loading, error, connectionState, refetch } = useActiveOrders("/api/orders/pending");
+  const { orders, loading, error, connectionState, refetch } = useActiveOrders("pending");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  async function handleComplete(id: string) {
+  async function handleReady(id: string) {
     setBusyId(id);
     setActionError(null);
     try {
-      const res = await fetch(`/api/orders/${id}/complete`, { method: "PATCH" });
+      const res = await fetch(`/api/orders/${id}/ready`, { method: "PATCH" });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.error ?? "ઓર્ડર પૂર્ણ કરી શકાયો નથી");
+        throw new Error(data?.error ?? "ઓર્ડર તૈયાર તરીકે માર્ક કરી શકાયો નથી");
       }
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "ઓર્ડર પૂર્ણ કરી શકાયો નથી");
-      refetch();
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function handleCancelConfirmed() {
-    const id = cancelTarget;
-    if (!id) return;
-    setCancelTarget(null);
-    setBusyId(id);
-    setActionError(null);
-    try {
-      const res = await fetch(`/api/orders/${id}/cancel`, { method: "PATCH" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error ?? "ઓર્ડર રદ કરી શકાયો નથી");
-      }
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "ઓર્ડર રદ કરી શકાયો નથી");
+      setActionError(err instanceof Error ? err.message : "ઓર્ડર તૈયાર તરીકે માર્ક કરી શકાયો નથી");
       refetch();
     } finally {
       setBusyId(null);
@@ -77,21 +55,11 @@ export default function PendingOrderPage() {
               customerName={order.customerName}
               items={order.items}
               busy={busyId === order.id}
-              onComplete={() => handleComplete(order.id)}
-              onCancel={() => setCancelTarget(order.id)}
+              onReady={() => handleReady(order.id)}
             />
           ))}
         </div>
       )}
-
-      <ConfirmDialog
-        open={cancelTarget !== null}
-        title="ઓર્ડર રદ કરવો છે?"
-        description="આ ક્રિયા પાછી ફેરવી શકાશે નહીં."
-        confirmLabel="હા, રદ કરો"
-        onConfirm={handleCancelConfirmed}
-        onCancel={() => setCancelTarget(null)}
-      />
     </main>
   );
 }

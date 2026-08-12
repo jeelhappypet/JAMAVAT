@@ -16,6 +16,7 @@ interface OrderLean {
   totalAmount: number;
   status: string;
   createdAt: Date;
+  readyAt?: Date;
   completedAt?: Date;
   cancelledAt?: Date;
 }
@@ -39,6 +40,7 @@ export function serializeOrder(doc: OrderLean): OrderDTO {
     totalAmount: doc.totalAmount,
     status: doc.status as OrderDTO["status"],
     createdAt: doc.createdAt.toISOString(),
+    readyAt: doc.readyAt?.toISOString(),
     completedAt: doc.completedAt?.toISOString(),
     cancelledAt: doc.cancelledAt?.toISOString(),
   };

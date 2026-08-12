@@ -10,7 +10,7 @@ type EventHandlers = Record<string, (payload: unknown) => void>;
 // forever — some hosting setups (e.g. standard serverless functions with
 // no persistent process to hold a WebSocket open) may never succeed at
 // all. The UI should read as "refreshing periodically instead," not "stuck."
-const CONNECT_GRACE_MS = 6000;
+const CONNECT_GRACE_MS = 4000;
 
 /**
  * Connects to the Socket.IO server and wires up event handlers. Always
