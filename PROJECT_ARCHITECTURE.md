@@ -83,10 +83,10 @@ re-export the same hooks/components without adding a real boundary.
 **Order** — `tokenNumber`, `businessDate` (YYYY-MM-DD, Asia/Kolkata),
 `customerName?`, `items[]` (menuItemId + **snapshot** of name/category/price
 at order time, quantity, lineTotal), `totalAmount`, `status`
-(`PENDING`/`COMPLETED`/`CANCELLED`), `clientRequestId` (idempotency key),
-`createdAt`/`completedAt`/`cancelledAt`. Indexes: `{businessDate, status}`,
-unique `{businessDate, tokenNumber}`, `{createdAt}`, unique-sparse
-`{clientRequestId}`.
+(`PENDING`/`READY`/`COMPLETED`/`CANCELLED`), `clientRequestId` (idempotency
+key), `createdAt`/`readyAt`/`completedAt`/`cancelledAt`. Indexes:
+`{businessDate, status}`, unique `{businessDate, tokenNumber}`,
+`{createdAt}`, unique-sparse `{clientRequestId}`.
 
 Snapshots mean a menu price change today never rewrites yesterday's orders.
 
@@ -114,12 +114,31 @@ orders shouldn't touch history.
 
 ## 6. Order Lifecycle & Token Generation
 
-`PENDING → COMPLETED` or `PENDING → CANCELLED`, server-controlled only.
-Every transition uses `findOneAndUpdate({_id, status: "PENDING"}, ...)` —
-if another request already moved the order, this matches zero documents
-and the route returns `409` with a Gujarati "already processed" message.
-This is what makes double-tap-complete, complete-after-cancel, etc. safe
-(verified in testing — see §12).
+`PENDING → READY → COMPLETED`, or `(PENDING|READY) → CANCELLED`,
+server-controlled only. This is a deliberate 4-status model (not the
+original 3-status PENDING/COMPLETED/CANCELLED) added after real kitchen
+use: the kitchen's job is only to say "I've cooked it" (`READY`), not to
+decide an order is fully done — that's the counter's call once it's
+actually served. Consequences of this split:
+
+- **Kitchen (Pending Order) has exactly one action** — mark ready. No
+  cancel button at all; cancellation authority belongs entirely to the
+  counter. Marking ready removes the order from the kitchen's own queue
+  (`/api/orders/pending`, `status: PENDING` only) but must never remove it
+  from the counter's queue.
+- **Counter (Live Order) queries `PENDING` and `READY` together**
+  (`/api/orders/live`) and keeps both complete and cancel actions on
+  either status. An order only ever leaves the counter's screen when the
+  counter itself completes or cancels it — kitchen's `ready` action changes
+  its badge (બની રહ્યું છે → તૈયાર છે) in place, never removes it.
+
+Every transition uses an atomic `findOneAndUpdate` filtered by the
+statuses it's allowed to start from (e.g. complete/cancel match
+`{status: {$in: ["PENDING","READY"]}}`) — if another request already
+moved the order, this matches zero documents and the route returns `409`
+with a Gujarati "already processed" message. This is what makes
+double-tap-complete, ready-after-cancel, etc. safe (verified in testing —
+see §12).
 
 Token numbers come from the `Counter` doc for the current Asia/Kolkata
 business date, incremented atomically. `POST /api/orders` also de-dupes on
@@ -147,13 +166,37 @@ polling the same origin can exhaust the browser's per-origin connection
 pool); forcing WebSocket avoids both and is the transport Vercel's beta
 WebSocket support targets anyway.
 
-**Every realtime consumer also polls** (`useActiveOrders` polls every 20s;
-every `useRealtime` caller resyncs immediately on reconnect). This is not
-a fallback bolted on for safety theatre — it's load-bearing: on a
+**Every realtime consumer also polls** (`useActiveOrders` every 5s;
+`/menu` and New Order's menu fetch every 30s; admin stats every 20s —
+every `useRealtime` caller also resyncs immediately on reconnect). This is
+not a fallback bolted on for safety theatre — it's load-bearing: on a
 serverless deployment, the API route that emits an event and the function
 instance holding a given client's socket connection are not guaranteed to
 be the same process, so a missed emit is an expected possibility, not an
-edge case. MongoDB stays authoritative regardless.
+edge case. MongoDB stays authoritative regardless. **Confirmed in
+production on Vercel's standard serverless Functions**: the socket never
+reaches `connected` at all (no persistent process to hold a WebSocket
+open), so the app runs entirely on polling there today — every screen
+still ends up correct within its poll interval, just not push-instant.
+`useRealtime`'s `CONNECT_GRACE_MS` (4s) is what stops the status badge
+from showing "connecting…" forever in that situation — it settles into
+"સ્વયં તાજું થાય છે" (auto-refreshing) instead, which is accurate, not an
+error state.
+
+If genuine sub-second cross-device push is needed later, the concrete fix
+is an external pub/sub (Ably/Pusher, both have a free tier) that all
+serverless instances can publish/subscribe to — this is exactly the
+"concrete Vercel limitation" the original brief anticipated as the bar
+for adding one. Vercel's Fluid Compute + WebSocket beta is the other path
+but depends on account/plan enablement outside this codebase's control.
+Do not attempt to "fix" this by changing `transports` back to include
+`polling` — the Pages API handler in `src/pages/api/socket.ts` calls
+`res.end()` unconditionally on every request, which was found (via a
+local curl test returning an empty body for a polling handshake) to
+race with Engine.IO's own response for that transport. WebSocket-only
+sidesteps it because upgrade requests never go through that handler at
+all — but fixing polling too would need reworking that handler, not just
+a client-side transport change.
 
 ## 8. Admin Authentication
 
