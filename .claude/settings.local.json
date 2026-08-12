@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --app --eslint --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(npx --yes create-next-app@latest --help)",
+      "Read(//home/happypet_006/Downloads/**)",
+      "Bash(npx --yes create-next-app@latest jamavat --typescript --tailwind --app --eslint --src-dir --import-alias \"@/*\" --use-npm --no-turbopack --disable-git)",
+      "Bash(cp ../JAMAVAT_CLAUDE_MASTER_PROMPT.md .)",
+      "Bash(cp ../PROJECT_ARCHITECTURE.md .)",
+      "Bash(npm install *)",
+      "Bash(lsof -i :3000 -sTCP:LISTEN)",
+      "Bash(mkdir -p /home/happypet_006/Downloads/JAMAVAT/src/app/api/orders/live /home/happypet_006/Downloads/JAMAVAT/src/app/api/orders/pending /home/happypet_006/Downloads/JAMAVAT/src/app/api/orders/\\\\[id\\\\]/complete /home/happypet_006/Downloads/JAMAVAT/src/app/api/orders/\\\\[id\\\\]/cancel)",
+      "Bash(mongod --version)",
+      "Bash(mongod --dbpath /tmp/claude-1000/-home-happypet-006-Downloads-JAMAVAT/335765f3-6e8f-4d2c-98c2-6430db98b94f/scratchpad/mongo-data --port 27117 --bind_ip 127.0.0.1 --fork --logpath /tmp/claude-1000/-home-happypet-006-Downloads-JAMAVAT/335765f3-6e8f-4d2c-98c2-6430db98b94f/scratchpad/mongo-data/mongod.log)",
+      "Bash(mongosh --port 27117 --eval \"db.runCommand\\({ping:1}\\)\" --quiet)",
+      "Bash(mongosh --port 27117 jamavat_dev --quiet --eval ' *)",
+      "Bash(curl -s -D - \"http://localhost:35499/api/socket?EIO=4&transport=polling&t=curltest1\")",
+      "Bash(curl -s http://localhost:35499/manifest.webmanifest)",
+      "Bash(python3 -m json.tool)",
+      "Bash(npm run *)",
+      "Bash(PORT=41099 npm run start)",
+      "Bash(curl -s -o /dev/null -w \"home: %{http_code}\\\\n\" http://localhost:41099/)",
+      "Bash(curl -s -o /dev/null -w \"new-order: %{http_code}\\\\n\" http://localhost:41099/new-order)",
+      "Bash(curl -s -o /dev/null -w \"api/menu: %{http_code}\\\\n\" http://localhost:41099/api/menu)",
+      "Bash(curl -s -o /dev/null -w \"manifest: %{http_code}\\\\n\" http://localhost:41099/manifest.webmanifest)",
+      "Bash(PORT=41199 npm run start)",
+      "Bash(curl -s -o /dev/null -w \"home: %{http_code}\\\\n\" http://localhost:41199/)",
+      "Bash(curl -s -o /dev/null -w \"new-order: %{http_code}\\\\n\" http://localhost:41199/new-order)",
+      "Bash(curl -s -o /dev/null -w \"api/menu: %{http_code}\\\\n\" http://localhost:41199/api/menu)",
+      "Bash(curl -s -o /dev/null -w \"manifest: %{http_code}\\\\n\" http://localhost:41199/manifest.webmanifest)",
+      "Bash(curl -s -o /dev/null -w \"pending page: %{http_code} time_total=%{time_total}\\\\n\" http://localhost:35499/pending-order)",
+      "Bash(curl -s -o /dev/null -w \"api/orders/pending: %{http_code} time_total=%{time_total}\\\\n\" http://localhost:35499/api/orders/pending)",
+      "Bash(curl -s -o /dev/null -w \"home: %{http_code} time_total=%{time_total}\\\\n\" http://localhost:35499/)"
+    ]
+  }
+}
