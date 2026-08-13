@@ -44,13 +44,12 @@ export default function DeveloperPage() {
     loadStats();
   }, [loadStats]);
 
-  usePeriodicRefresh(loadStats, POLL_MS);
-
   const { state: connectionState } = useRealtime({
     [REALTIME_EVENTS.ADMIN_STATS_UPDATED]: () => {
       if (authStatus === "authenticated") loadStats();
     },
   });
+  usePeriodicRefresh(loadStats, POLL_MS, connectionState !== "connected");
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();

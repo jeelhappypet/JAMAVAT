@@ -10,7 +10,8 @@ interface SocketWithIO extends NetSocket {
 
 interface NextApiResponseWithSocket {
   socket: SocketWithIO;
-  end: () => void;
+  status: (code: number) => NextApiResponseWithSocket;
+  end: (body?: string) => void;
 }
 
 /**
@@ -23,14 +24,17 @@ interface NextApiResponseWithSocket {
  */
 export default function handler(req: NextApiRequest, res: NextApiResponseWithSocket) {
   if (!res.socket.server.io) {
-    const io = new IOServer(res.socket.server, { path: "/api/socket" });
+    const io = new IOServer(res.socket.server, {
+      path: "/api/socket",
+      addTrailingSlash: false,
+    });
     res.socket.server.io = io;
     setIO(io);
   } else if (!getIO()) {
     setIO(res.socket.server.io);
   }
 
-  res.end();
+  res.status(200).end("ok");
 }
 
 export const config = {

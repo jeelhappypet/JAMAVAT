@@ -40,8 +40,8 @@ export default function MenuPage() {
     load();
   }, [load]);
 
-  usePeriodicRefresh(load, POLL_MS);
-  useRealtime({ [REALTIME_EVENTS.MENU_UPDATED]: load });
+  const { state } = useRealtime({ [REALTIME_EVENTS.MENU_UPDATED]: load });
+  usePeriodicRefresh(load, POLL_MS, state !== "connected");
 
   async function toggleActive(item: MenuItemDTO) {
     setItems((prev) =>

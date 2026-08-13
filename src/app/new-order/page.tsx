@@ -52,8 +52,8 @@ export default function NewOrderPage() {
     loadMenu();
   }, [loadMenu]);
 
-  usePeriodicRefresh(loadMenu, POLL_MS);
-  useRealtime({ [REALTIME_EVENTS.MENU_UPDATED]: loadMenu });
+  const { state } = useRealtime({ [REALTIME_EVENTS.MENU_UPDATED]: loadMenu });
+  usePeriodicRefresh(loadMenu, POLL_MS, state !== "connected");
 
   const menuItemById = useMemo(() => new Map(menuItems.map((item) => [item.id, item])), [menuItems]);
 

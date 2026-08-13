@@ -17,10 +17,8 @@ const ENDPOINT: Record<Mode, string> = {
 /**
  * Shared data source for Live Order (counter, mode "live") and Pending
  * Order (kitchen, mode "pending"). Realtime events update the list
- * instantly when a socket connection is available; a periodic poll and a
- * resync-on-reconnect are the correctness backstop, not just a fallback —
- * on some hosting setups realtime may never connect at all (no persistent
- * process to hold a socket), so nothing here may assume it will.
+ * instantly when a socket connection is available; a periodic poll is
+ * only the fallback while disconnected (plus a resync on reconnect).
  *
  * The kitchen marking an order ready must remove it from "pending" (it
  * only shows PENDING) but must NOT remove it from "live" (which shows
@@ -49,8 +47,6 @@ export function useActiveOrders(mode: Mode) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
     refetch();
-    const interval = setInterval(refetch, POLL_MS);
-    return () => clearInterval(interval);
   }, [refetch]);
 
   const { state } = useRealtime(
@@ -78,6 +74,14 @@ export function useActiveOrders(mode: Mode) {
     },
     refetch
   );
+
+  // Poll only while realtime is down — when connected, socket events +
+  // reconnect resync keep the list fresh without hammering the API.
+  useEffect(() => {
+    if (state === "connected") return;
+    const interval = setInterval(refetch, POLL_MS);
+    return () => clearInterval(interval);
+  }, [state, refetch]);
 
   return { orders, loading, error, connectionState: state, refetch };
 }

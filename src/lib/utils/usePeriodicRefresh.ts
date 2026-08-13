@@ -3,17 +3,14 @@
 import { useEffect } from "react";
 
 /**
- * Calls `callback` on a fixed interval for as long as the component is
- * mounted. This is the correctness backstop for every screen that shows
- * server data expected to change from other devices: realtime (Socket.IO)
- * is a notification layer only, and on standard serverless hosting a
- * client may never manage to hold a live connection at all (no persistent
- * process to attach to) — so nothing on screen may rely on realtime ever
- * firing to eventually become correct.
+ * Calls `callback` on a fixed interval while enabled. Use as the
+ * correctness backstop when realtime is disconnected — when Socket.IO is
+ * connected, pass `enabled: false` and let push events drive updates.
  */
-export function usePeriodicRefresh(callback: () => void, intervalMs: number) {
+export function usePeriodicRefresh(callback: () => void, intervalMs: number, enabled = true) {
   useEffect(() => {
+    if (!enabled) return;
     const interval = setInterval(callback, intervalMs);
     return () => clearInterval(interval);
-  }, [callback, intervalMs]);
+  }, [callback, intervalMs, enabled]);
 }
