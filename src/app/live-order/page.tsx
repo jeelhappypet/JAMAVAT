@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HomeButton } from "@/components/ui/HomeButton";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -12,23 +12,33 @@ import { useActiveOrders } from "@/lib/orders/useActiveOrders";
 
 export default function LiveOrderPage() {
   const router = useRouter();
-  const { orders, loading, error, connectionState, refetch } = useActiveOrders("live");
+  const { orders, loading, error, connectionState, refetch, removeOrder } =
+    useActiveOrders("live");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  useEffect(() => {
+    router.prefetch("/");
+  }, [router]);
+
   async function handleComplete(id: string) {
     setBusyId(id);
     setActionError(null);
+    removeOrder(id);
     try {
-      const res = await fetch(`/api/orders/${id}/complete`, { method: "PATCH" });
+      const res = await fetch(`/api/orders/${id}/complete`, {
+        method: "PATCH",
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? "ઓર્ડર પૂર્ણ કરી શકાયો નથી");
       }
-      router.push("/");
+      router.replace("/");
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "ઓર્ડર પૂર્ણ કરી શકાયો નથી");
+      setActionError(
+        err instanceof Error ? err.message : "ઓર્ડર પૂર્ણ કરી શકાયો નથી",
+      );
       refetch();
     } finally {
       setBusyId(null);
@@ -41,15 +51,18 @@ export default function LiveOrderPage() {
     setCancelTarget(null);
     setBusyId(id);
     setActionError(null);
+    removeOrder(id);
     try {
       const res = await fetch(`/api/orders/${id}/cancel`, { method: "PATCH" });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? "ઓર્ડર રદ કરી શકાયો નથી");
       }
-      router.push("/");
+      router.replace("/");
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "ઓર્ડર રદ કરી શકાયો નથી");
+      setActionError(
+        err instanceof Error ? err.message : "ઓર્ડર રદ કરી શકાયો નથી",
+      );
       refetch();
     } finally {
       setBusyId(null);
@@ -64,7 +77,7 @@ export default function LiveOrderPage() {
         <RealtimeStatus state={connectionState} />
       </div>
 
-      {(error || actionError) ? (
+      {error || actionError ? (
         <p className="text-center text-danger">{actionError || error}</p>
       ) : null}
 

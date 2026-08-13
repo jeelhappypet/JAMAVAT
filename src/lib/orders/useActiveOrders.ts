@@ -44,6 +44,10 @@ export function useActiveOrders(mode: Mode) {
     }
   }, [endpoint]);
 
+  const removeOrder = useCallback((id: string) => {
+    setOrders((prev) => prev.filter((o) => o.id !== id));
+  }, []);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
     refetch();
@@ -83,5 +87,5 @@ export function useActiveOrders(mode: Mode) {
     return () => clearInterval(interval);
   }, [state, refetch]);
 
-  return { orders, loading, error, connectionState: state, refetch };
+  return { orders, loading, error, connectionState: state, refetch, removeOrder };
 }

@@ -6,23 +6,35 @@ import type { RealtimeConnectionState } from "@/components/realtime/RealtimeStat
 
 type EventHandlers = Record<string, (payload: unknown) => void>;
 
-// If a connection can't be established quickly, stop showing "connecting"
-// forever — some hosting setups (e.g. standard serverless functions with
-// no persistent process to hold a WebSocket open) may never succeed at
-// all. The UI should read as "refreshing periodically instead," not "stuck."
-const CONNECT_GRACE_MS = 8000;
+// Must match src/pages/api/socket.ts — Engine.IO lives here, warm-up stays on /api/socket.
+const SOCKET_IO_PATH = "/socket.io";
+
+const CONNECT_GRACE_MS = 4000;
+const MAX_RECONNECT_ATTEMPTS = 2;
+
+// One warm-up per page lifetime — avoids repeat /api/socket hits from every hook mount.
+let warmUpPromise: Promise<"ready" | "unavailable"> | null = null;
+
+function warmUpSocketServer(): Promise<"ready" | "unavailable"> {
+  if (!warmUpPromise) {
+    warmUpPromise = fetch("/api/socket")
+      .then((res) =>
+        res.headers.get("X-Jamavat-Realtime") === "unavailable" ? "unavailable" : "ready"
+      )
+      .catch(() => "ready");
+  }
+  return warmUpPromise;
+}
 
 /**
  * Connects to the Socket.IO server and wires up event handlers. Always
  * calls `onReconnect` right after a (re)connect so the caller can refetch
  * authoritative state from the API — the socket is a notification layer,
- * never the source of truth. Callers should keep a periodic refresh only
- * as a fallback while disconnected (see usePeriodicRefresh).
+ * never the source of truth. Callers should poll only while disconnected.
  *
- * The Pages API route at `/api/socket` must run once in this process before
- * Engine.IO traffic can succeed — it is what attaches Socket.IO to the
- * underlying Node HTTP server. Without that warm-up, websocket/polling
- * handshakes fail and the UI stays stuck on "connecting" / self-refresh.
+ * Warm-up hits `/api/socket` (Pages init). The live connection uses
+ * `/socket.io` so Engine.IO never sees those warm-up GETs (which used to
+ * surface as 400 "Transport unknown" after the server was already attached).
  */
 export function useRealtime(handlers: EventHandlers, onReconnect?: () => void) {
   const [state, setState] = useState<RealtimeConnectionState>("connecting");
@@ -39,27 +51,31 @@ export function useRealtime(handlers: EventHandlers, onReconnect?: () => void) {
     let everConnected = false;
     let socket: Socket | null = null;
 
-    const graceTimer = setTimeout(() => {
-      if (!cancelled && !everConnected) setState("disconnected");
-    }, CONNECT_GRACE_MS);
+    function giveUp() {
+      if (cancelled || everConnected) return;
+      setState("disconnected");
+      socket?.disconnect();
+    }
+
+    const graceTimer = setTimeout(giveUp, CONNECT_GRACE_MS);
 
     async function connect() {
-      // Warm the Pages API route so Socket.IO is attached to the HTTP server.
-      try {
-        await fetch("/api/socket");
-      } catch {
-        // Another client may already have initialized the server — still try.
-      }
+      const availability = await warmUpSocketServer();
       if (cancelled) return;
 
+      if (availability === "unavailable") {
+        clearTimeout(graceTimer);
+        setState("disconnected");
+        return;
+      }
+
       socket = io({
-        path: "/api/socket",
-        // Polling first is required after warm-up on some Next.js setups;
-        // Socket.IO then upgrades to websocket automatically.
-        transports: ["polling", "websocket"],
+        path: SOCKET_IO_PATH,
+        transports: ["websocket"],
         reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
+        reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+        reconnectionDelay: 1500,
+        timeout: 4000,
       });
 
       socket.on("connect", () => {
@@ -75,9 +91,14 @@ export function useRealtime(handlers: EventHandlers, onReconnect?: () => void) {
       socket.io.on("reconnect_attempt", () => {
         if (!cancelled && everConnected) setState("connecting");
       });
+      socket.io.on("reconnect_failed", () => {
+        if (!cancelled) {
+          setState("disconnected");
+          socket?.disconnect();
+        }
+      });
       socket.on("connect_error", () => {
-        // Keep trying via Socket.IO's reconnection; grace timer flips the
-        // badge to self-refresh if we never manage a first connect.
+        // Limited reconnectionAttempts + grace timer stop the spam.
       });
 
       for (const [event] of Object.entries(handlersRef.current)) {

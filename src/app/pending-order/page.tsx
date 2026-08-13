@@ -9,13 +9,14 @@ import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
 import { useActiveOrders } from "@/lib/orders/useActiveOrders";
 
 export default function PendingOrderPage() {
-  const { orders, loading, error, connectionState, refetch } = useActiveOrders("pending");
+  const { orders, loading, error, connectionState, refetch, removeOrder } = useActiveOrders("pending");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   async function handleReady(id: string) {
     setBusyId(id);
     setActionError(null);
+    removeOrder(id);
     try {
       const res = await fetch(`/api/orders/${id}/ready`, { method: "PATCH" });
       if (!res.ok) {
