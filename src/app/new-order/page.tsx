@@ -29,7 +29,8 @@ export default function NewOrderPage() {
   const [menuItems, setMenuItems] = useState<MenuItemDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<Record<string, number>>({});
-  const [customerName, setCustomerName] = useState("");
+  const [nextTokenNumber, setNextTokenNumber] = useState<number | undefined>();
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<SuccessInfo | null>(null);
   const clientRequestIdRef = useRef<string>(crypto.randomUUID());
@@ -47,10 +48,22 @@ export default function NewOrderPage() {
     }
   }, []);
 
+  const loadNextToken = useCallback(async () => {
+    try {
+      const res = await fetch("/api/orders/next-token");
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setNextTokenNumber(data.tokenNumber);
+    } catch {
+      setNextTokenNumber(undefined);
+    }
+  }, []);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
     loadMenu();
-  }, [loadMenu]);
+    loadNextToken();
+  }, [loadMenu, loadNextToken]);
 
   const { state } = useRealtime({ [REALTIME_EVENTS.MENU_UPDATED]: loadMenu });
   usePeriodicRefresh(loadMenu, POLL_MS, state !== "connected");
@@ -100,7 +113,6 @@ export default function NewOrderPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerName: customerName.trim() || undefined,
           items: lines.map((line) => ({ menuItemId: line.menuItemId, quantity: line.quantity })),
           clientRequestId: clientRequestIdRef.current,
         }),
@@ -115,7 +127,9 @@ export default function NewOrderPage() {
         totalAmount: data.totalAmount,
       });
       setCart({});
+      setSummaryExpanded(false);
       clientRequestIdRef.current = crypto.randomUUID();
+      void loadNextToken();
 
       setTimeout(() => router.push("/"), 2200);
     } catch (err) {
@@ -163,12 +177,13 @@ export default function NewOrderPage() {
       </div>
 
       <OrderSummary
-        customerName={customerName}
-        onCustomerNameChange={setCustomerName}
+        tokenNumber={nextTokenNumber}
         lines={lines}
         totalAmount={totalAmount}
         onIncrement={incrementItem}
         onDecrement={decrementItem}
+        expanded={summaryExpanded}
+        onExpandedChange={setSummaryExpanded}
         footer={<SwipeToSend disabled={lines.length === 0} onComplete={handleSend} />}
       />
 
