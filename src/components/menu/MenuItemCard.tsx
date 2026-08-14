@@ -6,9 +6,17 @@ interface MenuItemCardProps {
   quantity?: number;
   onClick?: () => void;
   trailing?: ReactNode;
+  topRightAction?: ReactNode;
 }
 
-export function MenuItemCard({ name, price, quantity = 0, onClick, trailing }: MenuItemCardProps) {
+export function MenuItemCard({
+  name,
+  price,
+  quantity = 0,
+  onClick,
+  trailing,
+  topRightAction,
+}: MenuItemCardProps) {
   const selected = quantity > 0;
 
   return (
@@ -22,6 +30,7 @@ export function MenuItemCard({ name, price, quantity = 0, onClick, trailing }: M
           ×{quantity}
         </span>
       ) : null}
+      {topRightAction ? <div className="absolute -right-2 -top-2">{topRightAction}</div> : null}
       {onClick ? (
         <button
           type="button"
