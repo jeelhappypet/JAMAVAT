@@ -50,7 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    href: "/pending-order",
+    href: "/kitchen",
     label: "nav.kitchen",
     description: "home.kitchen",
     icon: (

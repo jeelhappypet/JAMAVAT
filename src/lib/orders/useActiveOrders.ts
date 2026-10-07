@@ -6,27 +6,19 @@ import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import type { OrderDTO } from "@/types";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 
-const POLL_MS = 5000;
-
-type Mode = "live" | "pending";
-
-const ENDPOINT: Record<Mode, string> = {
-  live: "/api/orders/live",
-  pending: "/api/orders/pending",
-};
+/** Without Pusher: poll so the screen is never more than a few seconds behind. */
+export const POLL_MS = 5000;
+/** With Pusher: a quiet safety resync in case a push was missed. */
+export const SAFETY_RESYNC_MS = 60000;
 
 /**
- * Shared data source for Live Order (counter, mode "live") and Pending
- * Order (kitchen, mode "pending"). Realtime events update the list
- * instantly when a socket connection is available; a periodic poll is
- * only the fallback while disconnected (plus a resync on reconnect).
- *
- * The kitchen marking an order ready must remove it from "pending" (it
- * only shows PENDING) but must NOT remove it from "live" (which shows
- * PENDING + READY) — only the counter's own complete/cancel does that.
+ * The counter's Live Order list (PENDING + READY). Pusher events update it
+ * instantly; polling covers the time realtime is unavailable. Kitchens
+ * marking an order ready must never remove it here — only the counter's own
+ * complete/cancel does that.
  */
-export function useActiveOrders(mode: Mode) {
-  const endpoint = ENDPOINT[mode];
+export function useActiveOrders() {
+  const endpoint = "/api/orders/live";
   const [orders, setOrders] = useState<OrderDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,12 +55,9 @@ export function useActiveOrders(mode: Mode) {
       },
       [REALTIME_EVENTS.ORDER_READY]: (payload) => {
         const { id } = payload as { id: string };
-        if (mode === "pending") {
-          setOrders((prev) => prev.filter((o) => o.id !== id));
-        } else {
-          setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: "READY" } : o)));
-        }
+        setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: "READY" } : o)));
       },
+      [REALTIME_EVENTS.ORDER_ITEMS_READY]: refetch,
       [REALTIME_EVENTS.ORDER_COMPLETED]: (payload) => {
         const { id } = payload as { id: string };
         setOrders((prev) => prev.filter((o) => o.id !== id));
@@ -81,11 +70,8 @@ export function useActiveOrders(mode: Mode) {
     refetch
   );
 
-  // Poll only while realtime is down — when connected, socket events +
-  // reconnect resync keep the list fresh without hammering the API.
   useEffect(() => {
-    if (state === "connected") return;
-    const interval = setInterval(refetch, POLL_MS);
+    const interval = setInterval(refetch, state === "connected" ? SAFETY_RESYNC_MS : POLL_MS);
     return () => clearInterval(interval);
   }, [state, refetch]);
 

@@ -26,12 +26,12 @@ export async function PATCH(_request: Request, { params }: { params: Promise<{ i
     }
 
     const dto = serializeOrder(updated);
-    emitRealtimeEvent(REALTIME_EVENTS.ORDER_CANCELLED, {
+    await emitRealtimeEvent(REALTIME_EVENTS.ORDER_CANCELLED, {
       id: dto.id,
       tokenNumber: dto.tokenNumber,
       businessDate: dto.businessDate,
     });
-    emitRealtimeEvent(REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:cancelled" });
+    await emitRealtimeEvent(REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:cancelled" });
 
     return NextResponse.json(dto);
   } catch {

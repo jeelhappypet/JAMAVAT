@@ -6,7 +6,10 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PIN_PATTERN } from "@/lib/auth/constants";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useI18n } from "@/lib/i18n/I18nProvider";
-import { STAFF_ROLES, type StaffDTO, type StaffRole } from "@/types";
+import { RoutingMatrix } from "@/components/staff/RoutingMatrix";
+import { useRealtime } from "@/lib/realtime/useRealtime";
+import { REALTIME_EVENTS } from "@/lib/realtime/events";
+import { STAFF_ROLES, type MenuDTO, type StaffDTO, type StaffRole } from "@/types";
 
 const inputClass = "h-12 w-full rounded-xl border border-stone-300 bg-surface px-3.5 text-base font-normal";
 const labelClass = "flex flex-col gap-1.5 text-sm font-bold";
@@ -22,6 +25,7 @@ const digitsOnly = (value: string) => value.replace(/\D/g, "").slice(0, 4);
 export function StaffManager({ currentStaffId }: { currentStaffId: string }) {
   const { t } = useI18n();
   const [staff, setStaff] = useState<StaffDTO[]>([]);
+  const [menus, setMenus] = useState<MenuDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,10 +54,32 @@ export function StaffManager({ currentStaffId }: { currentStaffId: string }) {
     }
   }, [t]);
 
+  const loadMenus = useCallback(async () => {
+    const res = await fetch("/api/menu");
+    if (redirectToLoginIfUnauthorized(res)) return;
+    const data = await res.json().catch(() => null);
+    if (res.ok) setMenus(data.menus);
+  }, []);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
     load();
-  }, [load]);
+    void loadMenus();
+  }, [load, loadMenus]);
+
+  // New categories from the Menu page show up as matrix columns without a reload.
+  useRealtime({ [REALTIME_EVENTS.MENU_UPDATED]: loadMenus });
+
+  async function toggleRouting(member: StaffDTO, categoryId: string) {
+    const next = member.categoryIds.includes(categoryId)
+      ? member.categoryIds.filter((id) => id !== categoryId)
+      : [...member.categoryIds, categoryId];
+    // Optimistic: the tick moves at once; a failed save puts it back.
+    setStaff((prev) => prev.map((s) => (s.id === member.id ? { ...s, categoryIds: next } : s)));
+    if (!(await update(member.id, { categoryIds: next }))) {
+      setStaff((prev) => prev.map((s) => (s.id === member.id ? { ...s, categoryIds: member.categoryIds } : s)));
+    }
+  }
 
   async function update(id: string, body: Record<string, unknown>): Promise<boolean> {
     setError(null);
@@ -285,6 +311,8 @@ export function StaffManager({ currentStaffId }: { currentStaffId: string }) {
           </ul>
         )}
       </section>
+
+      {!loading ? <RoutingMatrix staff={staff} menus={menus} onToggle={toggleRouting} /> : null}
 
       <ConfirmDialog
         open={confirmCopy !== null}

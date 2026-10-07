@@ -14,6 +14,8 @@ const staffSchema = new Schema(
      * issued before — sessions otherwise never expire until logout.
      */
     sessionVersion: { type: Number, default: 1 },
+    /** Kitchen routing: which categories' items this login's kitchen screen receives. */
+    categoryIds: { type: [Schema.Types.ObjectId], ref: "Category", default: [] },
     failedPinAttempts: { type: Number, default: 0 },
     lockedUntil: { type: Date },
   },

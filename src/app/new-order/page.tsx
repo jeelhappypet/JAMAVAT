@@ -13,8 +13,9 @@ import { SuccessDialog } from "@/components/ui/SuccessDialog";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
-import { MENU_CATEGORIES } from "@/types";
-import type { MenuItemDTO } from "@/types";
+import type { MenuDTO, MenuItemDTO } from "@/types";
+import { useI18n } from "@/lib/i18n/I18nProvider";
+import { localName } from "@/lib/i18n/messages";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 
 const POLL_MS = 30000;
@@ -27,7 +28,8 @@ interface SuccessInfo {
 
 export default function NewOrderPage() {
   const router = useRouter();
-  const [menuItems, setMenuItems] = useState<MenuItemDTO[]>([]);
+  const { lang, t } = useI18n();
+  const [menus, setMenus] = useState<MenuDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [nextTokenNumber, setNextTokenNumber] = useState<number | undefined>();
@@ -42,7 +44,7 @@ export default function NewOrderPage() {
       if (redirectToLoginIfUnauthorized(res)) return;
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setMenuItems(data.items);
+      setMenus(data.menus);
     } catch {
       setError("મેનુ લાવી શકાયું નથી");
     } finally {
@@ -71,6 +73,10 @@ export default function NewOrderPage() {
   const { state } = useRealtime({ [REALTIME_EVENTS.MENU_UPDATED]: loadMenu });
   usePeriodicRefresh(loadMenu, POLL_MS, state !== "connected");
 
+  const menuItems = useMemo<MenuItemDTO[]>(
+    () => menus.flatMap((menu) => menu.categories.flatMap((category) => category.items)),
+    [menus]
+  );
   const menuItemById = useMemo(() => new Map(menuItems.map((item) => [item.id, item])), [menuItems]);
 
   const lines: OrderLine[] = useMemo(
@@ -81,12 +87,12 @@ export default function NewOrderPage() {
           const item = menuItemById.get(menuItemId);
           return {
             menuItemId,
-            name: item?.name ?? "",
+            name: item ? localName(lang, item.name, item.nameGu) : "",
             unitPrice: item?.price ?? 0,
             quantity,
           };
         }),
-    [cart, menuItemById]
+    [cart, menuItemById, lang]
   );
 
   const totalAmount = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
@@ -159,23 +165,29 @@ export default function NewOrderPage() {
           <EmptyState title="મેનુમાં કોઈ આઇટમ નથી" hint="પહેલા મેનુમાં આઇટમ ઉમેરો" />
         ) : (
           <div className="flex flex-col gap-6">
-            {MENU_CATEGORIES.map((category) => {
-              const categoryItems = menuItems.filter((item) => item.category === category);
-              if (categoryItems.length === 0) return null;
-              return (
-                <CategorySection key={category} title={category}>
-                  {categoryItems.map((item) => (
-                    <MenuItemCard
-                      key={item.id}
-                      name={item.name}
-                      price={item.price}
-                      quantity={cart[item.id] ?? 0}
-                      onClick={() => addItem(item.id)}
-                    />
-                  ))}
-                </CategorySection>
-              );
-            })}
+            {menus.map((menu) => (
+              <div key={menu.id} className="flex flex-col gap-6">
+                {menus.length > 1 ? (
+                  <h2 className="text-xl font-extrabold">{localName(lang, menu.name, menu.nameGu)}</h2>
+                ) : null}
+                {menu.categories.map((category) =>
+                  category.items.length === 0 ? null : (
+                    <CategorySection key={category.id} title={localName(lang, category.name, category.nameGu)}>
+                      {category.items.map((item) => (
+                        <MenuItemCard
+                          key={item.id}
+                          name={localName(lang, item.name, item.nameGu)}
+                          price={item.price}
+                          quantity={cart[item.id] ?? 0}
+                          soldOutLabel={item.isAvailable ? undefined : t("menu.soldOut")}
+                          onClick={item.isAvailable ? () => addItem(item.id) : undefined}
+                        />
+                      ))}
+                    </CategorySection>
+                  )
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

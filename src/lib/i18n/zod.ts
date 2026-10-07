@@ -8,6 +8,10 @@ const FIELD_MESSAGES: Record<string, MessageKey> = {
   name: "err.enterName",
   restaurantName: "err.enterRestaurantName",
   setupKey: "err.enterSetupKey",
+  price: "err.priceInvalid",
+  menuId: "err.notFound",
+  categoryId: "err.notFound",
+  categoryIds: "err.notFound",
 };
 
 /** Zod's own messages are English-only; map the first failing field to a translated one. */

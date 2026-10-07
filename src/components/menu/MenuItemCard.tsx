@@ -7,6 +7,8 @@ interface MenuItemCardProps {
   onClick?: () => void;
   trailing?: ReactNode;
   topRightAction?: ReactNode;
+  /** Shown instead of the price when the kitchen marked the dish sold out. */
+  soldOutLabel?: string;
 }
 
 export function MenuItemCard({
@@ -16,13 +18,14 @@ export function MenuItemCard({
   onClick,
   trailing,
   topRightAction,
+  soldOutLabel,
 }: MenuItemCardProps) {
   const selected = quantity > 0;
 
   return (
     <div
       className={`relative flex flex-col gap-1 rounded-2xl border p-4 text-left transition-colors ${
-        selected ? "border-brand bg-brand-light" : "border-border bg-surface"
+        selected ? "border-brand bg-brand-light" : soldOutLabel ? "border-border bg-surface-muted opacity-70" : "border-border bg-surface"
       }`}
     >
       {selected ? (
@@ -43,7 +46,11 @@ export function MenuItemCard({
       ) : (
         <div className="flex flex-1 flex-col items-start gap-1">
           <span className="text-base font-semibold leading-snug">{name}</span>
-          <span className="text-sm text-text-muted">₹{price}</span>
+          {soldOutLabel ? (
+            <span className="text-sm font-bold text-danger">{soldOutLabel}</span>
+          ) : (
+            <span className="text-sm text-text-muted">₹{price}</span>
+          )}
         </div>
       )}
       {trailing}

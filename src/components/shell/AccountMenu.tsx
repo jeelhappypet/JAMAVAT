@@ -44,7 +44,8 @@ export function AccountMenu({ name, role }: { name: string; role: StaffRole }) {
   }
 
   return (
-    <div ref={rootRef} className="relative">
+    // text-foreground: the chip and menu stay readable inside the dark kitchen header too.
+    <div ref={rootRef} className="relative text-foreground">
       <button
         type="button"
         aria-haspopup="menu"

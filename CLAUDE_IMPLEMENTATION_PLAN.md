@@ -40,19 +40,18 @@ that shape the code:
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Staff PIN login (persistent), change own PIN, roles, admin staff page, every page/API role-guarded, SW no longer caches per-user payloads; screens built to the design canvas (light theme, Jakarta + Noto Gujarati, EN/ગુ toggle, staff shell header, Install app, restaurant name + Settings) | ✅ |
-| 2 | Dynamic menus/categories (replace hardcoded `MENU_CATEGORIES` + Mongoose enums), category → staff routing (the Admin artboard matrix), item-level kitchen status, Pusher realtime; redesign menu + kitchen screens onto the shell and i18n keys | ⬜ |
+| 2 | Dynamic Menu → Category → Item (additive v1 migration), menus admin page, kitchen routing matrix on Staff page, item-level kitchen status, new Kitchen screen (`/kitchen`, sold-out toggles, beep), Pusher private-channel realtime (Socket.IO removed), counter new-order grouped by menu with sold-out | ✅ |
 | 3 | Tables + seat QRs, guest QR menu, cart + cooking note, email OTP (Gmail SMTP), QR lock, counter accept/reject, live guest status | ⬜ |
 | 4 | Seat settle (discount, payment mode), thank-you email, counter seat grid + ready-to-serve, admin "Today" report | ⬜ |
 | 5 | Multi-restaurant (`restaurantId` everywhere, `/r/{slug}`), Jamavat SEO + inquiry site, HQ panel, per-restaurant PWA manifest | ⬜ |
 
 ## Known non-blocking items
 
-- Socket.IO (`src/pages/api/socket.ts`) accepts any connection and
-  broadcasts order events unauthenticated — only reachable off Vercel.
-  Phase 2 replaces it with Pusher private channels.
-- The realtime transport is WebSocket-only by design (see
-  PROJECT_ARCHITECTURE.md §7). If a future session changes it before the
-  Pusher move, re-verify with two real concurrent clients.
+- Pusher needs real keys to be exercised end-to-end; without them every
+  screen falls back to 5s polling (verified). Once keys exist, check two
+  devices: order on the counter → beep + ticket on the kitchen screen.
+- Counter screens (new order, live orders) and Reports still have the v1
+  look and hardcoded Gujarati — they're redesigned in Phases 3–4.
 - No automated test suite yet. Highest-value first tests: order
   creation/idempotency, the complete/cancel race guard, and the auth
   rules (lockout, sessionVersion revocation, last-admin guard).

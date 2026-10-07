@@ -70,5 +70,6 @@ export function toStaffDTO(staff: StaffDocument): StaffDTO {
     role: staff.role as StaffRole,
     isActive: staff.isActive,
     isLocked: !!staff.lockedUntil && staff.lockedUntil.getTime() > Date.now(),
+    categoryIds: (staff.categoryIds ?? []).map(String),
   };
 }

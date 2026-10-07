@@ -8,6 +8,8 @@ import { requireStaff, startSession, toStaffDTO } from "@/lib/auth/staff";
 import { ROLES } from "@/lib/auth/access";
 import { getTranslator } from "@/lib/i18n/server";
 import { zodErrorMessage } from "@/lib/i18n/zod";
+import { emitRealtimeEvent } from "@/lib/realtime/server";
+import { REALTIME_EVENTS } from "@/lib/realtime/events";
 
 function isDuplicateKeyError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === 11000;
@@ -23,7 +25,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!isValidObjectId(id)) {
       return NextResponse.json({ error: t("err.staffNotFound") }, { status: 404 });
     }
-    const { name, role, isActive, pin, logoutEverywhere } = updateStaffSchema.parse(await request.json());
+    const { name, role, isActive, pin, logoutEverywhere, categoryIds } = updateStaffSchema.parse(await request.json());
 
     const target = await Staff.findById(id).lean<StaffDocument>();
     if (!target) {
@@ -43,6 +45,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (role !== undefined) set.role = role;
     if (isActive !== undefined) set.isActive = isActive;
     if (pin !== undefined) Object.assign(set, await hashPin(pin), { failedPinAttempts: 0 });
+    // Routing changes apply on the kitchen screen's next refresh — no need to log anyone out.
+    if (categoryIds !== undefined) set.categoryIds = [...new Set(categoryIds)];
 
     // Anything that changes what this person may do (or who they prove they
     // are) signs out every device they're logged in on.
@@ -68,6 +72,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // An admin editing their own account keeps this device logged in.
     if (signOut && updated.isActive && String(updated._id) === current.id) {
       await startSession(updated);
+    }
+
+    if (categoryIds !== undefined) {
+      await emitRealtimeEvent(REALTIME_EVENTS.ROUTING_UPDATED, { staffId: String(updated._id) });
     }
 
     return NextResponse.json({ staff: toStaffDTO(updated) });

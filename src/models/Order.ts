@@ -1,14 +1,20 @@
 import { Schema, model, models } from "mongoose";
-import { MENU_CATEGORIES, ORDER_STATUSES } from "@/types";
+import { ORDER_ITEM_STATUSES, ORDER_STATUSES } from "@/types";
 
 const orderItemSchema = new Schema(
   {
     menuItemId: { type: Schema.Types.ObjectId, ref: "MenuItem", required: true },
     nameSnapshot: { type: String, required: true },
-    categorySnapshot: { type: String, required: true, enum: MENU_CATEGORIES },
+    nameGuSnapshot: { type: String },
+    /** Routes the item to kitchen screens. Missing on v1 orders (those show on every screen). */
+    categoryId: { type: Schema.Types.ObjectId, ref: "Category" },
+    categorySnapshot: { type: String, required: true },
     quantity: { type: Number, required: true, min: 1 },
     unitPrice: { type: Number, required: true, min: 0 },
     lineTotal: { type: Number, required: true, min: 0 },
+    /** Each kitchen marks only its own items; the order is READY when none are PENDING. */
+    status: { type: String, enum: ORDER_ITEM_STATUSES, default: "PENDING" },
+    readyAt: { type: Date },
   },
   { _id: false }
 );

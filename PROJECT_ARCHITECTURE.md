@@ -2,7 +2,7 @@
 
 Restaurant order management PWA. English + ગુજરાતી (EN/ગુ toggle; screens
 not yet redesigned still carry hardcoded Gujarati), staff PIN login, single
-Next.js project for frontend + backend, MongoDB Atlas persistence, Socket.IO
+Next.js project for frontend + backend, MongoDB Atlas persistence, Pusher
 realtime.
 
 ## 1. Overview
@@ -24,7 +24,7 @@ realtime.
 - Next.js 16 (App Router, Turbopack), React 19, TypeScript
 - Tailwind CSS v4 (CSS-based theme in `src/app/globals.css`)
 - MongoDB Atlas + Mongoose
-- Socket.IO (server + client) for realtime
+- Pusher Channels (`pusher` server SDK, `pusher-js` client) for realtime
 - Zod for server-side request validation
 - `next/font/google` — Noto Sans Gujarati
 - Custom minimal service worker (no PWA library) + `app/manifest.ts`
@@ -59,7 +59,6 @@ src/
 │       ├── orders/[id]/cancel/route.ts         PATCH
 │       └── developer/stats/route.ts
 ├── proxy.ts                       optimistic page guard (cookie signature only)
-├── pages/api/socket.ts            Socket.IO server bootstrap (see §7)
 ├── components/
 │   ├── ui/            AppLogo, Button, Card, ConfirmDialog, SuccessDialog,
 │   │                  HomeButton, LoadingState, EmptyState
@@ -74,8 +73,9 @@ src/
 │   ├── db/mongodb.ts              cached connection
 │   ├── auth/                      session.ts (signed cookie), staff.ts (DB check,
 │   │                              requireStaff), access.ts (role → pages), pin.ts
-│   ├── realtime/                  events.ts, server.ts (emitter), useRealtime.ts
-│   ├── orders/                    serialize.ts, queries.ts, useActiveOrders.ts
+│   ├── realtime/                  events.ts, server.ts (Pusher trigger), useRealtime.ts (pusher-js)
+│   ├── orders/                    serialize.ts, queries.ts, kitchen.ts (routing), useActiveOrders.ts
+│   ├── menu/structure.ts          menu tree loader + v1 → v2 migration
 │   ├── validation/                zod schemas (menu/order/developer)
 │   └── utils/businessDate.ts      Asia/Kolkata business-date helper
 ├── models/           MenuItem.ts, Order.ts, Counter.ts, Staff.ts, Restaurant.ts
@@ -88,12 +88,24 @@ re-export the same hooks/components without adding a real boundary.
 
 ## 4. Database Schema
 
-**MenuItem** — `name`, `category` (શાક / રોટલી / મીઠાઈ / અન્ય), `price`,
-`isActive`, timestamps. Indexed on `{category, isActive}`.
+**Menu** → **Category** → **MenuItem** (v2, fully dynamic). A Menu is e.g.
+"Gujarati" or "Punjabi" (`name`, optional `nameGu`, `sortOrder`, `isActive`);
+a Category belongs to a menu and is the unit of kitchen routing; a MenuItem
+has `categoryId`, `name`, `nameGu?`, `price`, `isVeg`, `isActive` (hidden
+by the admin) and `isAvailable` (sold out — kitchens can flip it).
+
+v1 items carried a hardcoded `category` string (શાક / રોટલી / મીઠાઈ / અન્ય).
+`lib/menu/structure.ts#ensureMenuStructure` migrates them on first use —
+one Category per v1 string under a default menu, matched by `legacyKey` so
+concurrent first requests can't duplicate. It is **additive only** (the old
+`category` field stays), so v1 code reading the same database keeps working
+until it's replaced. The live database is `JAMAVATDATA`; development uses
+`jamavat_dev` on the same Atlas cluster.
 
 **Order** — `tokenNumber`, `businessDate` (YYYY-MM-DD, Asia/Kolkata),
 `customerName?`, `items[]` (menuItemId + **snapshot** of name/category/price
-at order time, quantity, lineTotal), `totalAmount`, `status`
+at order time, `categoryId` for routing, quantity, lineTotal, and a
+per-item `status` PENDING/READY), `totalAmount`, `status`
 (`PENDING`/`READY`/`COMPLETED`/`CANCELLED`), `clientRequestId` (idempotency
 key), `createdAt`/`readyAt`/`completedAt`/`cancelledAt`. Indexes:
 `{businessDate, status}`, unique `{businessDate, tokenNumber}`,
@@ -103,7 +115,8 @@ Snapshots mean a menu price change today never rewrites yesterday's orders.
 
 **Staff** — `name` (unique, case-insensitive), `role` (`ADMIN`/`COUNTER`/
 `KITCHEN`), `pinHash` + `pinSalt` (scrypt, per-staff salt), `isActive`,
-`sessionVersion`, `failedPinAttempts`, `lockedUntil`.
+`sessionVersion`, `failedPinAttempts`, `lockedUntil`, `categoryIds` (kitchen
+routing — which categories' items this login's kitchen screen receives).
 
 **Restaurant** — `name`. A single document for now (shown on login and in
 every staff header); it becomes one-per-tenant in the multi-restaurant phase.
@@ -129,14 +142,17 @@ logged in / session revoked, 403 = wrong role). Role groups live in
 | PATCH | `/api/restaurant` | admin | restaurant name |
 | GET/POST | `/api/staff` | admin | list / add staff |
 | PATCH | `/api/staff/[id]` | admin | rename, role, (de)activate, reset PIN, log out everywhere |
-| GET | `/api/menu` | any staff | list (all, or `?activeOnly=1`) |
-| POST/PATCH | `/api/menu` | admin | bulk-create / update (incl. `isActive`) |
-| DELETE | `/api/menu/[id]` | admin | hard delete (orders keep snapshots) |
+| GET | `/api/menu` | any staff | menus → categories → items (`?activeOnly=1` for ordering screens) |
+| POST, PATCH/DELETE `[id]` | `/api/menu/menus` | admin | menus (delete only when empty) |
+| POST, PATCH/DELETE `[id]` | `/api/menu/categories` | admin | categories (delete only when empty; pulled from kitchen routing) |
+| POST, PATCH/DELETE `[id]` | `/api/menu/items` | admin; kitchen may PATCH only `isAvailable` for its own categories | dishes |
+| POST | `/api/menu/reorder` | admin | display order of menus or categories |
+| POST | `/api/pusher/auth` | any staff | signs the private realtime channel subscription |
 | POST | `/api/orders` | counter | create order, idempotent on `clientRequestId` |
 | GET | `/api/orders/next-token` | counter | next token preview |
 | GET | `/api/orders/live` | counter | today's `PENDING` + `READY` orders |
-| GET | `/api/orders/pending` | kitchen | today's `PENDING` orders only |
-| PATCH | `/api/orders/[id]/ready` | kitchen | atomic `PENDING → READY` |
+| GET | `/api/orders/pending` | kitchen | the caller's tickets: only items in its categories still PENDING, plus how many are left on other screens |
+| PATCH | `/api/orders/[id]/ready` | kitchen | marks the caller's items READY; the order turns READY when no item anywhere is PENDING |
 | PATCH | `/api/orders/[id]/complete` | counter | atomic `(PENDING\|READY) → COMPLETED` |
 | PATCH | `/api/orders/[id]/cancel` | counter | atomic `(PENDING\|READY) → CANCELLED` |
 | GET | `/api/developer/stats` | admin | aggregated stats |
@@ -181,55 +197,34 @@ double-swipe (or a retried request after a flaky network) safe.
 
 ## 7. Realtime
 
-Events (all on one Socket.IO connection, minimal payloads):
-`order:created`, `order:completed`, `order:cancelled`, `menu:updated`,
-`admin:stats-updated`.
+Pusher Channels, one **private** channel (`private-staff`; becomes one per
+restaurant in the multi-restaurant phase). Private means pusher-js must get
+a signature from `/api/pusher/auth`, which requires a staff session — guests
+and logged-out browsers can't listen to order events.
 
-**Why the socket server lives in `src/pages/api/socket.ts`:** the App
-Router's Response-based route handlers don't expose the raw Node HTTP
-server that Socket.IO needs to attach to. The Pages Router's
-`res.socket.server` does. The io instance is mirrored into a `globalThis`
-singleton (`lib/realtime/server.ts`) so any App Router API route in the
-same process can call `emitRealtimeEvent(...)` after a DB write.
+Events: `order:created`, `order:items-ready` (one kitchen finished its
+part), `order:ready` (whole order), `order:completed`, `order:cancelled`,
+`menu:updated`, `staff:routing-updated`, `admin:stats-updated`.
 
-**Client transport is WebSocket-only** (`transports: ["websocket"]`).
-During development we found the HTTP long-polling handshake path is
-fragile in this dev setup and connection-hungry (multiple tabs/devices
-polling the same origin can exhaust the browser's per-origin connection
-pool); forcing WebSocket avoids both and is the transport Vercel's beta
-WebSocket support targets anyway.
+- `emitRealtimeEvent()` is **awaited** after the DB write: on Vercel a
+  function can be frozen right after it responds, so a fire-and-forget
+  HTTP call to Pusher might never leave. It never throws.
+- MongoDB stays the source of truth. With Pusher connected, screens still
+  do a quiet 60s resync (and a full resync on every (re)subscribe); without
+  Pusher keys (`NEXT_PUBLIC_PUSHER_KEY`/`_CLUSTER` unset) they poll every 5s.
+  Both paths are correct — Pusher only makes them instant.
+- Socket.IO and the `pages/api/socket.ts` server were removed (they never
+  connected on Vercel and broadcast to anyone).
 
-**Every realtime consumer also polls** (`useActiveOrders` every 5s;
-`/menu` and New Order's menu fetch every 30s; admin stats every 20s —
-every `useRealtime` caller also resyncs immediately on reconnect). This is
-not a fallback bolted on for safety theatre — it's load-bearing: on a
-serverless deployment, the API route that emits an event and the function
-instance holding a given client's socket connection are not guaranteed to
-be the same process, so a missed emit is an expected possibility, not an
-edge case. MongoDB stays authoritative regardless. **Confirmed in
-production on Vercel's standard serverless Functions**: the socket never
-reaches `connected` at all (no persistent process to hold a WebSocket
-open), so the app runs entirely on polling there today — every screen
-still ends up correct within its poll interval, just not push-instant.
-`useRealtime`'s `CONNECT_GRACE_MS` (4s) is what stops the status badge
-from showing "connecting…" forever in that situation — it settles into
-"સ્વયં તાજું થાય છે" (auto-refreshing) instead, which is accurate, not an
-error state.
+## 7a. Kitchen routing
 
-If genuine sub-second cross-device push is needed later, the concrete fix
-is an external pub/sub (Ably/Pusher, both have a free tier) that all
-serverless instances can publish/subscribe to — this is exactly the
-"concrete Vercel limitation" the original brief anticipated as the bar
-for adding one. Vercel's Fluid Compute + WebSocket beta is the other path
-but depends on account/plan enablement outside this codebase's control.
-Do not attempt to "fix" this by changing `transports` back to include
-`polling` — the Pages API handler in `src/pages/api/socket.ts` calls
-`res.end()` unconditionally on every request, which was found (via a
-local curl test returning an empty body for a polling handshake) to
-race with Engine.IO's own response for that transport. WebSocket-only
-sidesteps it because upgrade requests never go through that handler at
-all — but fixing polling too would need reworking that handler, not just
-a client-side transport change.
+The admin ticks categories per kitchen login (Staff page matrix). An order
+item goes to every kitchen screen whose login owns its category; admins see
+everything; v1 items without a category show on every screen. Each kitchen
+marks only its own items ready (`items.N.status`, conditioned on still being
+PENDING so double taps can't both win); whoever readies the last pending
+item flips the order to READY in one conditional update. Kitchen screens can
+mark their own dishes sold out; ordering a sold-out dish is refused (409).
 
 ## 8. Staff Authentication
 
@@ -336,6 +331,12 @@ MONGODB_URI=              # MongoDB Atlas connection string (production)
 ADMIN_SESSION_SECRET=      # signs staff session cookies — `openssl rand -hex 32`
 SETUP_KEY=                 # one-time key for /setup (falls back to ADMIN_PASSWORD)
 NEXT_PUBLIC_APP_NAME=જમાવટ
+PUSHER_APP_ID=             # Pusher Channels app (optional — without it screens poll)
+PUSHER_KEY=
+PUSHER_SECRET=
+PUSHER_CLUSTER=            # e.g. ap2 (Mumbai)
+NEXT_PUBLIC_PUSHER_KEY=    # same as PUSHER_KEY
+NEXT_PUBLIC_PUSHER_CLUSTER=  # same as PUSHER_CLUSTER
 ```
 
 Rotating `ADMIN_SESSION_SECRET` logs every device out.

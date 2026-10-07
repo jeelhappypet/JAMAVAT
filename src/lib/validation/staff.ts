@@ -43,4 +43,6 @@ export const updateStaffSchema = z.object({
   /** Admin-set PIN reset; also clears a lockout. */
   pin: pin.optional(),
   logoutEverywhere: z.literal(true).optional(),
+  /** Kitchen routing — the full list of categories this login should receive. */
+  categoryIds: z.array(z.string().regex(/^[a-f\d]{24}$/i)).max(500).optional(),
 });

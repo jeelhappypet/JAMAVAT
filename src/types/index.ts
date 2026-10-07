@@ -1,8 +1,16 @@
-export const MENU_CATEGORIES = ["શાક", "રોટલી", "મીઠાઈ", "અન્ય"] as const;
-export type MenuCategory = (typeof MENU_CATEGORIES)[number];
+/**
+ * The four hardcoded categories v1 shipped with. Kept only so old menu items
+ * and orders (which store one of these strings) can be migrated onto the
+ * dynamic Menu → Category structure — new code never offers them as choices.
+ */
+export const LEGACY_MENU_CATEGORIES = ["શાક", "રોટલી", "મીઠાઈ", "અન્ય"] as const;
 
 export const ORDER_STATUSES = ["PENDING", "READY", "COMPLETED", "CANCELLED"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+/** Per-item kitchen status: each kitchen marks only its own items ready. */
+export const ORDER_ITEM_STATUSES = ["PENDING", "READY"] as const;
+export type OrderItemStatus = (typeof ORDER_ITEM_STATUSES)[number];
 
 export const STAFF_ROLES = ["ADMIN", "COUNTER", "KITCHEN"] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
@@ -20,6 +28,8 @@ export interface StaffDTO {
   role: StaffRole;
   isActive: boolean;
   isLocked: boolean;
+  /** Categories this kitchen login receives (ignored for admin/counter, who see everything). */
+  categoryIds: string[];
 }
 
 /** What the login screen needs to show a staff picker — never the PIN hash. */
@@ -31,19 +41,45 @@ export interface StaffLoginOption {
 
 export interface MenuItemDTO {
   id: string;
+  categoryId: string;
   name: string;
-  category: MenuCategory;
+  nameGu?: string;
   price: number;
+  isVeg: boolean;
+  /** Hidden from ordering entirely (admin's choice). */
   isActive: boolean;
+  /** Sold out for now — kitchen can flip this during service. */
+  isAvailable: boolean;
+}
+
+export interface CategoryDTO {
+  id: string;
+  menuId: string;
+  name: string;
+  nameGu?: string;
+  isActive: boolean;
+  items: MenuItemDTO[];
+}
+
+export interface MenuDTO {
+  id: string;
+  name: string;
+  nameGu?: string;
+  isActive: boolean;
+  categories: CategoryDTO[];
 }
 
 export interface OrderItemDTO {
   menuItemId: string;
   nameSnapshot: string;
-  categorySnapshot: MenuCategory;
+  nameGuSnapshot?: string;
+  /** Absent on v1 orders, which predate category routing — those show on every kitchen screen. */
+  categoryId?: string;
+  categorySnapshot: string;
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  status: OrderItemStatus;
 }
 
 export interface DateWiseStat {
@@ -76,4 +112,21 @@ export interface OrderDTO {
   readyAt?: string;
   completedAt?: string;
   cancelledAt?: string;
+}
+
+/** One order as a kitchen screen sees it: only that screen's items that still need cooking. */
+export interface KitchenTicketDTO {
+  orderId: string;
+  tokenNumber: number;
+  customerName?: string;
+  createdAt: string;
+  items: OrderItemDTO[];
+  /** Items of the same order still cooking on other kitchen screens. */
+  otherPendingCount: number;
+}
+
+export interface KitchenScopeDTO {
+  /** Admin sees every kitchen's items. */
+  all: boolean;
+  categories: { id: string; name: string; nameGu?: string; menuName: string; menuNameGu?: string }[];
 }

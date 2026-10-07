@@ -14,7 +14,7 @@ import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 export default function LiveOrderPage() {
   const router = useRouter();
   const { orders, loading, error, connectionState, refetch, removeOrder } =
-    useActiveOrders("live");
+    useActiveOrders();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
