@@ -88,6 +88,7 @@ export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreen
   const { state } = useRealtime(
     {
       [REALTIME_EVENTS.ORDER_CREATED]: loadTickets,
+      [REALTIME_EVENTS.ORDER_ACCEPTED]: loadTickets,
       [REALTIME_EVENTS.ORDER_ITEMS_READY]: loadTickets,
       [REALTIME_EVENTS.ORDER_READY]: loadTickets,
       [REALTIME_EVENTS.ORDER_CANCELLED]: loadTickets,
@@ -267,9 +268,11 @@ export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreen
                     <article key={ticket.orderId} className={`flex flex-col gap-3 rounded-[18px] border-2 bg-surface p-4 ${late ? "border-danger" : "border-border"}`}>
                       <div className="flex items-start justify-between gap-2.5 border-b border-border pb-3">
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[32px] font-extrabold leading-none tracking-tight text-brand">#{ticket.tokenNumber}</span>
+                          <span className="text-[32px] font-extrabold leading-none tracking-tight text-brand">
+                            {ticket.seatCode ?? `#${ticket.tokenNumber}`}
+                          </span>
                           <span className="text-[13px] font-semibold text-text-muted">
-                            {t("kitchen.parcel", { n: ticket.tokenNumber })}
+                            {ticket.seatCode ? t("kitchen.dineIn", { n: ticket.tokenNumber }) : t("kitchen.parcel", { n: ticket.tokenNumber })}
                             {ticket.customerName ? ` · ${ticket.customerName}` : ""}
                           </span>
                         </div>
@@ -285,6 +288,9 @@ export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreen
                           </li>
                         ))}
                       </ul>
+                      {ticket.note ? (
+                        <div className="rounded-[10px] bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900">{t("kitchen.note", { note: ticket.note })}</div>
+                      ) : null}
                       {ticket.otherPendingCount > 0 ? (
                         <span className="text-[13px] text-text-muted">{t("kitchen.otherScreens", { n: ticket.otherPendingCount })}</span>
                       ) : null}

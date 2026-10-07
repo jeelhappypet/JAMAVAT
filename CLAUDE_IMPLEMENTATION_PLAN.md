@@ -41,7 +41,7 @@ that shape the code:
 |---|---|---|
 | 1 | Staff PIN login (persistent), change own PIN, roles, admin staff page, every page/API role-guarded, SW no longer caches per-user payloads; screens built to the design canvas (light theme, Jakarta + Noto Gujarati, EN/ગુ toggle, staff shell header, Install app, restaurant name + Settings) | ✅ |
 | 2 | Dynamic Menu → Category → Item (additive v1 migration), menus admin page, kitchen routing matrix on Staff page, item-level kitchen status, new Kitchen screen (`/kitchen`, sold-out toggles, beep), Pusher private-channel realtime (Socket.IO removed), counter new-order grouped by menu with sold-out | ✅ |
-| 3 | Tables + seat QRs, guest QR menu, cart + cooking note, email OTP (Gmail SMTP), QR lock, counter accept/reject, live guest status | ⬜ |
+| 3 | Tables + seat QRs (admin page, SVG download, A4 print sheet, regenerate), guest QR page `/t/{token}` (menu, cart + cooking note, email OTP via Gmail SMTP once per phone, live status, busy/invalid screens), QR lock, counter screen `/counter` (accept/reject QR orders, running orders, free QR) | ✅ |
 | 4 | Seat settle (discount, payment mode), thank-you email, counter seat grid + ready-to-serve, admin "Today" report | ⬜ |
 | 5 | Multi-restaurant (`restaurantId` everywhere, `/r/{slug}`), Jamavat SEO + inquiry site, HQ panel, per-restaurant PWA manifest | ⬜ |
 
@@ -50,8 +50,16 @@ that shape the code:
 - Pusher needs real keys to be exercised end-to-end; without them every
   screen falls back to 5s polling (verified). Once keys exist, check two
   devices: order on the counter → beep + ticket on the kitchen screen.
-- Counter screens (new order, live orders) and Reports still have the v1
-  look and hardcoded Gujarati — they're redesigned in Phases 3–4.
+- New order and Reports still have the v1 look and hardcoded Gujarati —
+  redesigned in Phase 4.
+- Gmail SMTP needs the owner's Gmail address + App Password in Vercel
+  (`SMTP_USER`, `SMTP_PASS`). Without them production guests can't verify
+  (the OTP send returns "email is down"); development shows the code on
+  screen instead. Also set `APP_URL=https://jamavat.vercel.app` before
+  printing QRs.
+- Phase 4 notes: settle closes the GuestSession with `closedReason:
+  "SETTLED"` via `closeSeatSession()` in `lib/tables.ts`, then sends the
+  thank-you email with `sendMail()` from `lib/mail.ts`.
 - No automated test suite yet. Highest-value first tests: order
   creation/idempotency, the complete/cancel race guard, and the auth
   rules (lockout, sessionVersion revocation, last-admin guard).

@@ -16,20 +16,26 @@ export interface OrderLean {
   _id: unknown;
   tokenNumber: number;
   businessDate: string;
+  source?: string;
+  seatCode?: string;
+  guestEmail?: string;
+  note?: string;
   customerName?: string;
   items: OrderItemLean[];
   totalAmount: number;
   status: string;
   createdAt: Date;
+  acceptedAt?: Date;
   readyAt?: Date;
   completedAt?: Date;
   cancelledAt?: Date;
+  rejectedAt?: Date;
 }
 
 /** v1 orders have no per-item status — it follows the order's own status. */
 export function itemStatus(item: OrderItemLean, orderStatus: string): OrderItemStatus {
   if (item.status === "READY" || item.status === "PENDING") return item.status;
-  return orderStatus === "PENDING" ? "PENDING" : "READY";
+  return orderStatus === "PENDING" || orderStatus === "PLACED" ? "PENDING" : "READY";
 }
 
 export function serializeOrderItem(item: OrderItemLean, orderStatus: string): OrderItemDTO {
@@ -51,13 +57,19 @@ export function serializeOrder(doc: OrderLean): OrderDTO {
     id: String(doc._id),
     tokenNumber: doc.tokenNumber,
     businessDate: doc.businessDate,
+    source: doc.source === "QR" ? "QR" : "COUNTER",
+    seatCode: doc.seatCode || undefined,
+    guestEmail: doc.guestEmail || undefined,
+    note: doc.note || undefined,
     customerName: doc.customerName || undefined,
     items: doc.items.map((item) => serializeOrderItem(item, doc.status)),
     totalAmount: doc.totalAmount,
     status: doc.status as OrderStatus,
     createdAt: doc.createdAt.toISOString(),
+    acceptedAt: doc.acceptedAt?.toISOString(),
     readyAt: doc.readyAt?.toISOString(),
     completedAt: doc.completedAt?.toISOString(),
     cancelledAt: doc.cancelledAt?.toISOString(),
+    rejectedAt: doc.rejectedAt?.toISOString(),
   };
 }

@@ -9,6 +9,8 @@ import {
 import { canAccessPage, homePathFor } from "@/lib/auth/access";
 
 const PUBLIC_PATHS = ["/login", "/setup"];
+/** Guest QR pages: open to everyone, staff session or not. */
+const GUEST_PREFIX = "/t/";
 
 /**
  * Optimistic page guard (cookie signature only, no DB). API routes are
@@ -16,6 +18,7 @@ const PUBLIC_PATHS = ["/login", "/setup"];
  */
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  if (pathname.startsWith(GUEST_PREFIX)) return NextResponse.next();
   const session = readSessionToken(request.cookies.get(STAFF_SESSION_COOKIE)?.value);
   const isPublic = PUBLIC_PATHS.includes(pathname);
 

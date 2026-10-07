@@ -5,7 +5,8 @@
  */
 export const LEGACY_MENU_CATEGORIES = ["શાક", "રોટલી", "મીઠાઈ", "અન્ય"] as const;
 
-export const ORDER_STATUSES = ["PENDING", "READY", "COMPLETED", "CANCELLED"] as const;
+/** PLACED = a guest's QR order waiting for the counter to accept (or REJECT) it; kitchens never see it. */
+export const ORDER_STATUSES = ["PLACED", "PENDING", "READY", "COMPLETED", "CANCELLED", "REJECTED"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 /** Per-item kitchen status: each kitchen marks only its own items ready. */
@@ -100,18 +101,29 @@ export interface DeveloperStats {
   dateWise: DateWiseStat[];
 }
 
+export const ORDER_SOURCES = ["COUNTER", "QR"] as const;
+export type OrderSource = (typeof ORDER_SOURCES)[number];
+
 export interface OrderDTO {
   id: string;
   tokenNumber: number;
   businessDate: string;
+  source: OrderSource;
+  /** QR orders: the seat it came from ("4A"). */
+  seatCode?: string;
+  guestEmail?: string;
+  /** Guest's cooking note ("less spicy"). */
+  note?: string;
   customerName?: string;
   items: OrderItemDTO[];
   totalAmount: number;
   status: OrderStatus;
   createdAt: string;
+  acceptedAt?: string;
   readyAt?: string;
   completedAt?: string;
   cancelledAt?: string;
+  rejectedAt?: string;
 }
 
 /** One order as a kitchen screen sees it: only that screen's items that still need cooking. */
@@ -119,6 +131,8 @@ export interface KitchenTicketDTO {
   orderId: string;
   tokenNumber: number;
   customerName?: string;
+  seatCode?: string;
+  note?: string;
   createdAt: string;
   items: OrderItemDTO[];
   /** Items of the same order still cooking on other kitchen screens. */
@@ -129,4 +143,36 @@ export interface KitchenScopeDTO {
   /** Admin sees every kitchen's items. */
   all: boolean;
   categories: { id: string; name: string; nameGu?: string; menuName: string; menuNameGu?: string }[];
+}
+
+export interface SeatDTO {
+  id: string;
+  tableId: string;
+  label: string;
+  /** "4A" — what's printed on the sticker and shown everywhere. */
+  code: string;
+  token: string;
+  isActive: boolean;
+  /** Present while a guest holds this QR. */
+  session?: { id: string; email: string; openedAt: string; orderCount: number; total: number };
+}
+
+export interface TableDTO {
+  id: string;
+  name: string;
+  area?: string;
+  isActive: boolean;
+  seats: SeatDTO[];
+}
+
+/** free: nobody holds the QR · mine: this device does · taken: another guest does. */
+export type SeatLock = "free" | "mine" | "taken";
+
+export interface GuestStateDTO {
+  seatCode: string;
+  area?: string;
+  verifiedEmail?: string;
+  lock: SeatLock;
+  /** This device's orders in its current sitting (only when lock is "mine"). */
+  orders: OrderDTO[];
 }

@@ -1,7 +1,9 @@
 # જમાવટ
 
-Restaurant order management PWA. Gujarati UI, staff PIN login, single
-Next.js app for frontend + backend, MongoDB Atlas, Socket.IO realtime.
+Restaurant order management PWA — counter orders and QR dine-in (guests
+order from their phone, pay at the counter). English + ગુજરાતી, staff PIN
+login, single Next.js app for frontend + backend, MongoDB Atlas, Pusher
+realtime, Gmail SMTP for guest email.
 
 See [PROJECT_ARCHITECTURE.md](PROJECT_ARCHITECTURE.md) for the full
 architecture and [CLAUDE_IMPLEMENTATION_PLAN.md](CLAUDE_IMPLEMENTATION_PLAN.md)

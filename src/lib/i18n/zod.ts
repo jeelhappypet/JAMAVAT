@@ -12,6 +12,11 @@ const FIELD_MESSAGES: Record<string, MessageKey> = {
   menuId: "err.notFound",
   categoryId: "err.notFound",
   categoryIds: "err.notFound",
+  email: "err.emailInvalid",
+  code: "err.codeFormat",
+  token: "err.qrInvalid",
+  note: "err.noteTooLong",
+  items: "err.cartEmpty",
 };
 
 /** Zod's own messages are English-only; map the first failing field to a translated one. */

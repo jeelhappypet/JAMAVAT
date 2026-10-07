@@ -141,7 +141,7 @@ export default function NewOrderPage() {
       clientRequestIdRef.current = crypto.randomUUID();
       void loadNextToken();
 
-      setTimeout(() => router.push("/"), 2200);
+      setTimeout(() => router.push("/counter"), 2200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "ઓર્ડર મોકલી શકાયો નથી");
       throw err;

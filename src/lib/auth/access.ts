@@ -12,9 +12,10 @@ export const ROLES = {
 /** Pages not listed here (e.g. "/") are open to every logged-in staff member. */
 const PAGE_ACCESS: { prefix: string; roles: readonly StaffRole[] }[] = [
   { prefix: "/new-order", roles: ROLES.counter },
-  { prefix: "/live-order", roles: ROLES.counter },
+  { prefix: "/counter", roles: ROLES.counter },
   { prefix: "/kitchen", roles: ROLES.kitchen },
   { prefix: "/menu", roles: ROLES.admin },
+  { prefix: "/tables", roles: ROLES.admin },
   { prefix: "/staff", roles: ROLES.admin },
   { prefix: "/developer", roles: ROLES.admin },
   { prefix: "/settings", roles: ROLES.admin },
@@ -32,5 +33,7 @@ export const EXPIRED_SESSION_PATH = "/api/auth/expire";
 
 /** Where a staff member lands after login, or when they open a page they can't use. */
 export function homePathFor(role: StaffRole): string {
-  return role === "KITCHEN" ? "/kitchen" : "/";
+  if (role === "KITCHEN") return "/kitchen";
+  if (role === "COUNTER") return "/counter";
+  return "/";
 }

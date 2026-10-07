@@ -23,7 +23,7 @@ export function StaffHeader({ restaurantName, staffName, role }: StaffHeaderProp
   const items = NAV_ITEMS.filter((item) => canAccessPage(role, item.href));
 
   return (
-    <header className="border-b border-border bg-surface">
+    <header className="border-b border-border bg-surface print:hidden">
       <div className="mx-auto flex max-w-[1360px] flex-col gap-2.5 px-[clamp(16px,3vw,32px)] pt-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {restaurantName ? (

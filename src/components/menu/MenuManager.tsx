@@ -193,7 +193,7 @@ export function MenuManager() {
                 <span className="text-lg font-extrabold">{name(menu)}</span>
                 {otherName(menu) ? <span className="text-sm text-text-muted">{otherName(menu)}</span> : null}
                 {!menu.isActive ? <Badge>{t("menu.hidden")}</Badge> : null}
-                <span className="text-[13px] text-text-muted">· {t("menu.categoriesCount", { n: menu.categories.length })}</span>
+                <span className="text-[13px] text-text-muted">· {menu.categories.length === 1 ? t("menu.categoriesCountOne") : t("menu.categoriesCount", { n: menu.categories.length })}</span>
               </>
             }
             actions={
@@ -233,7 +233,7 @@ export function MenuManager() {
                     <span className="text-base font-extrabold">{name(category)}</span>
                     {otherName(category) ? <span className="text-sm text-text-muted">{otherName(category)}</span> : null}
                     {!category.isActive ? <Badge>{t("menu.hidden")}</Badge> : null}
-                    <span className="text-[13px] text-text-muted">· {t("menu.itemsCount", { n: category.items.length })}</span>
+                    <span className="text-[13px] text-text-muted">· {category.items.length === 1 ? t("menu.itemsCountOne") : t("menu.itemsCount", { n: category.items.length })}</span>
                   </>
                 }
                 actions={

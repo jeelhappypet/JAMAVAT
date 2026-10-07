@@ -1,0 +1,100 @@
+import { randomBytes } from "crypto";
+import { headers } from "next/headers";
+import { connectToDatabase } from "@/lib/db/mongodb";
+import { Table, type TableDocument } from "@/models/Table";
+import { Seat, type SeatDocument } from "@/models/Seat";
+import { GuestSession, type GuestSessionDocument } from "@/models/GuestSession";
+import { Order } from "@/models/Order";
+import type { SeatDTO, TableDTO } from "@/types";
+
+/** "4" + "A" → "4A"; "Garden" + "A" → "Garden A". */
+export function seatCode(tableName: string, label: string): string {
+  return /\d$/.test(tableName) ? `${tableName}${label}` : `${tableName} ${label}`;
+}
+
+/** Unguessable, URL-safe — this is what's printed in the QR. */
+export function newSeatToken(): string {
+  return randomBytes(12).toString("base64url");
+}
+
+export const SEAT_LABELS = ["A", "B", "C", "D", "E", "F"];
+
+/** Origin for links printed in QRs: APP_URL if set, else the host this request came in on. */
+export async function getBaseUrl(): Promise<string> {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
+export function guestUrl(baseUrl: string, token: string): string {
+  return `${baseUrl}/t/${token}`;
+}
+
+/** Every table with its QRs and who (if anyone) holds each QR right now. */
+export async function loadTables({ activeOnly = false } = {}): Promise<TableDTO[]> {
+  await connectToDatabase();
+  const active = activeOnly ? { isActive: true } : {};
+  const [tables, seats] = await Promise.all([
+    Table.find(active).sort({ sortOrder: 1, createdAt: 1 }).lean<TableDocument[]>(),
+    Seat.find(active).sort({ label: 1 }).lean<SeatDocument[]>(),
+  ]);
+  const sessionIds = seats.map((seat) => seat.currentSessionId).filter(Boolean);
+  const [sessions, orderCounts] = await Promise.all([
+    GuestSession.find({ _id: { $in: sessionIds } }).lean<GuestSessionDocument[]>(),
+    Order.aggregate<{ _id: unknown; count: number; total: number }>([
+      { $match: { guestSessionId: { $in: sessionIds }, status: { $ne: "REJECTED" } } },
+      { $group: { _id: "$guestSessionId", count: { $sum: 1 }, total: { $sum: { $cond: [{ $eq: ["$status", "CANCELLED"] }, 0, "$totalAmount"] } } } },
+    ]),
+  ]);
+  const sessionById = new Map(sessions.map((s) => [String(s._id), s]));
+  const countBySession = new Map(orderCounts.map((c) => [String(c._id), c]));
+
+  return tables.map((table) => ({
+    id: String(table._id),
+    name: table.name,
+    area: table.area || undefined,
+    isActive: table.isActive !== false,
+    seats: seats
+      .filter((seat) => String(seat.tableId) === String(table._id))
+      .map((seat): SeatDTO => {
+        const session = seat.currentSessionId ? sessionById.get(String(seat.currentSessionId)) : undefined;
+        const stats = session ? countBySession.get(String(session._id)) : undefined;
+        return {
+          id: String(seat._id),
+          tableId: String(table._id),
+          label: seat.label,
+          code: seatCode(table.name, seat.label),
+          token: seat.token,
+          isActive: seat.isActive !== false,
+          session: session
+            ? { id: String(session._id), email: session.email, openedAt: session.createdAt.toISOString(), orderCount: stats?.count ?? 0, total: stats?.total ?? 0 }
+            : undefined,
+        };
+      }),
+  }));
+}
+
+export interface ResolvedSeat {
+  seat: SeatDocument;
+  table: TableDocument;
+  code: string;
+}
+
+/** A guest's QR token → its seat and table, or null if the QR is unknown, switched off or regenerated. */
+export async function resolveSeat(token: string): Promise<ResolvedSeat | null> {
+  if (!/^[\w-]{8,64}$/.test(token)) return null;
+  await connectToDatabase();
+  const seat = await Seat.findOne({ token, isActive: true }).lean<SeatDocument>();
+  if (!seat) return null;
+  const table = await Table.findOne({ _id: seat.tableId, isActive: true }).lean<TableDocument>();
+  if (!table) return null;
+  return { seat, table, code: seatCode(table.name, seat.label) };
+}
+
+/** Releases a QR's lock. Conditional on it still being that session, so it can't free a newer guest. */
+export async function closeSeatSession(seatId: unknown, sessionId: unknown, reason: "FREED" | "SETTLED") {
+  await GuestSession.updateOne({ _id: sessionId, status: "OPEN" }, { $set: { status: "CLOSED", closedAt: new Date(), closedReason: reason } });
+  await Seat.updateOne({ _id: seatId, currentSessionId: sessionId }, { $set: { currentSessionId: null } });
+}

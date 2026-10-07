@@ -1,15 +1,22 @@
 # જમાવટ — Project Architecture
 
-Restaurant order management PWA. English + ગુજરાતી (EN/ગુ toggle; screens
-not yet redesigned still carry hardcoded Gujarati), staff PIN login, single
-Next.js project for frontend + backend, MongoDB Atlas persistence, Pusher
-realtime.
+Restaurant order management PWA: counter (parcel/token) orders plus QR
+dine-in — guests scan the QR on their side of the table, order from their
+phone and pay at the counter after the meal. English + ગુજરાતી (EN/ગુ
+toggle; screens not yet redesigned still carry hardcoded Gujarati), staff
+PIN login, single Next.js project for frontend + backend, MongoDB Atlas
+persistence, Pusher realtime, Gmail SMTP for guest email.
 
 ## 1. Overview
 
-- Counter creates an order in **નવો ઓર્ડર** → kitchen sees it instantly in
-  **બાકી ઓર્ડર** → kitchen marks complete/cancel → counter tracks active
-  orders in **ચાલુ ઓર્ડર** → owner reviews stats at `/developer`.
+- Counter creates an order in **New order** → kitchens see their part on
+  `/kitchen` → each kitchen marks its items ready → the counter serves and
+  closes it on `/counter` → owner reviews stats at `/developer`.
+- QR dine-in (§8b): guest scans `/t/{token}` → menu → cart + cooking note →
+  email OTP (once per phone) → order waits on `/counter` for Accept/Reject →
+  accepted orders split to kitchens like counter orders → the guest's phone
+  shows live status. Each QR serves one guest at a time until the counter
+  frees it (Phase 4 adds settle + thank-you email).
 - Staff log in once per device with their name + a 4-digit PIN and stay
   logged in until they log out (see §8). Home (`/`) shows only the tiles the
   staff member's role may open: Counter → નવો ઓર્ડર/ચાલુ ઓર્ડર, Kitchen →
@@ -38,15 +45,14 @@ No ORM/auth/state-management libraries were added beyond the above — see
 src/
 ├── app/
 │   ├── (shell)/                  new-design staff screens sharing StaffHeader:
-│   │                              page.tsx (home cards), staff/, settings/
+│   │                              page.tsx (home cards), staff/, settings/, menu/,
+│   │                              counter/ (accept/serve/free QRs), tables/ (+ print/)
+│   ├── t/[token]/                 guest QR page (public, noindex)
+│   ├── kitchen/                   kitchen screen
 │   ├── login/ setup/             PIN login, first-run setup (restaurant + admin)
 │   ├── manifest.ts                PWA manifest (served at /manifest.webmanifest)
 │   ├── new-order/page.tsx
-│   ├── live-order/page.tsx
-│   ├── pending-order/page.tsx
-│   ├── menu/page.tsx
-│   ├── menu/add/page.tsx
-│   ├── developer/page.tsx
+│   ├── developer/page.tsx         (/pending-order → /kitchen, /live-order → /counter redirects)
 │   └── api/
 │       ├── auth/{login,logout,setup,change-pin,expire}/route.ts
 │       ├── restaurant/route.ts                PATCH restaurant name (admin)
@@ -57,6 +63,9 @@ src/
 │       ├── orders/pending/route.ts             GET
 │       ├── orders/[id]/complete/route.ts       PATCH
 │       ├── orders/[id]/cancel/route.ts         PATCH
+│       ├── orders/[id]/{accept,reject}/route.ts PATCH (QR orders)
+│       ├── guest/{state,menu,orders,forget,otp/send,otp/verify}  public guest APIs
+│       ├── tables/…, seats/[id]/{free,qr}       tables + seat QRs
 │       └── developer/stats/route.ts
 ├── proxy.ts                       optimistic page guard (cookie signature only)
 ├── components/
@@ -74,11 +83,16 @@ src/
 │   ├── auth/                      session.ts (signed cookie), staff.ts (DB check,
 │   │                              requireStaff), access.ts (role → pages), pin.ts
 │   ├── realtime/                  events.ts, server.ts (Pusher trigger), useRealtime.ts (pusher-js)
-│   ├── orders/                    serialize.ts, queries.ts, kitchen.ts (routing), useActiveOrders.ts
+│   ├── orders/                    serialize.ts, queries.ts, kitchen.ts (routing), build.ts
+│   │                              (shared item validation + token), useActiveOrders.ts
+│   ├── guest/                     session.ts (guest cookie), otp.ts, state.ts
+│   ├── tables.ts                  seat codes, QR URLs, seat lock helpers
+│   ├── mail.ts                    nodemailer (Gmail SMTP)
 │   ├── menu/structure.ts          menu tree loader + v1 → v2 migration
 │   ├── validation/                zod schemas (menu/order/developer)
 │   └── utils/businessDate.ts      Asia/Kolkata business-date helper
-├── models/           MenuItem.ts, Order.ts, Counter.ts, Staff.ts, Restaurant.ts
+├── models/           Menu, Category, MenuItem, Order, Counter, Staff, Restaurant,
+│                     Table, Seat, GuestSession, EmailOtp
 └── types/index.ts    shared DTOs + category/status enums
 ```
 
@@ -106,8 +120,11 @@ until it's replaced. The live database is `JAMAVATDATA`; development uses
 `customerName?`, `items[]` (menuItemId + **snapshot** of name/category/price
 at order time, `categoryId` for routing, quantity, lineTotal, and a
 per-item `status` PENDING/READY), `totalAmount`, `status`
-(`PENDING`/`READY`/`COMPLETED`/`CANCELLED`), `clientRequestId` (idempotency
-key), `createdAt`/`readyAt`/`completedAt`/`cancelledAt`. Indexes:
+(`PLACED`/`PENDING`/`READY`/`COMPLETED`/`CANCELLED`/`REJECTED`), `source`
+(`COUNTER`/`QR`), `clientRequestId` (idempotency key),
+`createdAt`/`acceptedAt`/`readyAt`/`completedAt`/`cancelledAt`/`rejectedAt`.
+QR orders also carry `seatId`, `seatCode` ("4A"), `guestSessionId`,
+`guestEmail` and an optional `note` (≤ 200 chars, the cooking note). Indexes:
 `{businessDate, status}`, unique `{businessDate, tokenNumber}`,
 `{createdAt}`, unique-sparse `{clientRequestId}`.
 
@@ -121,16 +138,32 @@ routing — which categories' items this login's kitchen screen receives).
 **Restaurant** — `name`. A single document for now (shown on login and in
 every staff header); it becomes one-per-tenant in the multi-restaurant phase.
 
+**Table** — `name` ("4", "Garden"), `area?`, `sortOrder`, `isActive`.
+**Seat** — one per table side: `tableId`, `label` (A–F), `token` (the
+random string printed in the QR; regenerating it kills old prints),
+`isActive`, `currentSessionId` (**the QR lock** — null when free).
+Unique `{tableId, label}` and `{token}`. Seat code = table name + label
+("4A"; "Garden A" when the name isn't a number).
+
+**GuestSession** — one guest's visit on one seat: `seatId`, `seatCode`,
+`email`, `deviceId`, `status` OPEN/CLOSED, `closedReason`
+(FREED by the counter / SETTLED in Phase 4). Orders point at it.
+
+**EmailOtp** — `email`, `codeHash` (HMAC, never the code), `attempts`,
+`expiresAt` with a TTL index so Mongo deletes old codes.
+
 **Counter** — `_id` = businessDate, `seq`. One doc per business day;
 `findOneAndUpdate({_id: businessDate}, {$inc:{seq:1}}, {upsert:true})` is
 the atomic token generator (see §6).
 
 ## 5. API Routes
 
-Every route checks the session with `requireStaff(roles)` (401 = not
+Staff routes check the session with `requireStaff(roles)` (401 = not
 logged in / session revoked, 403 = wrong role). Role groups live in
 `lib/auth/access.ts` (`ROLES.admin`, `.counter` = admin+counter,
-`.kitchen` = admin+kitchen, `.anyStaff`).
+`.kitchen` = admin+kitchen, `.anyStaff`). The `/api/guest/*` routes are
+public but only act on a valid seat token, and placing an order needs the
+signed guest cookie (§8b).
 
 | Method | Path | Who | Purpose |
 |---|---|---|---|
@@ -150,11 +183,24 @@ logged in / session revoked, 403 = wrong role). Role groups live in
 | POST | `/api/pusher/auth` | any staff | signs the private realtime channel subscription |
 | POST | `/api/orders` | counter | create order, idempotent on `clientRequestId` |
 | GET | `/api/orders/next-token` | counter | next token preview |
-| GET | `/api/orders/live` | counter | today's `PENDING` + `READY` orders |
+| GET | `/api/orders/live` | counter | today's `PLACED` + `PENDING` + `READY` orders |
 | GET | `/api/orders/pending` | kitchen | the caller's tickets: only items in its categories still PENDING, plus how many are left on other screens |
 | PATCH | `/api/orders/[id]/ready` | kitchen | marks the caller's items READY; the order turns READY when no item anywhere is PENDING |
 | PATCH | `/api/orders/[id]/complete` | counter | atomic `(PENDING\|READY) → COMPLETED` |
 | PATCH | `/api/orders/[id]/cancel` | counter | atomic `(PENDING\|READY) → CANCELLED` |
+| PATCH | `/api/orders/[id]/accept` | counter | QR order `PLACED → PENDING` (now kitchens see it) |
+| PATCH | `/api/orders/[id]/reject` | counter | `PLACED → REJECTED`; frees the QR if it was the guest's only order |
+| GET/POST | `/api/tables` | GET counter, POST admin | tables with seats + who holds each QR / create table with N seats |
+| PATCH/DELETE | `/api/tables/[id]` | admin | rename, area, hide / delete (refused while a QR is in use) |
+| POST | `/api/tables/[id]/seats` | admin | add the next side (C, D…) |
+| PATCH/DELETE | `/api/seats/[id]` | admin | hide / regenerate QR token / remove (not while in use, not the last seat) |
+| GET | `/api/seats/[id]/qr` | admin | QR as a downloadable SVG |
+| POST | `/api/seats/[id]/free` | counter | unlock a QR (closes the guest session) |
+| GET | `/api/guest/state?token=` | public | seat, lock (`free`/`mine`/`taken`), the guest's orders |
+| GET | `/api/guest/menu?token=` | public | active menu tree |
+| POST | `/api/guest/otp/send`, `/otp/verify` | public | email OTP (rate-limited) → guest cookie |
+| POST | `/api/guest/forget` | public | "not you?" — drops the verified email |
+| POST | `/api/guest/orders` | verified guest | place a QR order (`PLACED`), takes the QR lock atomically |
 | GET | `/api/developer/stats` | admin | aggregated stats |
 
 There's no `DELETE /api/menu/:id` — `isActive` soft-delete was chosen
@@ -164,7 +210,9 @@ orders shouldn't touch history.
 ## 6. Order Lifecycle & Token Generation
 
 `PENDING → READY → COMPLETED`, or `(PENDING|READY) → CANCELLED`,
-server-controlled only. This is a deliberate 4-status model (not the
+server-controlled only. QR orders start one step earlier: `PLACED` (waiting
+for the counter) → `PENDING` on Accept, or `PLACED → REJECTED`. Kitchens
+never see `PLACED` orders, and a ticket's age clock starts at `acceptedAt`. This is a deliberate 4-status model (not the
 original 3-status PENDING/COMPLETED/CANCELLED) added after real kitchen
 use: the kitchen's job is only to say "I've cooked it" (`READY`), not to
 decide an order is fully done — that's the counter's call once it's
@@ -202,9 +250,15 @@ restaurant in the multi-restaurant phase). Private means pusher-js must get
 a signature from `/api/pusher/auth`, which requires a staff session — guests
 and logged-out browsers can't listen to order events.
 
-Events: `order:created`, `order:items-ready` (one kitchen finished its
-part), `order:ready` (whole order), `order:completed`, `order:cancelled`,
-`menu:updated`, `staff:routing-updated`, `admin:stats-updated`.
+Events: `order:created`, `order:placed` (new QR order for the counter),
+`order:accepted`, `order:rejected`, `order:items-ready` (one kitchen
+finished its part), `order:ready` (whole order), `order:completed`,
+`order:cancelled`, `seat:updated`, `menu:updated`, `staff:routing-updated`,
+`admin:stats-updated`.
+
+Guests are not on the private channel: the guest page polls its own state
+(every 5s while an order is active, 20s otherwise, only while the tab is
+visible) and the menu every 60s.
 
 - `emitRealtimeEvent()` is **awaited** after the DB write: on Vercel a
   function can be frozen right after it responds, so a fire-and-forget
@@ -258,6 +312,33 @@ not a default to tighten later.
   `SETUP_KEY` (falls back to the old `ADMIN_PASSWORD`) to create the first
   admin. `/setup` refuses once any staff exists. The old env-based
   `/developer` login is gone — Reports is an admin-only page now.
+
+## 8b. Guest QR flow
+
+- **QR = seat token.** `/t/{token}` resolves the Seat; an unknown or
+  regenerated token shows "This QR isn't active". The page is
+  `noindex`, outside the staff proxy, and its tab title is the restaurant.
+- **Guest cookie** `jamavat_guest` = HMAC-signed `{did, email?}` (key
+  derived from `ADMIN_SESSION_SECRET`). `did` identifies the phone; `email`
+  is set only after OTP. "Remember this phone" keeps it 30 days, otherwise
+  it's a session cookie.
+- **Email OTP**: 6 digits, stored as an HMAC hash, valid 10 minutes, max 5
+  wrong tries, 30s between sends and 5 sends/hour per email. Sent through
+  `lib/mail.ts` (Gmail SMTP). Without SMTP settings, development returns
+  the code to the screen (`devCode`) and production refuses (`MAIL_DOWN`).
+- **QR lock**: the first order takes `Seat.currentSessionId` with one
+  conditional `findOneAndUpdate` (free, or already this guest's session).
+  A second phone on the same QR gets `409 SEAT_TAKEN` and the "already in
+  use" screen (it can still browse the menu). The lock ends when the
+  counter frees the QR, when the counter rejects a session's only order,
+  and (Phase 4) on settle. After that the old phone's orders drop out of
+  view and the next guest starts fresh.
+- Guest orders reuse `lib/orders/build.ts` with the counter route, so
+  hidden/sold-out dishes and prices are checked the same way; orders are
+  idempotent on `clientRequestId`.
+- The cart lives in `localStorage` (`jamavat:cart:{token}`); each step
+  (menu → cart → verify → status) is a history entry so the phone's back
+  button works.
 
 ## 8a. Design system & language
 
@@ -337,7 +418,17 @@ PUSHER_SECRET=
 PUSHER_CLUSTER=            # e.g. ap2 (Mumbai)
 NEXT_PUBLIC_PUSHER_KEY=    # same as PUSHER_KEY
 NEXT_PUBLIC_PUSHER_CLUSTER=  # same as PUSHER_CLUSTER
+SMTP_USER=                 # Gmail address that sends guest OTP / bill emails
+SMTP_PASS=                 # Gmail App Password (16 chars, needs 2-step verification)
+SMTP_HOST=                 # optional, default smtp.gmail.com
+SMTP_PORT=                 # optional, default 465 (TLS)
+MAIL_FROM=                 # optional sender address, default SMTP_USER
+APP_URL=                   # optional, e.g. https://jamavat.vercel.app — origin printed in QRs
 ```
+
+Set `APP_URL` in production: without it QR links use the host the admin
+opened the Tables page on, so printing from a preview deployment would put
+the preview URL on the tables.
 
 Rotating `ADMIN_SESSION_SECRET` logs every device out.
 
@@ -354,7 +445,12 @@ npm run dev
 ```
 
 `MONGODB_URI` can point at MongoDB Atlas **or** a local `mongod` — both work
-identically since it's a standard Mongoose connection string. A local
+identically since it's a standard Mongoose connection string.
+
+Running two copies of the app on different localhost ports in one browser?
+Cookies are per host, not per port, so they share the staff cookie — a
+screen on one copy will see the other's cookie as revoked and delete it.
+Use a separate browser profile for the second copy. A local
 Mongo is convenient for development; Atlas is required for production per
 the fixed project decisions.
 
@@ -388,11 +484,26 @@ read from code) during this build:
 - Mobile (375px), tablet, and desktop layouts; offline banner.
 - `npm run lint`, `npm run build`, and `next start` (production mode) all
   clean.
+- Phase 3 (QR dine-in), against `next start` with a local SMTP sink and an
+  isolated database: setup → tables 4 (4A, 4B) + Garden → staff with
+  kitchen routing; guest page + noindex; invalid QR page; order before OTP
+  → 401 VERIFY; OTP email received (from the restaurant's name), resend
+  too soon → 429, wrong code, code reuse refused, verify; order → PLACED;
+  same `clientRequestId` → same order; second phone sees "taken" and gets
+  409 SEAT_TAKEN; kitchen can't see or accept PLACED; counter accept
+  (twice → 409); kitchen ticket shows seat + note + only its items;
+  partial then full ready visible to the guest; reject of the only order
+  frees the QR; can't delete a QR in use; counter frees a QR → next guest
+  orders; regenerated QR → old link dead; QR SVG is admin-only and decodes
+  to the guest URL; print sheet has every QR. In the browser at phone
+  width: menu (tabs only with 2+ menus, category chips), cart + note, OTP
+  boxes, live status (EN and ગુજરાતી), "Order more" skipping OTP, busy and
+  invalid-QR screens; counter, tables and print pages.
 
 ## 13. Deliberate Scope Boundaries
 
 Per the build brief, these were intentionally **not** added: customer
-login/OTP/payment, image upload, roles/CRM/inventory/reports beyond what's
+accounts/online payment (guests only verify an email by OTP), image upload, roles/CRM/inventory/reports beyond what's
 specified, and no extra libraries (state management, UI kit, ORM
 alternatives, PWA plugin) beyond what's listed in §2 — each would add
 surface area the brief explicitly excludes for v1.

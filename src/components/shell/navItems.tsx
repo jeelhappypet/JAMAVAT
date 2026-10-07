@@ -39,9 +39,9 @@ export const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    href: "/live-order",
-    label: "nav.liveOrders",
-    description: "home.liveOrders",
+    href: "/counter",
+    label: "nav.orders",
+    description: "home.orders",
     icon: (
       <svg viewBox="0 0 24 24" {...stroke}>
         <circle cx="12" cy="12" r="9" />
@@ -67,6 +67,19 @@ export const NAV_ITEMS: NavItem[] = [
     icon: (
       <svg viewBox="0 0 24 24" {...stroke}>
         <path d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    ),
+  },
+  {
+    href: "/tables",
+    label: "nav.tables",
+    description: "home.tables",
+    icon: (
+      <svg viewBox="0 0 24 24" {...stroke}>
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" />
       </svg>
     ),
   },
