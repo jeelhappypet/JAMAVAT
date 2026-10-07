@@ -2,129 +2,59 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { HomeButton } from "@/components/ui/HomeButton";
-import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { AdminStatCard } from "@/components/developer/AdminStatCard";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
+import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import type { DeveloperStats } from "@/types";
 
 const POLL_MS = 20000;
 
-type AuthStatus = "checking" | "guest" | "authenticated";
+type LoadStatus = "loading" | "error" | "ready";
 
 export default function DeveloperPage() {
-  const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
+  // Access is enforced by the proxy + API (admin staff only) — no separate login here.
+  const [status, setStatus] = useState<LoadStatus>("loading");
   const [stats, setStats] = useState<DeveloperStats | null>(null);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [loggingIn, setLoggingIn] = useState(false);
 
   const loadStats = useCallback(async () => {
     try {
       const res = await fetch("/api/developer/stats");
-      if (res.status === 401) {
-        setAuthStatus("guest");
-        return;
-      }
+      if (redirectToLoginIfUnauthorized(res)) return;
       if (!res.ok) throw new Error();
       const data = await res.json();
       setStats(data);
-      setAuthStatus("authenticated");
+      setStatus("ready");
     } catch {
-      setAuthStatus("guest");
+      setStatus((prev) => (prev === "ready" ? prev : "error"));
     }
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial auth/stats check on mount
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial stats fetch on mount
     loadStats();
   }, [loadStats]);
 
   const { state: connectionState } = useRealtime({
-    [REALTIME_EVENTS.ADMIN_STATS_UPDATED]: () => {
-      if (authStatus === "authenticated") loadStats();
-    },
+    [REALTIME_EVENTS.ADMIN_STATS_UPDATED]: loadStats,
   });
   usePeriodicRefresh(loadStats, POLL_MS, connectionState !== "connected");
-
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setLoggingIn(true);
-    setLoginError(null);
-    try {
-      const res = await fetch("/api/developer/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "લોગિન કરી શકાયું નથી");
-      setPassword("");
-      await loadStats();
-    } catch (err) {
-      setLoginError(err instanceof Error ? err.message : "લોગિન કરી શકાયું નથી");
-    } finally {
-      setLoggingIn(false);
-    }
-  }
-
-  async function handleLogout() {
-    await fetch("/api/developer/logout", { method: "POST" });
-    setStats(null);
-    setUsername("");
-    setPassword("");
-    setAuthStatus("guest");
-  }
 
   return (
     <main className="flex flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
       <div className="flex items-center justify-between">
         <HomeButton />
         <h1 className="text-xl font-bold">એડમિન</h1>
-        {authStatus === "authenticated" ? (
-          <div className="flex items-center gap-3">
-            <RealtimeStatus state={connectionState} />
-            <Button variant="secondary" onClick={handleLogout}>
-              લોગઆઉટ
-            </Button>
-          </div>
-        ) : (
-          <span className="w-11" />
-        )}
+        <RealtimeStatus state={connectionState} />
       </div>
 
-      {authStatus === "checking" ? <LoadingState /> : null}
+      {status === "loading" ? <LoadingState /> : null}
+      {status === "error" ? <p className="text-center text-danger">આંકડા લાવી શકાયા નથી</p> : null}
 
-      {authStatus === "guest" ? (
-        <form onSubmit={handleLogin} className="mx-auto flex w-full max-w-sm flex-col gap-4">
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="યુઝરનેમ"
-            autoComplete="username"
-            className="touch-target rounded-xl border border-border bg-background px-4 text-base"
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="પાસવર્ડ"
-            autoComplete="current-password"
-            className="touch-target rounded-xl border border-border bg-background px-4 text-base"
-          />
-          {loginError ? <p className="text-center text-danger">{loginError}</p> : null}
-          <Button type="submit" size="lg" disabled={loggingIn} className="w-full">
-            {loggingIn ? "તપાસી રહ્યા છીએ…" : "લોગિન"}
-          </Button>
-        </form>
-      ) : null}
-
-      {authStatus === "authenticated" && stats ? (
+      {status === "ready" && stats ? (
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <AdminStatCard label="આજના ઓર્ડર" value={String(stats.todayOrders)} />

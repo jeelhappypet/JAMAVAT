@@ -4,64 +4,55 @@ Status for future Claude sessions continuing this project. Read
 [PROJECT_ARCHITECTURE.md](PROJECT_ARCHITECTURE.md) first for the "why";
 this file is the "what's done / what's left."
 
-## Status: Phases 1–6 complete, Phase 7 (deploy) not started
+## v1 (parcel/token app): complete
+
+Phases 1–6 of the original build (scaffold, menu, token orders, realtime,
+admin stats, hardening) are done and were verified against a running
+instance — see PROJECT_ARCHITECTURE.md §12. Vercel deployment of v1 was
+never done as a separate step.
+
+## v2: QR dine-in, Petpooja-style — in progress
+
+Agreed with the owner on 2026-10-07. Design canvas (all screens):
+https://claude.ai/artifact/Dy69AoyjoUUj5oiu3261aJ
+
+Build for **one restaurant first**; multi-restaurant comes last. Decisions
+that shape the code:
+
+- Staff stay logged in until they log out; each staff member can change
+  their own PIN.
+- QR per table side (table 4 → 4A, 4B). One QR = one guest at a time,
+  locked until the bill is settled; the counter can free a stuck QR. No
+  bill merging across QRs.
+- Guest verifies email by OTP once per device (30 days). OTP and the
+  thank-you email go through Gmail SMTP.
+- QR orders wait for the counter to accept, then split item-wise to
+  kitchens by category (admin maps categories → staff logins). An order is
+  ready only when every kitchen has marked its part.
+- Pay at the counter after the meal (cash/UPI/card). No GST, no printing —
+  only a thank-you email with bill details.
+- Menus → categories → items are fully dynamic; with one menu the guest
+  sees no menu tabs. Only a cooking note (no "call waiter"/"ask for bill").
+- Realtime moves to Pusher (private channels), keeping a slow resync.
+- UI mostly English with a ગુજરાતી toggle.
+- Hosting stays on Vercel (`jamavat.vercel.app`); Pro plan before selling.
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 | Next.js scaffold, Tailwind, Gujarati font, PWA base, home screen | ✅ |
-| 2 | MongoDB, Menu model + management, New Order UI | ✅ |
-| 3 | Token generation, order creation, success popup, Live/Pending Order | ✅ |
-| 4 | Socket.IO realtime, reconnect, resync | ✅ |
-| 5 | Developer/admin auth + statistics | ✅ |
-| 6 | Race-condition protection, error handling, responsive/PWA polish | ✅ |
-| 7 | Vercel deployment, production env vars, MongoDB Atlas prod config | ⬜ not started |
-
-Everything through Phase 6 was exercised against a running instance
-(browser + direct API calls), not just written and assumed correct — see
-PROJECT_ARCHITECTURE.md §12 for exactly what was checked.
-
-## What's left (Phase 7)
-
-1. Create the MongoDB Atlas cluster (or confirm one exists) and get the
-   production connection string.
-2. Create/confirm the Vercel project, link this repo.
-3. Set production env vars in Vercel: `MONGODB_URI`, `ADMIN_USERNAME`,
-   `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET` (generate a **new** one — don't
-   reuse the local dev value), `NEXT_PUBLIC_APP_NAME`.
-4. Deploy, then smoke-test on the real domain: home → new order → swipe →
-   token popup; open live-order and pending-order on two devices and
-   confirm realtime; log into `/developer`.
-5. Specifically verify realtime behavior on Vercel's actual runtime (see
-   PROJECT_ARCHITECTURE.md §14) — confirm sockets connect, and separately
-   confirm the app is still correct if they don't (kill the socket
-   connection in devtools and check that polling/resync still shows
-   correct state within ~20s).
-6. Replace the 3 sample menu items with the real opening menu via `/menu`.
-
-The real logo is already integrated (`public/brand/logo.png` +
-`icon-mark.png` + all of `public/icons/*` + favicon, see
-PROJECT_ARCHITECTURE.md §9) — no longer a placeholder.
+| 1 | Staff PIN login (persistent), change own PIN, roles, admin staff page, every page/API role-guarded, SW no longer caches per-user payloads; screens built to the design canvas (light theme, Jakarta + Noto Gujarati, EN/ગુ toggle, staff shell header, Install app, restaurant name + Settings) | ✅ |
+| 2 | Dynamic menus/categories (replace hardcoded `MENU_CATEGORIES` + Mongoose enums), category → staff routing (the Admin artboard matrix), item-level kitchen status, Pusher realtime; redesign menu + kitchen screens onto the shell and i18n keys | ⬜ |
+| 3 | Tables + seat QRs, guest QR menu, cart + cooking note, email OTP (Gmail SMTP), QR lock, counter accept/reject, live guest status | ⬜ |
+| 4 | Seat settle (discount, payment mode), thank-you email, counter seat grid + ready-to-serve, admin "Today" report | ⬜ |
+| 5 | Multi-restaurant (`restaurantId` everywhere, `/r/{slug}`), Jamavat SEO + inquiry site, HQ panel, per-restaurant PWA manifest | ⬜ |
 
 ## Known non-blocking items
 
+- Socket.IO (`src/pages/api/socket.ts`) accepts any connection and
+  broadcasts order events unauthenticated — only reachable off Vercel.
+  Phase 2 replaces it with Pusher private channels.
 - The realtime transport is WebSocket-only by design (see
-  PROJECT_ARCHITECTURE.md §7) — this was a deliberate fix for a fragility
-  found in Socket.IO's HTTP long-polling handshake over the Pages Router
-  API route in this dev setup, not an untested guess. If a future session
-  changes the socket transport config, re-verify with two real concurrent
-  clients (two devices or two separate browser profiles — not two tabs in
-  one profile, which share a connection pool and can mask multi-client
-  issues) before trusting it.
-- No automated test suite was added (none existed before, and the brief
-  doesn't call for one) — verification so far is manual/scripted-in-session
-  per §12. If ongoing regressions become a problem, adding a handful of
-  route-handler tests around order creation/idempotency and the
-  complete/cancel race guard would be the highest-value place to start.
-
-## Extension points (do not build until requested)
-
-Multiple counters/kitchens, table orders, billing/printing, inventory,
-staff accounts, advanced reports, customer history. The data model
-(snapshotted order items, server-controlled status, business-date-scoped
-tokens) was kept simple enough that these can be layered on later without
-reworking the order core.
+  PROJECT_ARCHITECTURE.md §7). If a future session changes it before the
+  Pusher move, re-verify with two real concurrent clients.
+- No automated test suite yet. Highest-value first tests: order
+  creation/idempotency, the complete/cancel race guard, and the auth
+  rules (lockout, sessionVersion revocation, last-admin guard).

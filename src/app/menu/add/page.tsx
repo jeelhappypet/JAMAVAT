@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { HomeButton } from "@/components/ui/HomeButton";
 import { Button } from "@/components/ui/Button";
 import { MENU_CATEGORIES, type MenuCategory } from "@/types";
+import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 
 interface DraftRow {
   key: number;
@@ -68,6 +69,7 @@ export default function AddMenuPage() {
           })),
         }),
       });
+      if (redirectToLoginIfUnauthorized(res)) return;
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);

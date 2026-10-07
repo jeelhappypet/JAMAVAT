@@ -3,6 +3,8 @@ import { connectToDatabase } from "@/lib/db/mongodb";
 import { MenuItem } from "@/models/MenuItem";
 import { emitRealtimeEvent } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
+import { requireStaff } from "@/lib/auth/staff";
+import { ROLES } from "@/lib/auth/access";
 
 /**
  * Hard delete. Safe even though Order.items[].menuItemId references
@@ -11,6 +13,9 @@ import { REALTIME_EVENTS } from "@/lib/realtime/events";
  * document and a dangling id causes no display issue.
  */
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const staff = await requireStaff(ROLES.admin);
+  if (staff instanceof NextResponse) return staff;
+
   try {
     await connectToDatabase();
     const { id } = await params;

@@ -4,6 +4,8 @@ import { Order } from "@/models/Order";
 import { serializeOrder } from "@/lib/orders/serialize";
 import { emitRealtimeEvent } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
+import { requireStaff } from "@/lib/auth/staff";
+import { ROLES } from "@/lib/auth/access";
 
 /**
  * Kitchen's only action on an order: PENDING -> READY. This removes it
@@ -13,6 +15,9 @@ import { REALTIME_EVENTS } from "@/lib/realtime/events";
  * belongs to the counter.
  */
 export async function PATCH(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const staff = await requireStaff(ROLES.kitchen);
+  if (staff instanceof NextResponse) return staff;
+
   try {
     await connectToDatabase();
     const { id } = await params;

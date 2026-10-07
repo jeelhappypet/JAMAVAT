@@ -32,19 +32,10 @@
   --color-danger-light: var(--color-danger-light);
   --color-text-muted: var(--color-text-muted);
   --font-gujarati: var(--font-noto-gujarati);
+  --font-sans: var(--font-jakarta), var(--font-noto-gujarati), system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #1c1917;
-    --foreground: #fafaf9;
-    --color-surface: #292524;
-    --color-surface-muted: #1c1917;
-    --color-border: #44403c;
-    --color-text-muted: #a8a29e;
-    --color-brand-light: #431407;
-  }
-}
+/* Light only, matching the approved design canvas. */
 
 * {
   -webkit-tap-highlight-color: transparent;
@@ -58,7 +49,7 @@ body {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-gujarati), "Noto Sans Gujarati", system-ui, sans-serif;
+  font-family: var(--font-jakarta), var(--font-noto-gujarati), "Noto Sans Gujarati", system-ui, sans-serif;
   overscroll-behavior-y: contain;
 }
 

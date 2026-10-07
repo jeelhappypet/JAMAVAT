@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { OrderCard } from "@/components/orders/OrderCard";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
 import { useActiveOrders } from "@/lib/orders/useActiveOrders";
+import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 
 export default function LiveOrderPage() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function LiveOrderPage() {
       const res = await fetch(`/api/orders/${id}/complete`, {
         method: "PATCH",
       });
+      if (redirectToLoginIfUnauthorized(res)) return;
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? "ઓર્ડર પૂર્ણ કરી શકાયો નથી");
@@ -54,6 +56,7 @@ export default function LiveOrderPage() {
     removeOrder(id);
     try {
       const res = await fetch(`/api/orders/${id}/cancel`, { method: "PATCH" });
+      if (redirectToLoginIfUnauthorized(res)) return;
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? "ઓર્ડર રદ કરી શકાયો નથી");

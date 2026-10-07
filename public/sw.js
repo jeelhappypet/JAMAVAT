@@ -1,4 +1,4 @@
-const CACHE_NAME = "jamavat-shell-v2";
+const CACHE_NAME = "jamavat-shell-v3";
 const APP_SHELL = ["/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -18,6 +18,17 @@ self.addEventListener("activate", (event) => {
       .then(() => self.clients.claim())
   );
 });
+
+function isStaticAsset(url) {
+  return (
+    url.origin === self.location.origin &&
+    (url.pathname.startsWith("/_next/static/") ||
+      url.pathname.startsWith("/icons/") ||
+      url.pathname.startsWith("/brand/") ||
+      url.pathname === "/manifest.webmanifest" ||
+      url.pathname === "/favicon.ico")
+  );
+}
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
@@ -48,6 +59,12 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+
+  // Everything else that isn't a known static asset — notably React Server
+  // Component payloads for client-side navigation (`?_rsc=`) — is per-user
+  // now that staff log in, so it must never come from cache: a cached admin
+  // payload could otherwise render for the next person on a shared tablet.
+  if (!isStaticAsset(url)) return;
 
   // Static assets (JS/CSS/icons/manifest): stale-while-revalidate is safe —
   // these are content-hashed, so a cached entry never goes stale in place.

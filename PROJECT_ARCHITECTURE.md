@@ -1,6 +1,7 @@
 # જમાવટ — Project Architecture
 
-Restaurant order management PWA. Gujarati-first UI, no public login, single
+Restaurant order management PWA. English + ગુજરાતી (EN/ગુ toggle; screens
+not yet redesigned still carry hardcoded Gujarati), staff PIN login, single
 Next.js project for frontend + backend, MongoDB Atlas persistence, Socket.IO
 realtime.
 
@@ -9,8 +10,11 @@ realtime.
 - Counter creates an order in **નવો ઓર્ડર** → kitchen sees it instantly in
   **બાકી ઓર્ડર** → kitchen marks complete/cancel → counter tracks active
   orders in **ચાલુ ઓર્ડર** → owner reviews stats at `/developer`.
-- Home (`/`) has no login and shows exactly 4 CTAs: નવો ઓર્ડર, ચાલુ ઓર્ડર,
-  બાકી ઓર્ડર, મેનુ.
+- Staff log in once per device with their name + a 4-digit PIN and stay
+  logged in until they log out (see §8). Home (`/`) shows only the tiles the
+  staff member's role may open: Counter → નવો ઓર્ડર/ચાલુ ઓર્ડર, Kitchen →
+  બાકી ઓર્ડર (and lands there directly after login), Admin → everything plus
+  Staff and Reports.
 - MongoDB is always the source of truth. Realtime is a notification layer —
   every screen also polls and resyncs, so correctness never depends on a
   socket being connected.
@@ -33,7 +37,9 @@ No ORM/auth/state-management libraries were added beyond the above — see
 ```
 src/
 ├── app/
-│   ├── page.tsx                  Home (4 CTAs)
+│   ├── (shell)/                  new-design staff screens sharing StaffHeader:
+│   │                              page.tsx (home cards), staff/, settings/
+│   ├── login/ setup/             PIN login, first-run setup (restaurant + admin)
 │   ├── manifest.ts                PWA manifest (served at /manifest.webmanifest)
 │   ├── new-order/page.tsx
 │   ├── live-order/page.tsx
@@ -42,13 +48,17 @@ src/
 │   ├── menu/add/page.tsx
 │   ├── developer/page.tsx
 │   └── api/
+│       ├── auth/{login,logout,setup,change-pin,expire}/route.ts
+│       ├── restaurant/route.ts                PATCH restaurant name (admin)
+│       ├── staff/route.ts, staff/[id]/route.ts  admin staff management
 │       ├── menu/route.ts                      GET/POST/PATCH
 │       ├── orders/route.ts                    POST (create)
 │       ├── orders/live/route.ts                GET
 │       ├── orders/pending/route.ts             GET
 │       ├── orders/[id]/complete/route.ts       PATCH
 │       ├── orders/[id]/cancel/route.ts         PATCH
-│       └── developer/{login,logout,stats}/route.ts
+│       └── developer/stats/route.ts
+├── proxy.ts                       optimistic page guard (cookie signature only)
 ├── pages/api/socket.ts            Socket.IO server bootstrap (see §7)
 ├── components/
 │   ├── ui/            AppLogo, Button, Card, ConfirmDialog, SuccessDialog,
@@ -62,12 +72,13 @@ src/
 │   └── pwa/           ServiceWorkerRegister
 ├── lib/
 │   ├── db/mongodb.ts              cached connection
-│   ├── auth/session.ts            HMAC-signed admin session cookie
+│   ├── auth/                      session.ts (signed cookie), staff.ts (DB check,
+│   │                              requireStaff), access.ts (role → pages), pin.ts
 │   ├── realtime/                  events.ts, server.ts (emitter), useRealtime.ts
 │   ├── orders/                    serialize.ts, queries.ts, useActiveOrders.ts
 │   ├── validation/                zod schemas (menu/order/developer)
 │   └── utils/businessDate.ts      Asia/Kolkata business-date helper
-├── models/           MenuItem.ts, Order.ts, Counter.ts
+├── models/           MenuItem.ts, Order.ts, Counter.ts, Staff.ts, Restaurant.ts
 └── types/index.ts    shared DTOs + category/status enums
 ```
 
@@ -90,23 +101,45 @@ key), `createdAt`/`readyAt`/`completedAt`/`cancelledAt`. Indexes:
 
 Snapshots mean a menu price change today never rewrites yesterday's orders.
 
+**Staff** — `name` (unique, case-insensitive), `role` (`ADMIN`/`COUNTER`/
+`KITCHEN`), `pinHash` + `pinSalt` (scrypt, per-staff salt), `isActive`,
+`sessionVersion`, `failedPinAttempts`, `lockedUntil`.
+
+**Restaurant** — `name`. A single document for now (shown on login and in
+every staff header); it becomes one-per-tenant in the multi-restaurant phase.
+
 **Counter** — `_id` = businessDate, `seq`. One doc per business day;
 `findOneAndUpdate({_id: businessDate}, {$inc:{seq:1}}, {upsert:true})` is
 the atomic token generator (see §6).
 
 ## 5. API Routes
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET/POST/PATCH | `/api/menu` | list (all, or `?activeOnly=1`) / bulk-create / update (incl. soft-delete via `isActive`) |
-| POST | `/api/orders` | create order, idempotent on `clientRequestId` |
-| GET | `/api/orders/live` | today's `PENDING` + `READY` orders — counter view |
-| GET | `/api/orders/pending` | today's `PENDING` orders only — kitchen view |
-| PATCH | `/api/orders/[id]/ready` | atomic `PENDING → READY` — kitchen's only action |
-| PATCH | `/api/orders/[id]/complete` | atomic `(PENDING\|READY) → COMPLETED` — counter only |
-| PATCH | `/api/orders/[id]/cancel` | atomic `(PENDING\|READY) → CANCELLED` — counter only |
-| POST | `/api/developer/login` \| `/logout` | admin session cookie |
-| GET | `/api/developer/stats` | aggregated stats, requires session |
+Every route checks the session with `requireStaff(roles)` (401 = not
+logged in / session revoked, 403 = wrong role). Role groups live in
+`lib/auth/access.ts` (`ROLES.admin`, `.counter` = admin+counter,
+`.kitchen` = admin+kitchen, `.anyStaff`).
+
+| Method | Path | Who | Purpose |
+|---|---|---|---|
+| POST | `/api/auth/login` | public | name + PIN → session cookie; 5 wrong PINs lock the account 5 min |
+| POST | `/api/auth/logout` | public | clears the cookie |
+| POST | `/api/auth/setup` | public, once | first admin; needs `SETUP_KEY`, refuses once any staff exists |
+| POST | `/api/auth/change-pin` | any staff | own PIN; signs out the person's other devices |
+| GET | `/api/auth/expire` | public | deletes a stale session cookie, redirects to `/login?expired=1` |
+| PATCH | `/api/restaurant` | admin | restaurant name |
+| GET/POST | `/api/staff` | admin | list / add staff |
+| PATCH | `/api/staff/[id]` | admin | rename, role, (de)activate, reset PIN, log out everywhere |
+| GET | `/api/menu` | any staff | list (all, or `?activeOnly=1`) |
+| POST/PATCH | `/api/menu` | admin | bulk-create / update (incl. `isActive`) |
+| DELETE | `/api/menu/[id]` | admin | hard delete (orders keep snapshots) |
+| POST | `/api/orders` | counter | create order, idempotent on `clientRequestId` |
+| GET | `/api/orders/next-token` | counter | next token preview |
+| GET | `/api/orders/live` | counter | today's `PENDING` + `READY` orders |
+| GET | `/api/orders/pending` | kitchen | today's `PENDING` orders only |
+| PATCH | `/api/orders/[id]/ready` | kitchen | atomic `PENDING → READY` |
+| PATCH | `/api/orders/[id]/complete` | counter | atomic `(PENDING\|READY) → COMPLETED` |
+| PATCH | `/api/orders/[id]/cancel` | counter | atomic `(PENDING\|READY) → CANCELLED` |
+| GET | `/api/developer/stats` | admin | aggregated stats |
 
 There's no `DELETE /api/menu/:id` — `isActive` soft-delete was chosen
 instead because orders reference `menuItemId`, and hiding an item from new
@@ -198,24 +231,71 @@ sidesteps it because upgrade requests never go through that handler at
 all — but fixing polling too would need reworking that handler, not just
 a client-side transport change.
 
-## 8. Admin Authentication
+## 8. Staff Authentication
 
-`/developer` has no page-level gate — it always renders, then the client
-asks `GET /api/developer/stats`. A `401` shows the login form; `200` shows
-the dashboard with the data already in hand (no second round trip).
+Staff pick their name on `/login` and type a 4-digit PIN. **A device stays
+logged in until that person taps Log out** — this is a product requirement,
+not a default to tighten later.
 
-Session = `base64url(JSON {username, exp}) + "." + HMAC-SHA256(secret)`,
-stored in an **HttpOnly, SameSite=Lax** cookie (`Secure` in production),
-verified server-side with `crypto.timingSafeEqual`. Credentials
-(`ADMIN_USERNAME`/`ADMIN_PASSWORD`) are also compared with
-`timingSafeEqual`. Nothing admin-related touches `localStorage` or the URL.
+- Cookie `jamavat_staff_session` = `base64url(JSON {sid, sv, role, iat}) +
+  "." + HMAC-SHA256(ADMIN_SESSION_SECRET)`; HttpOnly, SameSite=Lax, `Secure`
+  in production, Max-Age 400 days (the browser cap). The token itself has no
+  expiry; `proxy.ts` re-issues it with a fresh `iat` once it's a week old, so
+  an active device never ages out.
+- `proxy.ts` only checks the signature (no DB) and redirects: no cookie →
+  `/login?next=…`; wrong role for the page → that role's home
+  (`homePathFor`). API routes are excluded from the proxy and always call
+  `requireStaff()`, which also loads the Staff doc and rejects it if
+  inactive or if `sessionVersion` no longer matches the cookie's `sv`.
+- Bumping `Staff.sessionVersion` is how sessions are revoked: PIN change
+  (other devices only — the current device gets a new cookie), admin PIN
+  reset, role change, deactivation, "Log out devices". A revoked device's
+  next server page render or API 401 sends it to `/api/auth/expire`, which
+  deletes the cookie **server-side** and redirects to `/login?expired=1`.
+  Don't move that clearing back into the login page: while a signed-but-
+  stale cookie exists the proxy treats the device as logged in, and with
+  zero staff that produced a `/` ⇄ `/login` ⇄ `/setup` redirect loop.
+- PINs are scrypt-hashed with a per-staff salt. 5 wrong PINs in a row lock
+  the account for 5 minutes; an admin PIN reset clears the lock.
+- At least one active admin must always exist (role change/deactivation of
+  the last one returns 409).
+- First run: with zero staff, `/login` redirects to `/setup`, which needs
+  `SETUP_KEY` (falls back to the old `ADMIN_PASSWORD`) to create the first
+  admin. `/setup` refuses once any staff exists. The old env-based
+  `/developer` login is gone — Reports is an admin-only page now.
+
+## 8a. Design system & language
+
+- The approved design canvas (link in CLAUDE_IMPLEMENTATION_PLAN.md) is the
+  spec. Light theme only (the old auto dark mode was removed to match it);
+  stone neutrals + `#c2410c` brand; Plus Jakarta Sans for Latin with Noto
+  Sans Gujarati for Gujarati glyphs (`--font-jakarta`, `--font-noto-gujarati`
+  in `layout.tsx`).
+- Redesigned staff screens live under `app/(shell)/` and share
+  `StaffHeader` (restaurant, EN/ગુ, account menu with Change PIN / Log out,
+  role-filtered tabs from `components/shell/navItems.tsx`). Older screens
+  (new order, live/kitchen orders, menu, reports) keep their own headers
+  until their phase redesigns them.
+- i18n: `lib/i18n/messages.ts` holds every key in `en` and `gu` (typed — a
+  missing Gujarati key is a type error). The choice is a plain
+  `jamavat_lang` cookie read by the root layout (`getLang()`), so server
+  components, client components (`useI18n()`) and API error messages
+  (`getTranslator()`) all agree. Zod's English messages are mapped to keys
+  in `lib/i18n/zod.ts`.
+- "Install app" appears only when the browser fires `beforeinstallprompt`
+  (captured once in `ServiceWorkerRegister`); Safari never does.
 
 ## 9. PWA
 
 - `src/app/manifest.ts` → `/manifest.webmanifest` (name, icons, standalone,
   theme color).
 - `public/sw.js` — hand-written, no library. **`/api/*` and `/socket.io/*`
-  are explicitly never intercepted** — order/menu/admin data must always
+  are explicitly never intercepted**, and since staff login landed **only
+  known static paths (`/_next/static/`, `/icons/`, `/brand/`, manifest,
+  favicon) are ever served from cache** — RSC payloads for client-side
+  navigation are per-user and must not be (cache v3 purged the old ones).
+  Logout also clears the SW caches so the next person on a shared tablet
+  can't get the previous one's offline page copy — order/menu/admin data must always
   come from the network, per the "no false success while offline"
   requirement. HTML page navigations are **network-first** (cache is only
   a fallback when the network fetch fails, i.e. genuinely offline); only
@@ -253,11 +333,12 @@ verified server-side with `crypto.timingSafeEqual`. Credentials
 
 ```
 MONGODB_URI=              # MongoDB Atlas connection string (production)
-ADMIN_USERNAME=jamavat
-ADMIN_PASSWORD=jamavat
-ADMIN_SESSION_SECRET=      # random secret, e.g. `openssl rand -hex 32`
+ADMIN_SESSION_SECRET=      # signs staff session cookies — `openssl rand -hex 32`
+SETUP_KEY=                 # one-time key for /setup (falls back to ADMIN_PASSWORD)
 NEXT_PUBLIC_APP_NAME=જમાવટ
 ```
+
+Rotating `ADMIN_SESSION_SECRET` logs every device out.
 
 `.env.example` documents placeholders only. `.env.local` (gitignored) holds
 real values locally; Vercel Environment Variables hold them in production.

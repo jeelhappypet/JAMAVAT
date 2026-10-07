@@ -15,6 +15,7 @@ import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
 import { MENU_CATEGORIES } from "@/types";
 import type { MenuItemDTO } from "@/types";
+import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 
 const POLL_MS = 30000;
 
@@ -38,6 +39,7 @@ export default function NewOrderPage() {
   const loadMenu = useCallback(async () => {
     try {
       const res = await fetch("/api/menu?activeOnly=1");
+      if (redirectToLoginIfUnauthorized(res)) return;
       if (!res.ok) throw new Error();
       const data = await res.json();
       setMenuItems(data.items);
@@ -51,6 +53,7 @@ export default function NewOrderPage() {
   const loadNextToken = useCallback(async () => {
     try {
       const res = await fetch("/api/orders/next-token");
+      if (redirectToLoginIfUnauthorized(res)) return;
       if (!res.ok) throw new Error();
       const data = await res.json();
       setNextTokenNumber(data.tokenNumber);
@@ -117,6 +120,7 @@ export default function NewOrderPage() {
           clientRequestId: clientRequestIdRef.current,
         }),
       });
+      if (redirectToLoginIfUnauthorized(res)) return;
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "ઓર્ડર મોકલી શકાયો નથી");

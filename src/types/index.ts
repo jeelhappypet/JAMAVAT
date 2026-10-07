@@ -4,6 +4,31 @@ export type MenuCategory = (typeof MENU_CATEGORIES)[number];
 export const ORDER_STATUSES = ["PENDING", "READY", "COMPLETED", "CANCELLED"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+export const STAFF_ROLES = ["ADMIN", "COUNTER", "KITCHEN"] as const;
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
+/** The logged-in staff member, as resolved from the session cookie + DB. */
+export interface StaffSession {
+  id: string;
+  name: string;
+  role: StaffRole;
+}
+
+export interface StaffDTO {
+  id: string;
+  name: string;
+  role: StaffRole;
+  isActive: boolean;
+  isLocked: boolean;
+}
+
+/** What the login screen needs to show a staff picker — never the PIN hash. */
+export interface StaffLoginOption {
+  id: string;
+  name: string;
+  role: StaffRole;
+}
+
 export interface MenuItemDTO {
   id: string;
   name: string;

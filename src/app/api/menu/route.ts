@@ -6,6 +6,8 @@ import { menuSaveSchema, menuUpdateSchema } from "@/lib/validation/menu";
 import { emitRealtimeEvent } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import type { MenuItemDTO } from "@/types";
+import { requireStaff } from "@/lib/auth/staff";
+import { ROLES } from "@/lib/auth/access";
 
 function toDTO(doc: {
   _id: unknown;
@@ -24,6 +26,9 @@ function toDTO(doc: {
 }
 
 export async function GET(request: NextRequest) {
+  const staff = await requireStaff(ROLES.anyStaff);
+  if (staff instanceof NextResponse) return staff;
+
   try {
     await connectToDatabase();
     const activeOnly = request.nextUrl.searchParams.get("activeOnly") === "1";
@@ -36,6 +41,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const staff = await requireStaff(ROLES.admin);
+  if (staff instanceof NextResponse) return staff;
+
   try {
     await connectToDatabase();
     const body = await request.json();
@@ -60,6 +68,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const staff = await requireStaff(ROLES.admin);
+  if (staff instanceof NextResponse) return staff;
+
   try {
     await connectToDatabase();
     const body = await request.json();

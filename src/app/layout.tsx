@@ -1,8 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Noto_Sans_Gujarati } from "next/font/google";
+import { Noto_Sans_Gujarati, Plus_Jakarta_Sans } from "next/font/google";
 import { OfflineIndicator } from "@/components/realtime/OfflineIndicator";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
+import { I18nProvider } from "@/lib/i18n/I18nProvider";
+import { getLang } from "@/lib/i18n/server";
 import "./globals.css";
+
+// Latin text renders in Plus Jakarta Sans; Gujarati glyphs fall through to Noto Sans Gujarati.
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
 
 const notoSansGujarati = Noto_Sans_Gujarati({
   variable: "--font-noto-gujarati",
@@ -36,13 +46,17 @@ export const viewport: Viewport = {
   themeColor: "#c2410c",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const lang = await getLang();
+
   return (
-    <html lang="gu" className={`${notoSansGujarati.variable} h-full antialiased`}>
+    <html lang={lang} className={`${plusJakartaSans.variable} ${notoSansGujarati.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <ServiceWorkerRegister />
-        <OfflineIndicator />
-        {children}
+        <I18nProvider lang={lang}>
+          <ServiceWorkerRegister />
+          <OfflineIndicator />
+          {children}
+        </I18nProvider>
       </body>
     </html>
   );

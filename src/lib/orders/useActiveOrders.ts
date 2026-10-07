@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import type { OrderDTO } from "@/types";
+import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 
 const POLL_MS = 5000;
 
@@ -33,6 +34,7 @@ export function useActiveOrders(mode: Mode) {
   const refetch = useCallback(async () => {
     try {
       const res = await fetch(endpoint);
+      if (redirectToLoginIfUnauthorized(res)) return;
       if (!res.ok) throw new Error();
       const data = await res.json();
       setOrders(data.orders);

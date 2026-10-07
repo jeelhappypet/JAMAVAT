@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { Order } from "@/models/Order";
 import { getBusinessDate } from "@/lib/utils/businessDate";
-import { ADMIN_SESSION_COOKIE, verifySessionToken } from "@/lib/auth/session";
+import { requireStaff } from "@/lib/auth/staff";
+import { ROLES } from "@/lib/auth/access";
 
 interface StatusCount {
   _id: string;
@@ -24,11 +24,8 @@ interface DateWiseFacet {
 }
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
-  if (!verifySessionToken(token)) {
-    return NextResponse.json({ error: "લોગિન જરૂરી છે" }, { status: 401 });
-  }
+  const staff = await requireStaff(ROLES.admin);
+  if (staff instanceof NextResponse) return staff;
 
   try {
     await connectToDatabase();

@@ -4,8 +4,13 @@ import { Order } from "@/models/Order";
 import { serializeOrder } from "@/lib/orders/serialize";
 import { emitRealtimeEvent } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
+import { requireStaff } from "@/lib/auth/staff";
+import { ROLES } from "@/lib/auth/access";
 
 export async function PATCH(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const staff = await requireStaff(ROLES.counter);
+  if (staff instanceof NextResponse) return staff;
+
   try {
     await connectToDatabase();
     const { id } = await params;

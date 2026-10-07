@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { KitchenTicket } from "@/components/orders/KitchenTicket";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
 import { useActiveOrders } from "@/lib/orders/useActiveOrders";
+import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 
 export default function PendingOrderPage() {
   const { orders, loading, error, connectionState, refetch, removeOrder } = useActiveOrders("pending");
@@ -19,6 +20,7 @@ export default function PendingOrderPage() {
     removeOrder(id);
     try {
       const res = await fetch(`/api/orders/${id}/ready`, { method: "PATCH" });
+      if (redirectToLoginIfUnauthorized(res)) return;
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? "ઓર્ડર તૈયાર તરીકે માર્ક કરી શકાયો નથી");

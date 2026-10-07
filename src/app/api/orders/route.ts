@@ -9,12 +9,17 @@ import { getBusinessDate } from "@/lib/utils/businessDate";
 import { serializeOrder } from "@/lib/orders/serialize";
 import { emitRealtimeEvent } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
+import { requireStaff } from "@/lib/auth/staff";
+import { ROLES } from "@/lib/auth/access";
 
 function isDuplicateKeyError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === 11000;
 }
 
 export async function POST(request: NextRequest) {
+  const staff = await requireStaff(ROLES.counter);
+  if (staff instanceof NextResponse) return staff;
+
   try {
     await connectToDatabase();
     const body = await request.json();

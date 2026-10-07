@@ -15,6 +15,7 @@ import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
 import { MENU_CATEGORIES } from "@/types";
 import type { MenuCategory, MenuItemDTO } from "@/types";
+import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 
 const POLL_MS = 30000;
 
@@ -29,6 +30,7 @@ export default function MenuPage() {
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/menu");
+      if (redirectToLoginIfUnauthorized(res)) return;
       if (!res.ok) throw new Error();
       const data = await res.json();
       setItems(data.items);
@@ -58,6 +60,7 @@ export default function MenuPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: item.id, isActive: !item.isActive }),
       });
+      if (redirectToLoginIfUnauthorized(res)) return;
       if (!res.ok) throw new Error();
     } catch {
       setItems((prev) =>
@@ -74,6 +77,7 @@ export default function MenuPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: editingItem.id, ...updates }),
     });
+    if (redirectToLoginIfUnauthorized(res)) return;
     const data = await res.json().catch(() => null);
     if (!res.ok) throw new Error(data?.error ?? "સાચવી શકાયું નથી");
 
@@ -86,6 +90,7 @@ export default function MenuPage() {
     setDeleting(true);
     try {
       const res = await fetch(`/api/menu/${deleteTarget.id}`, { method: "DELETE" });
+      if (redirectToLoginIfUnauthorized(res)) return;
       if (!res.ok) throw new Error();
       setItems((prev) => prev.filter((it) => it.id !== deleteTarget.id));
       setDeleteTarget(null);
