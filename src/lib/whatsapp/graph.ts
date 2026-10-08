@@ -22,10 +22,11 @@ export type SendResult = { ok: true; whatsappMessageId: string } | { ok: false; 
 
 const TIMEOUT_MS = 15000;
 
-function categorise(code: number | undefined, httpStatus: number): SendFailure {
+function categorise(code: number | undefined, subcode: number | undefined, httpStatus: number): SendFailure {
   if (code === 131047) return "window";
   if (code === 131026 || code === 131030 || code === 131009) return "recipient";
-  if (code === 190 || code === 10 || code === 200 || code === 131005 || httpStatus === 401) return "auth";
+  // 100/33: the token can't see this phone number or account (granted for another WABA).
+  if (code === 190 || code === 10 || code === 200 || code === 131005 || httpStatus === 401 || (code === 100 && subcode === 33)) return "auth";
   if (code === 4 || code === 80007 || code === 130429 || code === 131056 || httpStatus === 429) return "rate";
   return "other";
 }
@@ -70,5 +71,25 @@ export async function sendTextMessage(config: WhatsAppSendConfig, to: string, bo
       to,
     })
   );
-  return { ok: false, reason: categorise(code, response.status), code };
+  return { ok: false, reason: categorise(code, data?.error?.error_subcode, response.status), code };
+}
+
+export type GraphReadResult = { ok: true; data: unknown } | { ok: false; status: number; error: { code?: number; subcode?: number; type?: string; message?: string } };
+
+/** Server-side Graph call for the admin connection check. Returns Meta's data or its error — never the token. */
+export async function graphRequest(config: WhatsAppSendConfig, path: string, method: "GET" | "POST" = "GET"): Promise<GraphReadResult> {
+  try {
+    const response = await fetch(`${config.graphBaseUrl}/${config.graphVersion}/${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${config.accessToken}` },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      cache: "no-store",
+    });
+    const data = (await response.json().catch(() => null)) as { error?: { code?: number; error_subcode?: number; type?: string; message?: string } } | null;
+    if (response.ok && !data?.error) return { ok: true, data };
+    const error = data?.error;
+    return { ok: false, status: response.status, error: { code: error?.code, subcode: error?.error_subcode, type: error?.type, message: error?.message?.slice(0, 300) } };
+  } catch (error) {
+    return { ok: false, status: 0, error: { message: error instanceof Error && error.name === "TimeoutError" ? "timeout" : "network error" } };
+  }
 }
