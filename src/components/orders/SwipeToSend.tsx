@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 const THUMB_SIZE = 56;
 const EDGE_GAP = 8;
@@ -13,11 +14,14 @@ interface SwipeToSendProps {
 }
 
 export function SwipeToSend({
-  label = "ઓર્ડર મોકલવા સ્વાઇપ કરો",
-  sendingLabel = "મોકલી રહ્યા છીએ…",
+  label: labelProp,
+  sendingLabel: sendingLabelProp,
   disabled = false,
   onComplete,
 }: SwipeToSendProps) {
+  const { t } = useI18n();
+  const label = labelProp ?? t("parcel.swipe");
+  const sendingLabel = sendingLabelProp ?? t("parcel.sending");
   const trackRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
   const maxDragRef = useRef(0);

@@ -1,25 +1,18 @@
 import { Order } from "@/models/Order";
 import { getBusinessDate } from "@/lib/utils/businessDate";
-import { serializeOrder } from "./serialize";
+import { serializeOrder, type OrderLean } from "./serialize";
 
-/** Kitchen queue — only orders not yet marked ready. */
-export async function getKitchenOrders() {
-  const businessDate = getBusinessDate();
-  const orders = await Order.find({ businessDate, status: "PENDING" })
-    .sort({ createdAt: 1 })
-    .lean();
-  return orders.map(serializeOrder);
-}
+/** The counter keeps showing a finished order for this long, so it can call the token / carry it out. */
+export const RECENTLY_READY_MS = 30 * 60 * 1000;
 
-/**
- * Counter queue — everything not yet finalized (still cooking or ready to
- * serve). An order only leaves this list when the counter itself completes
- * or cancels it; the kitchen marking it ready must never remove it here.
- */
+/** Counter queue — everything still cooking, plus what the kitchens finished in the last half hour. */
 export async function getCounterOrders() {
   const businessDate = getBusinessDate();
-  const orders = await Order.find({ businessDate, status: { $in: ["PENDING", "READY"] } })
+  const orders = await Order.find({
+    businessDate,
+    $or: [{ status: "PENDING" }, { status: { $in: ["READY", "COMPLETED"] }, readyAt: { $gte: new Date(Date.now() - RECENTLY_READY_MS) } }],
+  })
     .sort({ createdAt: 1 })
-    .lean();
+    .lean<OrderLean[]>();
   return orders.map(serializeOrder);
 }

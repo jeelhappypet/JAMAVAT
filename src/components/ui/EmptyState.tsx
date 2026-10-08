@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 
+/** Dashed placeholder card ("No running orders"). */
 export function EmptyState({ title, hint }: { title: string; hint?: ReactNode }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center text-text-muted">
-      <p className="text-lg font-medium">{title}</p>
-      {hint ? <p className="text-sm">{hint}</p> : null}
+    <div className="flex flex-col items-center gap-1 rounded-[18px] border border-dashed border-stone-300 bg-surface px-6 py-12 text-center">
+      <p className="text-[15px] font-bold text-stone-700">{title}</p>
+      {hint ? <p className="text-sm text-text-muted">{hint}</p> : null}
     </div>
   );
 }

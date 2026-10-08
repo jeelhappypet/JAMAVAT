@@ -1,91 +1,79 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ZodError } from "zod";
+import { isValidObjectId } from "mongoose";
 import { connectToDatabase } from "@/lib/db/mongodb";
-import { MenuItem } from "@/models/MenuItem";
 import { Order } from "@/models/Order";
-import { Counter } from "@/models/Counter";
+import { Seat, type SeatDocument } from "@/models/Seat";
+import { GuestSession, type GuestSessionDocument } from "@/models/GuestSession";
 import { createOrderSchema } from "@/lib/validation/order";
 import { getBusinessDate } from "@/lib/utils/businessDate";
-import { serializeOrder } from "@/lib/orders/serialize";
-import { emitRealtimeEvent } from "@/lib/realtime/server";
+import { serializeOrder, type OrderLean } from "@/lib/orders/serialize";
+import { emitRealtimeEvent, notifyGuestSeat } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
+import { requireStaff } from "@/lib/auth/staff";
+import { ROLES } from "@/lib/auth/access";
+import { getTranslator } from "@/lib/i18n/server";
+import { isDuplicateKeyError, jsonError, respond } from "@/lib/api";
+import { buildOrderItems, nextTokenNumber } from "@/lib/orders/build";
 
-function isDuplicateKeyError(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === 11000;
-}
-
+/**
+ * Counter order: a parcel with a token number, or — with `seatId` — extra
+ * dishes for a seated guest that go on their bill.
+ */
 export async function POST(request: NextRequest) {
-  try {
-    await connectToDatabase();
-    const body = await request.json();
-    const { customerName, items, clientRequestId } = createOrderSchema.parse(body);
+  const staff = await requireStaff(ROLES.counter);
+  if (staff instanceof NextResponse) return staff;
+  const t = await getTranslator();
 
-    const existing = await Order.findOne({ clientRequestId }).lean();
-    if (existing) {
-      return NextResponse.json(serializeOrder(existing), { status: 200 });
+  return respond(t, "err.orderFailed", async () => {
+    await connectToDatabase();
+    const { customerName, items, clientRequestId, seatId, paymentMode } = createOrderSchema.parse(await request.json());
+
+    const existing = await Order.findOne({ clientRequestId }).lean<OrderLean>();
+    if (existing) return NextResponse.json(serializeOrder(existing), { status: 200 });
+
+    let seatLink: Record<string, unknown> = {};
+    if (seatId) {
+      const seat = isValidObjectId(seatId) ? await Seat.findById(seatId).lean<SeatDocument>() : null;
+      const session = seat?.currentSessionId
+        ? await GuestSession.findOne({ _id: seat.currentSessionId, status: "OPEN" }).lean<GuestSessionDocument>()
+        : null;
+      if (!seat || !session) return jsonError(t("err.seatNotInUse"), 409);
+      seatLink = { seatId: seat._id, seatCode: session.seatCode, guestSessionId: session._id, guestEmail: session.email };
     }
 
-    const menuItemIds = items.map((item) => item.menuItemId);
-    const menuItems = await MenuItem.find({ _id: { $in: menuItemIds } }).lean();
-    const menuItemById = new Map(menuItems.map((item) => [String(item._id), item]));
-
-    const orderItems = items.map((item) => {
-      const menuItem = menuItemById.get(item.menuItemId);
-      if (!menuItem) {
-        throw new Error("મેનુ આઇટમ મળી નથી");
-      }
-      const lineTotal = menuItem.price * item.quantity;
-      return {
-        menuItemId: menuItem._id,
-        nameSnapshot: menuItem.name,
-        categorySnapshot: menuItem.category,
-        quantity: item.quantity,
-        unitPrice: menuItem.price,
-        lineTotal,
-      };
-    });
-
-    const totalAmount = orderItems.reduce((sum, item) => sum + item.lineTotal, 0);
+    const built = await buildOrderItems(items, t);
+    if (!built.ok) return jsonError(built.error, built.status);
     const businessDate = getBusinessDate();
-
-    const counter = await Counter.findOneAndUpdate(
-      { _id: businessDate },
-      { $inc: { seq: 1 } },
-      { upsert: true, returnDocument: "after" }
-    );
 
     let created;
     try {
       created = await Order.create({
-        tokenNumber: counter.seq,
+        tokenNumber: await nextTokenNumber(businessDate),
         businessDate,
+        source: "COUNTER",
         customerName: customerName || undefined,
-        items: orderItems,
-        totalAmount,
+        ...seatLink,
+        ...(seatId ? {} : { paymentMode: paymentMode ?? "CASH" }),
+        items: built.items,
+        totalAmount: built.totalAmount,
         status: "PENDING",
         clientRequestId,
       });
     } catch (error) {
       if (isDuplicateKeyError(error)) {
-        const raced = await Order.findOne({ clientRequestId }).lean();
+        const raced = await Order.findOne({ clientRequestId }).lean<OrderLean>();
         if (raced) return NextResponse.json(serializeOrder(raced), { status: 200 });
       }
       throw error;
     }
 
     const dto = serializeOrder(created.toObject());
-
-    emitRealtimeEvent(REALTIME_EVENTS.ORDER_CREATED, dto);
-    emitRealtimeEvent(REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:created" });
-
+    await Promise.all([
+      emitRealtimeEvent(REALTIME_EVENTS.ORDER_CREATED, { id: dto.id, seatCode: dto.seatCode, tokenNumber: dto.tokenNumber }),
+      seatId ? emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId }) : null,
+      seatId ? notifyGuestSeat(seatId) : null,
+      emitRealtimeEvent(REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:created" }),
+    ]);
     return NextResponse.json(dto, { status: 201 });
-  } catch (error) {
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0]?.message ?? "ઓર્ડર મોકલી શકાયો નથી" },
-        { status: 400 }
-      );
-    }
-    return NextResponse.json({ error: "ઓર્ડર મોકલી શકાયો નથી" }, { status: 500 });
-  }
+  });
 }

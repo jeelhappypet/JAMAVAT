@@ -1,4 +1,8 @@
+"use client";
+
 import { Button } from "./Button";
+import { Modal } from "./Modal";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -11,36 +15,27 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
-export function ConfirmDialog({
-  open,
-  title,
-  description,
-  confirmLabel = "હા",
-  cancelLabel = "રદ કરો",
-  variant = "danger",
-  onConfirm,
-  onCancel,
-}: ConfirmDialogProps) {
-  if (!open) return null;
-
+/** "Are you sure?" — built on Modal + Button. */
+export function ConfirmDialog({ open, title, description, confirmLabel, cancelLabel, variant = "danger", onConfirm, onCancel }: ConfirmDialogProps) {
+  const { t } = useI18n();
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="w-full max-w-sm rounded-2xl bg-surface p-6 shadow-lg">
-        <h2 className="text-xl font-semibold">{title}</h2>
-        {description ? <p className="mt-2 text-text-muted">{description}</p> : null}
-        <div className="mt-6 flex gap-3">
+    <Modal
+      open={open}
+      title={title}
+      onClose={onCancel}
+      size="sm"
+      footer={
+        <>
           <Button variant="secondary" size="lg" className="flex-1" onClick={onCancel}>
-            {cancelLabel}
+            {cancelLabel ?? t("common.cancel")}
           </Button>
-          <Button variant={variant} size="lg" className="flex-1" onClick={onConfirm}>
-            {confirmLabel}
+          <Button variant={variant === "danger" ? "dangerSolid" : "primary"} size="lg" className="flex-1" onClick={onConfirm}>
+            {confirmLabel ?? t("common.yes")}
           </Button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      {description ? <p className="-mt-2 text-[15px] leading-relaxed text-text-muted">{description}</p> : null}
+    </Modal>
   );
 }

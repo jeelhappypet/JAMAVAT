@@ -1,18 +1,27 @@
-import type { OrderDTO, OrderItemDTO } from "@/types";
+import type { OrderDTO, OrderItemDTO, OrderItemStatus, OrderStatus } from "@/types";
 
-interface OrderLean {
+export interface OrderItemLean {
+  menuItemId: unknown;
+  nameSnapshot: string;
+  nameGuSnapshot?: string;
+  categoryId?: unknown;
+  categorySnapshot: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  status?: string;
+}
+
+export interface OrderLean {
   _id: unknown;
   tokenNumber: number;
   businessDate: string;
+  source?: string;
+  seatCode?: string;
+  guestEmail?: string;
+  note?: string;
   customerName?: string;
-  items: Array<{
-    menuItemId: unknown;
-    nameSnapshot: string;
-    categorySnapshot: string;
-    quantity: number;
-    unitPrice: number;
-    lineTotal: number;
-  }>;
+  items: OrderItemLean[];
   totalAmount: number;
   status: string;
   createdAt: Date;
@@ -21,24 +30,39 @@ interface OrderLean {
   cancelledAt?: Date;
 }
 
+/** v1 orders have no per-item status — it follows the order's own status. */
+export function itemStatus(item: OrderItemLean, orderStatus: string): OrderItemStatus {
+  if (item.status === "READY" || item.status === "PENDING") return item.status;
+  return orderStatus === "PENDING" ? "PENDING" : "READY";
+}
+
+export function serializeOrderItem(item: OrderItemLean, orderStatus: string): OrderItemDTO {
+  return {
+    menuItemId: String(item.menuItemId),
+    nameSnapshot: item.nameSnapshot,
+    nameGuSnapshot: item.nameGuSnapshot || undefined,
+    categoryId: item.categoryId ? String(item.categoryId) : undefined,
+    categorySnapshot: item.categorySnapshot,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    lineTotal: item.lineTotal,
+    status: itemStatus(item, orderStatus),
+  };
+}
+
 export function serializeOrder(doc: OrderLean): OrderDTO {
   return {
     id: String(doc._id),
     tokenNumber: doc.tokenNumber,
     businessDate: doc.businessDate,
+    source: doc.source === "QR" ? "QR" : "COUNTER",
+    seatCode: doc.seatCode || undefined,
+    guestEmail: doc.guestEmail || undefined,
+    note: doc.note || undefined,
     customerName: doc.customerName || undefined,
-    items: doc.items.map(
-      (item): OrderItemDTO => ({
-        menuItemId: String(item.menuItemId),
-        nameSnapshot: item.nameSnapshot,
-        categorySnapshot: item.categorySnapshot as OrderItemDTO["categorySnapshot"],
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        lineTotal: item.lineTotal,
-      })
-    ),
+    items: doc.items.map((item) => serializeOrderItem(item, doc.status)),
     totalAmount: doc.totalAmount,
-    status: doc.status as OrderDTO["status"],
+    status: doc.status as OrderStatus,
     createdAt: doc.createdAt.toISOString(),
     readyAt: doc.readyAt?.toISOString(),
     completedAt: doc.completedAt?.toISOString(),

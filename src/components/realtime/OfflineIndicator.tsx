@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 export function OfflineIndicator() {
+  const { t } = useI18n();
   const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
@@ -24,7 +26,7 @@ export function OfflineIndicator() {
 
   return (
     <div className="w-full bg-danger text-white text-center text-sm font-medium py-1.5 px-3">
-      તમે ઓફલાઇન છો — ડેટા સેવ થશે નહીં, જોડાણ પાછું આવે ત્યાં સુધી રાહ જુઓ
+      {t("common.offline")}
     </div>
   );
 }
