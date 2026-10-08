@@ -9,14 +9,14 @@ persistence, Pusher realtime, Gmail SMTP for guest email.
 
 ## 1. Overview
 
-- Counter creates an order in **New order** → kitchens see their part on
-  `/kitchen` → each kitchen marks its items ready → the counter serves and
-  closes it on `/counter` → owner reviews stats at `/developer`.
-- QR dine-in (§8b): guest scans `/t/{token}` → menu → cart + cooking note →
-  email OTP (once per phone) → order waits on `/counter` for Accept/Reject →
-  accepted orders split to kitchens like counter orders → the guest's phone
-  shows live status. Each QR serves one guest at a time until the counter
-  frees it (Phase 4 adds settle + thank-you email).
+- Parcel: counter creates it in **New parcel** → kitchens see their part on
+  `/kitchen` → each marks its items done → the order completes (paid at
+  order). Owner reviews `/today` and `/reports`.
+- QR dine-in (§8b, §8c): guest scans `/t/{token}` → menu → cart + cooking
+  note → email OTP (once per sitting) → straight to the kitchens → "served
+  in a few minutes" on the phone. The table stays taken (one guest per QR)
+  until the counter settles the bill on the seat page, which frees the QR
+  and emails the thank-you bill.
 - Staff log in once per device with their name + a 4-digit PIN and stay
   logged in until they log out (see §8). Home (`/`) shows only the tiles the
   staff member's role may open: Counter → નવો ઓર્ડર/ચાલુ ઓર્ડર, Kitchen →
@@ -46,7 +46,8 @@ src/
 ├── app/
 │   ├── (shell)/                  new-design staff screens sharing StaffHeader:
 │   │                              page.tsx (home cards), staff/, settings/, menu/,
-│   │                              counter/ (accept/serve/free QRs), tables/ (+ print/)
+│   │                              counter/ (seats, orders, menu), today/, reports/, tables/ (+ print/)
+│   ├── (focus)/counter/seat/[id]/ seat page — settle bill (own header, no tabs)
 │   ├── t/[token]/                 guest QR page (public, noindex)
 │   ├── kitchen/                   kitchen screen
 │   ├── login/ setup/             PIN login, first-run setup (restaurant + admin)
@@ -61,9 +62,8 @@ src/
 │       ├── orders/route.ts                    POST (create)
 │       ├── orders/live/route.ts                GET
 │       ├── orders/pending/route.ts             GET
-│       ├── orders/[id]/complete/route.ts       PATCH
 │       ├── orders/[id]/cancel/route.ts         PATCH
-│       ├── orders/[id]/{accept,reject}/route.ts PATCH (QR orders)
+│       ├── seats/[id]/settle, reports/{today,month}
 │       ├── guest/{state,menu,orders,forget,otp/send,otp/verify}  public guest APIs
 │       ├── tables/…, seats/[id]/{free,qr}       tables + seat QRs
 │       └── developer/stats/route.ts
@@ -120,9 +120,9 @@ until it's replaced. The live database is `JAMAVATDATA`; development uses
 `customerName?`, `items[]` (menuItemId + **snapshot** of name/category/price
 at order time, `categoryId` for routing, quantity, lineTotal, and a
 per-item `status` PENDING/READY), `totalAmount`, `status`
-(`PLACED`/`PENDING`/`READY`/`COMPLETED`/`CANCELLED`/`REJECTED`), `source`
+(`PENDING`/`READY`/`COMPLETED`/`CANCELLED`), `source`
 (`COUNTER`/`QR`), `clientRequestId` (idempotency key),
-`createdAt`/`acceptedAt`/`readyAt`/`completedAt`/`cancelledAt`/`rejectedAt`.
+`createdAt`/`readyAt`/`completedAt`/`cancelledAt`.
 QR orders also carry `seatId`, `seatCode` ("4A"), `guestSessionId`,
 `guestEmail` and an optional `note` (≤ 200 chars, the cooking note). Indexes:
 `{businessDate, status}`, unique `{businessDate, tokenNumber}`,
@@ -183,13 +183,13 @@ signed guest cookie (§8b).
 | POST | `/api/pusher/auth` | any staff | signs the private realtime channel subscription |
 | POST | `/api/orders` | counter | create order, idempotent on `clientRequestId` |
 | GET | `/api/orders/next-token` | counter | next token preview |
-| GET | `/api/orders/live` | counter | today's `PLACED` + `PENDING` + `READY` orders |
+| GET | `/api/orders/live` | counter | cooking orders + those finished in the last 30 min |
 | GET | `/api/orders/pending` | kitchen | the caller's tickets: only items in its categories still PENDING, plus how many are left on other screens |
 | PATCH | `/api/orders/[id]/ready` | kitchen | marks the caller's items READY; the order turns READY when no item anywhere is PENDING |
-| PATCH | `/api/orders/[id]/complete` | counter | atomic `(PENDING\|READY) → COMPLETED` |
 | PATCH | `/api/orders/[id]/cancel` | counter | atomic `(PENDING\|READY) → CANCELLED` |
-| PATCH | `/api/orders/[id]/accept` | counter | QR order `PLACED → PENDING` (now kitchens see it) |
-| PATCH | `/api/orders/[id]/reject` | counter | `PLACED → REJECTED`; frees the QR if it was the guest's only order |
+| GET | `/api/seats/[id]` | counter | seat page: the sitting's orders + kitchen names |
+| POST | `/api/seats/[id]/settle` | counter | bill (discount, payment mode), complete orders, free QR, thank-you email |
+| GET | `/api/reports/today?range=` / `/api/reports/month?month=` | admin | Today page / monthly report |
 | GET/POST | `/api/tables` | GET counter, POST admin | tables with seats + who holds each QR / create table with N seats |
 | PATCH/DELETE | `/api/tables/[id]` | admin | rename, area, hide / delete (refused while a QR is in use) |
 | POST | `/api/tables/[id]/seats` | admin | add the next side (C, D…) |
@@ -200,48 +200,35 @@ signed guest cookie (§8b).
 | GET | `/api/guest/menu?token=` | public | active menu tree |
 | POST | `/api/guest/otp/send`, `/otp/verify` | public | email OTP (rate-limited) → guest cookie |
 | POST | `/api/guest/forget` | public | "not you?" — drops the verified email |
-| POST | `/api/guest/orders` | verified guest | place a QR order (`PLACED`), takes the QR lock atomically |
-| GET | `/api/developer/stats` | admin | aggregated stats |
+| POST | `/api/guest/orders` | verified guest | place a QR order (straight to the kitchens), takes the QR lock atomically |
 
 There's no `DELETE /api/menu/:id` — `isActive` soft-delete was chosen
 instead because orders reference `menuItemId`, and hiding an item from new
 orders shouldn't touch history.
 
-## 6. Order Lifecycle & Token Generation
+## 6. Order Lifecycle, Settle & Token Generation
 
-`PENDING → READY → COMPLETED`, or `(PENDING|READY) → CANCELLED`,
-server-controlled only. QR orders start one step earlier: `PLACED` (waiting
-for the counter) → `PENDING` on Accept, or `PLACED → REJECTED`. Kitchens
-never see `PLACED` orders, and a ticket's age clock starts at `acceptedAt`. This is a deliberate 4-status model (not the
-original 3-status PENDING/COMPLETED/CANCELLED) added after real kitchen
-use: the kitchen's job is only to say "I've cooked it" (`READY`), not to
-decide an order is fully done — that's the counter's call once it's
-actually served. Consequences of this split:
+`PENDING → READY → COMPLETED`, or `(PENDING|READY) → CANCELLED`, server
+controlled only. There is **no counter approval and no "served" step**
+(the owner's call, 2026-10-07):
 
-- **Kitchen (Pending Order) has exactly one action** — mark ready. No
-  cancel button at all; cancellation authority belongs entirely to the
-  counter. Marking ready removes the order from the kitchen's own queue
-  (`/api/orders/pending`, `status: PENDING` only) but must never remove it
-  from the counter's queue.
-- **Counter (Live Order) queries `PENDING` and `READY` together**
-  (`/api/orders/live`) and keeps both complete and cancel actions on
-  either status. An order only ever leaves the counter's screen when the
-  counter itself completes or cancels it — kitchen's `ready` action changes
-  its badge (બની રહ્યું છે → તૈયાર છે) in place, never removes it.
+- Every order — counter parcel, guest QR, counter "Add item" for a seat —
+  is created `PENDING` and shows on the kitchen screens at once.
+- Each kitchen marks **its** items done; whoever marks the last pending
+  item finishes the order atomically. A **parcel** becomes `COMPLETED`
+  right away (paid when ordering); a **table's** order becomes `READY` and
+  stays on that seat's bill. Done orders leave the kitchen screens.
+- The counter's Orders tab shows what's cooking plus what finished in the
+  last 30 minutes (to call a token / carry food out) — read-only except
+  Cancel.
+- A table closes only when the counter **settles** it (§8c). Cancelling a
+  guest's last open order frees the QR (nothing left to pay).
 
-Every transition uses an atomic `findOneAndUpdate` filtered by the
-statuses it's allowed to start from (e.g. complete/cancel match
-`{status: {$in: ["PENDING","READY"]}}`) — if another request already
-moved the order, this matches zero documents and the route returns `409`
-with a Gujarati "already processed" message. This is what makes
-double-tap-complete, ready-after-cancel, etc. safe (verified in testing —
-see §12).
-
-Token numbers come from the `Counter` doc for the current Asia/Kolkata
-business date, incremented atomically. `POST /api/orders` also de-dupes on
-`clientRequestId`: if the same id already produced an order, the existing
-order is returned instead of creating a second one — this is what makes a
-double-swipe (or a retried request after a flaky network) safe.
+Every transition is a `findOneAndUpdate` filtered by the statuses it may
+start from; a lost race matches nothing and returns `409`. Token numbers
+come from the per-business-date `Counter` doc; bill numbers from the
+`Counter` doc `_id: "bill"` (they never reset). `POST /api/orders` and
+`POST /api/guest/orders` de-dupe on `clientRequestId`.
 
 ## 7. Realtime
 
@@ -250,15 +237,16 @@ restaurant in the multi-restaurant phase). Private means pusher-js must get
 a signature from `/api/pusher/auth`, which requires a staff session — guests
 and logged-out browsers can't listen to order events.
 
-Events: `order:created`, `order:placed` (new QR order for the counter),
-`order:accepted`, `order:rejected`, `order:items-ready` (one kitchen
+Events: `order:created`, `order:items-ready` (one kitchen
 finished its part), `order:ready` (whole order), `order:completed`,
 `order:cancelled`, `seat:updated`, `menu:updated`, `staff:routing-updated`,
 `admin:stats-updated`.
 
-Guests are not on the private channel: the guest page polls its own state
-(every 5s while an order is active, 20s otherwise, only while the tab is
-visible) and the menu every 60s.
+Guests are not on the private channel. Each QR has a public channel
+`seat-{token}` (the token is the secret printed in the QR); the server sends
+an empty `guest:update` there when the counter changes that table (cancel,
+add item, settle, free) and the phone refetches its own state. Without
+Pusher the guest page polls every 10–30 s; the menu refreshes every 2 min.
 
 - `emitRealtimeEvent()` is **awaited** after the DB write: on Vercel a
   function can be frozen right after it responds, so a fire-and-forget
@@ -316,29 +304,53 @@ not a default to tighten later.
 ## 8b. Guest QR flow
 
 - **QR = seat token.** `/t/{token}` resolves the Seat; an unknown or
-  regenerated token shows "This QR isn't active". The page is
-  `noindex`, outside the staff proxy, and its tab title is the restaurant.
-- **Guest cookie** `jamavat_guest` = HMAC-signed `{did, email?}` (key
-  derived from `ADMIN_SESSION_SECRET`). `did` identifies the phone; `email`
-  is set only after OTP. "Remember this phone" keeps it 30 days, otherwise
-  it's a session cookie.
-- **Email OTP**: 6 digits, stored as an HMAC hash, valid 10 minutes, max 5
-  wrong tries, 30s between sends and 5 sends/hour per email. Sent through
-  `lib/mail.ts` (Gmail SMTP). Without SMTP settings, development returns
-  the code to the screen (`devCode`) and production refuses (`MAIL_DOWN`).
+  regenerated token shows "This QR isn't active". `noindex`, outside the
+  staff proxy, tab title = restaurant.
+- **Guest cookie** `jamavat_guest` = HMAC-signed `{did, email?, vt?}`
+  (12 h). `did` identifies the phone (the QR lock belongs to it); `email`
+  + `vt` (verified-at) come from the OTP.
+- **Verification lasts one sitting** (`lib/guest/verified.ts`): valid while
+  the phone holds an open sitting, or within 6 h of the OTP if no sitting
+  of that phone was closed since. Once the table is settled or freed the
+  next order needs a fresh OTP, the state API strips the email from the
+  cookie, and the page clears the cart and note — the next person on that
+  QR (or phone) sees nothing of the last guest. The "thank you" screen
+  after settling shows for 15 min and carries no email or amount.
+- **Email OTP**: 6 digits, HMAC-hashed, 10 min, 5 tries, 30 s between
+  sends, 5 sends/hour per email; Gmail SMTP via `lib/mail.ts`.
 - **QR lock**: the first order takes `Seat.currentSessionId` with one
-  conditional `findOneAndUpdate` (free, or already this guest's session).
-  A second phone on the same QR gets `409 SEAT_TAKEN` and the "already in
-  use" screen (it can still browse the menu). The lock ends when the
-  counter frees the QR, when the counter rejects a session's only order,
-  and (Phase 4) on settle. After that the old phone's orders drop out of
-  view and the next guest starts fresh.
-- Guest orders reuse `lib/orders/build.ts` with the counter route, so
-  hidden/sold-out dishes and prices are checked the same way; orders are
-  idempotent on `clientRequestId`.
-- The cart lives in `localStorage` (`jamavat:cart:{token}`); each step
-  (menu → cart → verify → status) is a history entry so the phone's back
-  button works.
+  conditional update; a second phone gets `409 SEAT_TAKEN` and the "already
+  in use" screen (which names the table's other sides, e.g. 4B).
+- **After ordering** the guest sees "served at your table in a few minutes"
+  (no step-by-step status), their orders and the running total.
+- **Live updates**: the page listens on the public Pusher channel
+  `seat-{token}` and refetches on `guest:update` (sent by cancel, add item,
+  settle and free — no data in the message). Polling (10–30 s) only when
+  Pusher isn't connected.
+- **Menu screen**: header, search, menu tabs and category chips are fixed;
+  only the dish list scrolls (scroll-spy highlights the current chip).
+
+## 8c. Settle, bills and reports
+
+- Counter → seat tile → **seat page** (`/counter/seat/{id}`, Settle
+  artboard): every order of the sitting with its kitchen, "Add item"
+  (opens New parcel in seat mode), discount, payment mode (Cash/UPI/Card),
+  thank-you email toggle, **Settle & free table**, or "Free QR" without a
+  bill.
+- `POST /api/seats/{id}/settle` closes the sitting atomically (a double tap
+  bills once), writes a `Bill` (lines merged per dish, items total,
+  discount, total, payment mode), marks the orders `COMPLETED`, frees the
+  QR, sends the thank-you email (`lib/billEmail.ts`, Email artboard; a mail
+  failure never undoes the payment) and nudges the guest phone.
+- **Reports** (`lib/reports.ts`): sales = settled bills (after discount) +
+  parcel orders. `/today` (Today / Yesterday / Last 7 days / This month,
+  vs the previous equal period, orders by hour, sales by menu, payment
+  mode, top dishes, last 7 days) and `/reports` (month, day by day). One
+  query for the whole date span with a field projection; screens reload at
+  most every 5–10 s on realtime nudges.
+- **QR stickers** (`lib/qrSticker.ts`): 62 × 88 mm SVG with a 44 mm QR,
+  restaurant name, "TABLE · ટેબલ" and the seat code — the per-seat download
+  and the A4 print sheet (9 per page) use the same sticker.
 
 ## 8a. Design system & language
 
