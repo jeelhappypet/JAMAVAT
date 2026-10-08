@@ -7,7 +7,7 @@ export function InvalidQr({ restaurantName }: { restaurantName: string }) {
   const { t } = useI18n();
   return (
     <div className="flex min-h-full w-full max-w-[480px] flex-col bg-background">
-      <GuestHeader restaurantName={restaurantName} />
+      <GuestHeader restaurantName={restaurantName} showLang />
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16 text-center">
         <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-light text-brand">
           <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

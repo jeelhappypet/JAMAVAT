@@ -18,7 +18,7 @@ interface GuestAppProps {
   initialState: GuestStateDTO;
 }
 
-const FINAL = new Set(["COMPLETED", "CANCELLED", "REJECTED"]);
+const FINAL = new Set(["COMPLETED", "CANCELLED"]);
 
 /**
  * The guest's whole QR flow on one page (menu → cart → email OTP → status),
@@ -30,6 +30,8 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
   const [menus, setMenus] = useState(initialMenus);
   const [state, setState] = useState(initialState);
   const [view, setView] = useState<GuestView>(() => {
+    // Just paid (or the counter closed the table): thank them before anything else.
+    if (initialState.ended && initialState.lock !== "mine") return "status";
     if (initialState.lock === "taken") return "busy";
     return initialState.orders.some((order) => !FINAL.has(order.status)) ? "status" : "menu";
   });
@@ -39,9 +41,12 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
   const [placing, setPlacing] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
   const clientRequestId = useRef<string>(crypto.randomUUID());
-  // Lets the status screen say "your table was closed" instead of looking empty.
-  const [hadOrders, setHadOrders] = useState(initialState.orders.length > 0);
+  const stateRef = useRef(initialState);
   const cartKey = `jamavat:cart:${token}`;
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // ---- navigation: each step is a history entry, so the phone's back button works
   const go = useCallback((next: GuestView) => {
@@ -83,7 +88,8 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
     const res = await fetch(`/api/guest/state?token=${encodeURIComponent(token)}`, { cache: "no-store" });
     if (!res.ok) return;
     const next: GuestStateDTO = await res.json();
-    if (next.orders.length > 0) setHadOrders(true);
+    // The counter settled (or freed) this guest's table while they were looking — show the thank-you.
+    if (next.ended && !stateRef.current.ended && stateRef.current.lock === "mine") setView("status");
     setState(next);
   }, [token]);
 
@@ -234,7 +240,7 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
     );
   }
   if (view === "status") {
-    return <GuestStatusView {...common} menus={menus} sessionEnded={hadOrders && state.orders.length === 0} onOrderMore={() => go("menu")} />;
+    return <GuestStatusView {...common} menus={menus} onOrderMore={() => go("menu")} />;
   }
   return (
     <GuestMenuView

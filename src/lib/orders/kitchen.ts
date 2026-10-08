@@ -41,8 +41,7 @@ export async function getKitchenTickets(scope: KitchenScope): Promise<KitchenTic
       customerName: order.customerName || undefined,
       seatCode: order.seatCode || undefined,
       note: order.note || undefined,
-      // Kitchens start the clock when the counter sends it, not when the guest tapped "Place".
-      createdAt: (order.acceptedAt ?? order.createdAt).toISOString(),
+      createdAt: order.createdAt.toISOString(),
       items: mine.map((item) => serializeOrderItem(item, order.status)),
       otherPendingCount: pending.length - mine.length,
     });

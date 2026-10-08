@@ -22,8 +22,8 @@ export function RealtimeStatus({ state, tone = "light" }: { state: RealtimeConne
   const { t } = useI18n();
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold ${
-        tone === "dark" ? "bg-stone-800 text-stone-200" : "bg-surface-muted text-stone-700"
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs ${
+        tone === "dark" ? "bg-stone-800 font-semibold text-stone-200" : "bg-surface-muted font-bold text-stone-700"
       }`}
     >
       <span className={`h-2 w-2 rounded-full ${state === "connected" && tone === "dark" ? "bg-green-400" : DOT_CLASS[state]}`} aria-hidden />

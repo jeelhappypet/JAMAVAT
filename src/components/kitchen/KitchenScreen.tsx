@@ -1,16 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { LoadingState } from "@/components/ui/LoadingState";
-import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
-import { AccountMenu } from "@/components/shell/AccountMenu";
+import { AccountMenu, logoutThisDevice } from "@/components/shell/AccountMenu";
+import { SoldOutList, withSoldOut } from "@/components/menu/SoldOutList";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
-import { POLL_MS, SAFETY_RESYNC_MS } from "@/lib/orders/useActiveOrders";
-import { playNewOrderBeep, unlockSound } from "@/lib/utils/beep";
+import { POLL_MS, SAFETY_RESYNC_MS } from "@/lib/realtime/polling";
+import { playNewOrderBeep } from "@/lib/utils/beep";
+import { KITCHEN_SOUND, useSoundPref, useUnlockSoundOnFirstTap } from "@/lib/utils/soundPref";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { localName } from "@/lib/i18n/messages";
 import type { KitchenScopeDTO, KitchenTicketDTO, MenuDTO, StaffRole } from "@/types";
@@ -18,14 +18,12 @@ import type { KitchenScopeDTO, KitchenTicketDTO, MenuDTO, StaffRole } from "@/ty
 interface KitchenScreenProps {
   staffName: string;
   role: StaffRole;
-  restaurantName: string | null;
 }
 
 const LATE_AFTER_MINUTES = 12;
-const SOUND_KEY = "jamavat:kitchen-sound";
 
 /** The Kitchen artboard: only this login's categories, one ticket per order, sold-out switches on the side. */
-export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreenProps) {
+export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
   const { t, lang } = useI18n();
   const [tickets, setTickets] = useState<KitchenTicketDTO[]>([]);
   const [scope, setScope] = useState<KitchenScopeDTO | null>(null);
@@ -33,9 +31,11 @@ export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreen
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [soundOn, setSoundOn] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [soundOn, toggleSound] = useSoundPref(KITCHEN_SOUND);
   const knownIds = useRef<Set<string> | null>(null);
-  const soundRef = useRef(false);
+  const soundRef = useRef(soundOn);
+  useUnlockSoundOnFirstTap();
 
   const loadTickets = useCallback(async () => {
     try {
@@ -74,11 +74,6 @@ export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreen
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
     resync();
-    try {
-      if (localStorage.getItem(SOUND_KEY) === "on") setSoundOn(true);
-    } catch {
-      // storage blocked — sound just starts off
-    }
   }, [resync]);
 
   useEffect(() => {
@@ -88,7 +83,6 @@ export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreen
   const { state } = useRealtime(
     {
       [REALTIME_EVENTS.ORDER_CREATED]: loadTickets,
-      [REALTIME_EVENTS.ORDER_ACCEPTED]: loadTickets,
       [REALTIME_EVENTS.ORDER_ITEMS_READY]: loadTickets,
       [REALTIME_EVENTS.ORDER_READY]: loadTickets,
       [REALTIME_EVENTS.ORDER_CANCELLED]: loadTickets,
@@ -110,17 +104,6 @@ export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreen
     return () => clearInterval(interval);
   }, []);
 
-  async function toggleSound() {
-    const next = !soundOn;
-    if (next) await unlockSound();
-    setSoundOn(next);
-    try {
-      localStorage.setItem(SOUND_KEY, next ? "on" : "off");
-    } catch {
-      // not persisted — fine
-    }
-  }
-
   async function markReady(orderId: string) {
     setError(null);
     setTickets((prev) => prev.filter((ticket) => ticket.orderId !== orderId));
@@ -135,15 +118,7 @@ export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreen
 
   async function toggleSoldOut(itemId: string, soldOut: boolean) {
     setError(null);
-    setMenus((prev) =>
-      prev.map((menu) => ({
-        ...menu,
-        categories: menu.categories.map((category) => ({
-          ...category,
-          items: category.items.map((item) => (item.id === itemId ? { ...item, isAvailable: !soldOut } : item)),
-        })),
-      }))
-    );
+    setMenus((prev) => withSoldOut(prev, itemId, soldOut));
     const res = await fetch(`/api/menu/items/${itemId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -186,18 +161,8 @@ export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreen
     <div className="flex min-h-full flex-1 flex-col bg-surface-muted">
       <header className="bg-stone-900 text-white">
         <div className="mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-5 gap-y-3 px-[clamp(16px,3vw,32px)] py-3.5">
-          {role === "ADMIN" ? (
-            <Link href="/" aria-label={t("nav.home")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-stone-600 text-white">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />
-              </svg>
-            </Link>
-          ) : null}
           <div className="flex min-w-0 flex-grow flex-col gap-0.5">
-            <span className="text-xs font-bold tracking-wide text-orange-300">
-              {t("kitchen.eyebrow")}
-              {restaurantName ? ` · ${restaurantName}` : ""}
-            </span>
+            <span className="text-xs font-bold tracking-wide text-orange-300">{t("kitchen.eyebrow")}</span>
             <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
           </div>
 
@@ -214,20 +179,24 @@ export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreen
 
           <div className="flex flex-wrap items-center gap-2">
             <RealtimeStatus state={state} tone="dark" />
+            <AccountMenu
+              name={staffName}
+              role={role}
+              variant="plain"
+              sound={{ on: soundOn, toggle: toggleSound }}
+              links={role === "ADMIN" ? [{ href: "/today", label: "account.openAdmin" }, { href: "/counter", label: "account.openCounter" }] : []}
+            />
             <button
               type="button"
-              onClick={toggleSound}
-              aria-pressed={soundOn}
-              className={`flex h-11 items-center gap-2 rounded-xl border px-3 text-sm font-bold ${soundOn ? "border-orange-300 text-orange-200" : "border-stone-600 text-stone-300"}`}
+              disabled={loggingOut}
+              onClick={() => {
+                setLoggingOut(true);
+                void logoutThisDevice();
+              }}
+              className="h-10 rounded-[10px] border border-stone-600 bg-transparent px-3.5 text-sm font-semibold text-white disabled:opacity-60"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M11 5 6 9H3v6h3l5 4V5Z" />
-                {soundOn ? <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" /> : <path d="m22 9-6 6M16 9l6 6" />}
-              </svg>
-              {soundOn ? t("kitchen.soundOn") : t("kitchen.soundOff")}
+              {loggingOut ? t("account.loggingOut") : t("account.logout")}
             </button>
-            <LanguageToggle />
-            <AccountMenu name={staffName} role={role} />
           </div>
         </div>
       </header>
@@ -292,7 +261,9 @@ export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreen
                         <div className="rounded-[10px] bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900">{t("kitchen.note", { note: ticket.note })}</div>
                       ) : null}
                       {ticket.otherPendingCount > 0 ? (
-                        <span className="text-[13px] text-text-muted">{t("kitchen.otherScreens", { n: ticket.otherPendingCount })}</span>
+                        <span className="text-[13px] text-text-muted">
+                          {ticket.otherPendingCount === 1 ? t("kitchen.otherScreensOne") : t("kitchen.otherScreens", { n: ticket.otherPendingCount })}
+                        </span>
                       ) : null}
                       <button
                         type="button"
@@ -317,25 +288,7 @@ export function KitchenScreen({ staffName, role, restaurantName }: KitchenScreen
                 <h2 className="text-base font-extrabold">{t("kitchen.soldOutTitle")}</h2>
                 <span className="text-[13px] text-text-muted">{t("kitchen.soldOutHint")}</span>
               </div>
-              {soldOutGroups.map(({ category, menu }) => (
-                <div key={category.id} className="flex flex-col">
-                  <span className="pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-text-muted">
-                    {menus.length > 1 ? `${localName(lang, menu.name, menu.nameGu)} · ` : ""}
-                    {localName(lang, category.name, category.nameGu)}
-                  </span>
-                  {category.items.map((item) => (
-                    <label key={item.id} className="flex min-h-11 items-center justify-between gap-2.5 border-b border-stone-100 px-1 text-[15px] font-semibold">
-                      <span className={item.isAvailable ? "" : "text-danger line-through decoration-2"}>{localName(lang, item.name, item.nameGu)}</span>
-                      <input
-                        type="checkbox"
-                        checked={!item.isAvailable}
-                        onChange={(e) => toggleSoldOut(item.id, e.target.checked)}
-                        className="h-[22px] w-[22px] accent-[#c2410c]"
-                      />
-                    </label>
-                  ))}
-                </div>
-              ))}
+              <SoldOutList groups={soldOutGroups} showMenuName={menus.length > 1} onToggle={toggleSoldOut} />
             </aside>
           ) : null}
         </div>

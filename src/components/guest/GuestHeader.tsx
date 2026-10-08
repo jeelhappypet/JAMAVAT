@@ -13,9 +13,11 @@ interface GuestHeaderProps {
   title?: string;
   onBack?: () => void;
   trailing?: ReactNode;
+  /** Only the menu (and the dead-QR page) carry the EN/ગુ switch, as in the artboards. */
+  showLang?: boolean;
 }
 
-export function GuestHeader({ restaurantName, subtitle, title, onBack, trailing }: GuestHeaderProps) {
+export function GuestHeader({ restaurantName, subtitle, title, onBack, trailing, showLang = false }: GuestHeaderProps) {
   const { t } = useI18n();
   return (
     <header className="sticky top-0 z-20 flex shrink-0 items-center gap-2.5 border-b border-border bg-surface px-4 py-3">
@@ -33,7 +35,7 @@ export function GuestHeader({ restaurantName, subtitle, title, onBack, trailing 
         <span className="truncate text-[17px] font-extrabold tracking-tight">{title ?? restaurantName}</span>
         {subtitle ? <span className="truncate text-[13px] text-text-muted">{subtitle}</span> : null}
       </div>
-      {trailing ?? <LanguageToggle />}
+      {trailing ?? (showLang ? <LanguageToggle /> : null)}
     </header>
   );
 }

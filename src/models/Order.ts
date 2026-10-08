@@ -34,11 +34,9 @@ const orderSchema = new Schema(
     totalAmount: { type: Number, required: true, min: 0 },
     status: { type: String, required: true, enum: ORDER_STATUSES, default: "PENDING" },
     clientRequestId: { type: String },
-    acceptedAt: { type: Date },
     readyAt: { type: Date },
     completedAt: { type: Date },
     cancelledAt: { type: Date },
-    rejectedAt: { type: Date },
   },
   { timestamps: true }
 );

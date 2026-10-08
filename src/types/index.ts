@@ -5,8 +5,8 @@
  */
 export const LEGACY_MENU_CATEGORIES = ["શાક", "રોટલી", "મીઠાઈ", "અન્ય"] as const;
 
-/** PLACED = a guest's QR order waiting for the counter to accept (or REJECT) it; kitchens never see it. */
-export const ORDER_STATUSES = ["PLACED", "PENDING", "READY", "COMPLETED", "CANCELLED", "REJECTED"] as const;
+/** QR and counter orders alike go straight to the kitchens as PENDING. COMPLETED = served (or settled). */
+export const ORDER_STATUSES = ["PENDING", "READY", "COMPLETED", "CANCELLED"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 /** Per-item kitchen status: each kitchen marks only its own items ready. */
@@ -38,6 +38,8 @@ export interface StaffLoginOption {
   id: string;
   name: string;
   role: StaffRole;
+  /** A kitchen login whose categories all sit in one menu shows as "Gujarati kitchen". */
+  station?: { name: string; nameGu?: string };
 }
 
 export interface MenuItemDTO {
@@ -45,6 +47,9 @@ export interface MenuItemDTO {
   categoryId: string;
   name: string;
   nameGu?: string;
+  description?: string;
+  descriptionGu?: string;
+  isBestseller: boolean;
   price: number;
   isVeg: boolean;
   /** Hidden from ordering entirely (admin's choice). */
@@ -83,24 +88,6 @@ export interface OrderItemDTO {
   status: OrderItemStatus;
 }
 
-export interface DateWiseStat {
-  businessDate: string;
-  orders: number;
-  completed: number;
-  cancelled: number;
-  revenue: number;
-}
-
-export interface DeveloperStats {
-  totalOrders: number;
-  completedOrders: number;
-  cancelledOrders: number;
-  pendingOrders: number;
-  todayOrders: number;
-  todayRevenue: number;
-  dateWise: DateWiseStat[];
-}
-
 export const ORDER_SOURCES = ["COUNTER", "QR"] as const;
 export type OrderSource = (typeof ORDER_SOURCES)[number];
 
@@ -119,11 +106,9 @@ export interface OrderDTO {
   totalAmount: number;
   status: OrderStatus;
   createdAt: string;
-  acceptedAt?: string;
   readyAt?: string;
   completedAt?: string;
   cancelledAt?: string;
-  rejectedAt?: string;
 }
 
 /** One order as a kitchen screen sees it: only that screen's items that still need cooking. */
@@ -154,7 +139,22 @@ export interface SeatDTO {
   token: string;
   isActive: boolean;
   /** Present while a guest holds this QR. */
-  session?: { id: string; email: string; openedAt: string; orderCount: number; total: number };
+  session?: SeatSessionDTO;
+}
+
+/**
+ * eating: food on the way or served · new: an order came in during the last
+ * few minutes · ready: something is cooked and waiting to be served.
+ */
+export type SeatState = "eating" | "new" | "ready";
+
+export interface SeatSessionDTO {
+  id: string;
+  email?: string;
+  openedAt: string;
+  orderCount: number;
+  total: number;
+  state: SeatState;
 }
 
 export interface TableDTO {
@@ -175,4 +175,85 @@ export interface GuestStateDTO {
   lock: SeatLock;
   /** This device's orders in its current sitting (only when lock is "mine"). */
   orders: OrderDTO[];
+  /** The other sides of this table ("4B") — the "already in use" screen points to them. */
+  otherSeats: string[];
+  /** This device's last sitting here just ended: settled (paid) or freed by the counter. */
+  ended?: { reason: "SETTLED" | "FREED"; total?: number; email?: string };
+}
+
+export const PAYMENT_MODES = ["CASH", "UPI", "CARD"] as const;
+export type PaymentMode = (typeof PAYMENT_MODES)[number];
+
+export interface BillLineDTO {
+  name: string;
+  nameGu?: string;
+  quantity: number;
+  amount: number;
+}
+
+export interface BillDTO {
+  id: string;
+  billNo: number;
+  seatCode: string;
+  email?: string;
+  lines: BillLineDTO[];
+  itemsTotal: number;
+  discount: number;
+  total: number;
+  paymentMode: PaymentMode;
+  settledAt: string;
+  emailStatus: "SENT" | "FAILED" | "SKIPPED";
+}
+
+/** Everything the counter's seat page (settle bill) needs. */
+export interface SeatDetailDTO {
+  seat: { id: string; code: string; label: string; tableName: string; area?: string };
+  session?: { id: string; email?: string; openedAt: string };
+  orders: OrderDTO[];
+}
+
+export const REPORT_RANGES = ["today", "yesterday", "week", "month"] as const;
+export type ReportRange = (typeof REPORT_RANGES)[number];
+
+export interface ReportKpi {
+  value: number;
+  /** Same figure for the previous period of equal length (yesterday, the week before…). */
+  previous: number;
+}
+
+export interface TodayReportDTO {
+  range: ReportRange;
+  from: string;
+  to: string;
+  sales: ReportKpi;
+  orders: ReportKpi & { dineIn: number; parcel: number };
+  averageBill: ReportKpi;
+  cancelled: ReportKpi;
+  /** Orders per hour of day (0–23, Asia/Kolkata). */
+  byHour: number[];
+  /** How many menus the restaurant has — "Sales by menu" only shows with two or more. */
+  menuCount: number;
+  byMenu: { name: string; nameGu?: string; amount: number }[];
+  byPayment: { mode: PaymentMode | "PARCEL"; amount: number }[];
+  topDishes: { name: string; nameGu?: string; menu?: string; menuGu?: string; quantity: number; amount: number }[];
+  lastDays: { date: string; orders: number; sales: number; cancelled: number }[];
+}
+
+export interface MonthReportDTO {
+  month: string;
+  sales: number;
+  orders: number;
+  dineIn: number;
+  parcel: number;
+  cancelled: number;
+  bills: number;
+  days: { date: string; orders: number; dineIn: number; parcel: number; sales: number; cancelled: number }[];
+}
+
+export interface RestaurantSettingsDTO {
+  name: string;
+  address?: string;
+  phone?: string;
+  /** "Rate us on Google" link in the thank-you email. */
+  reviewUrl?: string;
 }

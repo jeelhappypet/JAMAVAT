@@ -12,6 +12,9 @@ export interface EntityValues {
   price: string;
   isVeg: boolean;
   categoryId: string;
+  description: string;
+  descriptionGu: string;
+  isBestseller: boolean;
 }
 
 interface MenuEntityDialogProps {
@@ -42,6 +45,9 @@ export function MenuEntityDialog({ kind, mode, initial, categoryOptions = [], on
     price: initial.price ?? "",
     isVeg: initial.isVeg ?? true,
     categoryId: initial.categoryId ?? categoryOptions[0]?.id ?? "",
+    description: initial.description ?? "",
+    descriptionGu: initial.descriptionGu ?? "",
+    isBestseller: initial.isBestseller ?? false,
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -102,6 +108,19 @@ export function MenuEntityDialog({ kind, mode, initial, categoryOptions = [], on
                 </div>
               </fieldset>
             </div>
+            <label className={labelClass}>
+              {t("menu.description")}
+              <input type="text" maxLength={140} value={values.description} onChange={(e) => set("description", e.target.value)} className={inputClass} />
+            </label>
+            <label className={labelClass}>
+              {t("menu.descriptionGu")}
+              <input type="text" lang="gu" maxLength={140} value={values.descriptionGu} onChange={(e) => set("descriptionGu", e.target.value)} className={inputClass} />
+              <span className="text-[13px] font-normal text-text-muted">{t("menu.descriptionHint")}</span>
+            </label>
+            <label className="flex items-center gap-2.5 text-sm font-bold">
+              <input type="checkbox" checked={values.isBestseller} onChange={(e) => set("isBestseller", e.target.checked)} className="h-5 w-5 accent-[#c2410c]" />
+              {t("menu.bestseller")}
+            </label>
             {categoryOptions.length > 1 ? (
               <label className={labelClass}>
                 {t("menu.category")}

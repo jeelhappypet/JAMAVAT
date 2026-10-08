@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 import { OrderItemRow } from "./OrderItemRow";
 
 export interface OrderLine {
@@ -9,7 +12,8 @@ export interface OrderLine {
 }
 
 interface OrderSummaryProps {
-  tokenNumber?: number;
+  /** "Token 12" for a parcel, "Table 4A" when adding to a seat's bill. */
+  heading: string;
   lines: OrderLine[];
   totalAmount: number;
   onIncrement: (menuItemId: string) => void;
@@ -20,7 +24,7 @@ interface OrderSummaryProps {
 }
 
 export function OrderSummary({
-  tokenNumber,
+  heading,
   lines,
   totalAmount,
   onIncrement,
@@ -29,6 +33,8 @@ export function OrderSummary({
   onExpandedChange,
   footer,
 }: OrderSummaryProps) {
+  const { t } = useI18n();
+  const pieces = lines.reduce((sum, line) => sum + line.quantity, 0);
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 flex max-h-[75vh] flex-col rounded-t-3xl border-t border-border bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.12)] lg:sticky lg:top-6 lg:inset-x-auto lg:bottom-auto lg:max-h-[calc(100vh-3rem)] lg:rounded-3xl lg:border lg:shadow-sm">
       <button
@@ -37,9 +43,7 @@ export function OrderSummary({
         className="touch-target flex items-center gap-3 px-4 py-3 text-left"
         aria-expanded={expanded}
       >
-        <span className="min-w-0 flex-1 truncate text-lg font-bold">
-          ટોકન : {tokenNumber ?? "-"}
-        </span>
+        <span className="min-w-0 flex-1 truncate text-lg font-bold">{heading}</span>
         <span className="shrink-0 text-xl font-extrabold">₹{totalAmount}</span>
         <svg
           width="24"
@@ -60,7 +64,7 @@ export function OrderSummary({
       {expanded ? (
         <div className="flex-1 overflow-y-auto px-4">
           {lines.length === 0 ? (
-            <p className="py-6 text-center text-text-muted">આઇટમ પસંદ કરો</p>
+            <p className="py-6 text-center text-text-muted">{t("parcel.pickItems")}</p>
           ) : (
             <div className="divide-y divide-border">
               {lines.map((line) => (
@@ -82,8 +86,8 @@ export function OrderSummary({
       <div className="flex flex-col gap-4 border-t border-border p-4">
         {expanded ? null : (
           <div className="flex min-h-6 items-center justify-between gap-3 text-sm text-text-muted">
-            <span>{lines.length > 0 ? `${lines.length} આઇટમ` : "આઇટમ પસંદ કરો"}</span>
-            <span>{lines.reduce((sum, line) => sum + line.quantity, 0)} નંગ</span>
+            <span>{lines.length === 0 ? t("parcel.pickItems") : lines.length === 1 ? t("parcel.dishesOne") : t("parcel.dishes", { n: lines.length })}</span>
+            <span>{pieces === 1 ? t("parcel.piecesOne") : t("parcel.pieces", { n: pieces })}</span>
           </div>
         )}
         {footer}

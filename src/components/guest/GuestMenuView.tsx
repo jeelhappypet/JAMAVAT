@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GuestHeader } from "@/components/guest/GuestHeader";
 import { VegMark } from "@/components/menu/VegMark";
 import { useI18n } from "@/lib/i18n/I18nProvider";
@@ -39,13 +39,33 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
       .filter((section) => section.items.length > 0);
   }, [menu, q]);
 
+  const [activeCat, setActiveCat] = useState<string | undefined>(undefined);
+
+  // The chip for the section being read turns dark, like the artboard's first chip.
+  useEffect(() => {
+    if (!menu) return;
+    const ids = menu.categories.map((category) => `cat-${category.id}`);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible) setActiveCat(visible.target.id.slice(4));
+      },
+      { rootMargin: "-90px 0px -55% 0px" }
+    );
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [menu, q]);
+
   const subtitle = [t("guest.table", { code: state.seatCode }), state.area].filter(Boolean).join(" · ");
   const name = (entry: { name: string; nameGu?: string }) => localName(lang, entry.name, entry.nameGu);
   const other = (entry: { name: string; nameGu?: string }) => (lang === "gu" ? (entry.nameGu ? entry.name : undefined) : entry.nameGu);
 
   return (
     <div className="relative flex min-h-full w-full max-w-[480px] flex-col bg-background">
-      <GuestHeader restaurantName={restaurantName} subtitle={subtitle} />
+      <GuestHeader restaurantName={restaurantName} subtitle={subtitle} showLang />
 
       <main className="flex flex-1 flex-col gap-3.5 px-4 pb-28 pt-3.5">
         {readOnly ? (
@@ -99,11 +119,21 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
 
         {menu && !q && menu.categories.length > 1 ? (
           <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
-            {menu.categories.map((category) => (
-              <a key={category.id} href={`#cat-${category.id}`} className="shrink-0 whitespace-nowrap rounded-full border border-border bg-surface px-3.5 py-2 text-sm font-semibold text-foreground">
-                {name(category)}
-              </a>
-            ))}
+            {menu.categories.map((category) => {
+              const current = menu.categories.some((c) => c.id === activeCat) ? activeCat : menu.categories[0]?.id;
+              const on = current === category.id;
+              return (
+                <a
+                  key={category.id}
+                  href={`#cat-${category.id}`}
+                  onClick={() => setActiveCat(category.id)}
+                  aria-current={on ? "true" : undefined}
+                  className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-semibold ${on ? "border-stone-900 bg-stone-900 text-white" : "border-border bg-surface text-foreground"}`}
+                >
+                  {name(category)}
+                </a>
+              );
+            })}
           </div>
         ) : null}
 
@@ -117,10 +147,14 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
               const qty = cart[item.id] ?? 0;
               return (
                 <article key={item.id} className="flex gap-3 rounded-2xl border border-border bg-surface p-3.5">
-                  <div className="flex min-w-0 flex-grow flex-col gap-0.5">
-                    <VegMark isVeg={item.isVeg} label={item.isVeg ? t("menu.veg") : t("menu.nonVeg")} />
-                    <span className="mt-1 text-base font-bold leading-snug">{name(item)}</span>
+                  <div className="flex min-w-0 flex-grow flex-col gap-[3px]">
+                    <div className="flex items-center gap-2">
+                      <VegMark isVeg={item.isVeg} label={item.isVeg ? t("menu.veg") : t("menu.nonVeg")} />
+                      {item.isBestseller ? <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-800">{t("guest.bestseller")}</span> : null}
+                    </div>
+                    <span className="text-base font-bold leading-snug">{name(item)}</span>
                     {other(item) ? <span className="text-[13px] text-text-muted">{other(item)}</span> : null}
+                    {item.description ? <span className="text-[13px] leading-relaxed text-text-muted">{localName(lang, item.description, item.descriptionGu)}</span> : null}
                     <span className="mt-1 text-[15px] font-extrabold">₹{item.price}</span>
                   </div>
                   <div className="flex w-24 shrink-0 flex-col items-center justify-center">

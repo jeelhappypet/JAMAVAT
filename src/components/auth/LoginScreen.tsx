@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { PinPad } from "@/components/auth/PinPad";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { localName } from "@/lib/i18n/messages";
 import type { StaffLoginOption } from "@/types";
 
 interface LoginScreenProps {
@@ -21,7 +22,9 @@ function safeNext(next: string | undefined): string | undefined {
 const cardClass = "flex min-w-0 flex-[1_1_340px] flex-col rounded-3xl border border-border bg-surface p-7";
 
 export function LoginScreen({ restaurantName, staff, next, expired }: LoginScreenProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const roleLabel = (option: StaffLoginOption) =>
+    option.station ? t("login.station", { name: localName(lang, option.station.name, option.station.nameGu) }) : t(`role.${option.role}`);
   const [selectedId, setSelectedId] = useState<string | null>(staff.length === 1 ? staff[0].id : null);
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
@@ -94,14 +97,14 @@ export function LoginScreen({ restaurantName, staff, next, expired }: LoginScree
                     >
                       <span
                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-extrabold ${
-                          isSelected ? "bg-brand text-white" : "bg-stone-200"
+                          isSelected ? "bg-brand text-white" : s.role === "ADMIN" ? "bg-stone-900 text-white" : "bg-stone-200"
                         }`}
                       >
                         {s.name.charAt(0).toUpperCase()}
                       </span>
                       <span className="flex min-w-0 flex-col">
                         <span className="truncate text-[15px] font-bold">{s.name}</span>
-                        <span className="text-xs text-text-muted">{t(`role.${s.role}`)}</span>
+                        <span className="text-xs text-text-muted">{roleLabel(s)}</span>
                       </span>
                     </button>
                   );
@@ -124,7 +127,7 @@ export function LoginScreen({ restaurantName, staff, next, expired }: LoginScree
                 <div className="flex flex-col items-center gap-1 text-center">
                   <span className="text-sm text-text-muted">{t("login.as")}</span>
                   <span className="text-xl font-extrabold">
-                    {selected.name} · {t(`role.${selected.role}`)}
+                    {selected.name} · {roleLabel(selected)}
                   </span>
                 </div>
                 <PinPad value={pin} onChange={setPin} onComplete={submit} disabled={busy} />

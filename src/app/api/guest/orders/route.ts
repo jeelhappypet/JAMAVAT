@@ -14,9 +14,10 @@ import { getTranslator } from "@/lib/i18n/server";
 import { isDuplicateKeyError, jsonError, respond } from "@/lib/api";
 
 /**
- * A guest places an order from their QR. It lands as PLACED — only the
- * counter sees it until someone accepts it. The first order takes the QR's
- * lock for this device; another phone on the same QR is refused.
+ * A guest places an order from their QR. It goes straight to the kitchen
+ * screens (no counter approval). The first order takes the QR's lock for
+ * this device until the bill is settled; another phone on the same QR is
+ * refused.
  */
 export async function POST(request: Request) {
   const t = await getTranslator();
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
         note: note || undefined,
         items: built.items,
         totalAmount: built.totalAmount,
-        status: "PLACED",
+        status: "PENDING",
         clientRequestId,
       });
     } catch (error) {
@@ -87,9 +88,10 @@ export async function POST(request: Request) {
 
     const dto = serializeOrder(created.toObject());
     await Promise.all([
-      emitRealtimeEvent(REALTIME_EVENTS.ORDER_PLACED, { id: dto.id, seatCode: code, tokenNumber: dto.tokenNumber }),
-      lockedNow ? emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId: String(seat._id) }) : null,
-      emitRealtimeEvent(REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:placed" }),
+      emitRealtimeEvent(REALTIME_EVENTS.ORDER_CREATED, { id: dto.id, seatCode: code, tokenNumber: dto.tokenNumber }),
+      // The counter's seat grid shows the new order (and the newly taken QR) either way.
+      emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId: String(seat._id), taken: lockedNow }),
+      emitRealtimeEvent(REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:created" }),
     ]);
     return NextResponse.json(dto, { status: 201 });
   });

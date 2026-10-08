@@ -15,11 +15,11 @@ import { jsonError, respond } from "@/lib/api";
 type Params = { params: Promise<{ id: string }> };
 
 /**
- * Admin edits anything. A kitchen login may only flip "sold out"
- * (`isAvailable`) — and only for items in its own categories.
+ * Admin edits anything. Counter and kitchen logins may only flip "sold out"
+ * (`isAvailable`) — a kitchen only for items in its own categories.
  */
 export async function PATCH(request: Request, { params }: Params) {
-  const staff = await requireStaff(ROLES.kitchen);
+  const staff = await requireStaff(ROLES.anyStaff);
   if (staff instanceof NextResponse) return staff;
   const t = await getTranslator();
 
@@ -28,9 +28,11 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
     const patch = itemUpdateSchema.parse(await request.json());
 
-    if (staff.role === "KITCHEN") {
+    if (staff.role !== "ADMIN") {
       const onlyAvailability = Object.keys(patch).every((key) => key === "isAvailable");
       if (!onlyAvailability) return jsonError(t("err.noAccess"), 403);
+    }
+    if (staff.role === "KITCHEN") {
       const item = await MenuItem.findById(id).select({ categoryId: 1 }).lean<Pick<MenuItemDocument, "categoryId">>();
       const scope = await getKitchenScope(staff);
       if (!item || !scope.categoryIds.has(String(item.categoryId))) return jsonError(t("err.noAccess"), 403);

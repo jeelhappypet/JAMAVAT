@@ -25,17 +25,15 @@ export interface OrderLean {
   totalAmount: number;
   status: string;
   createdAt: Date;
-  acceptedAt?: Date;
   readyAt?: Date;
   completedAt?: Date;
   cancelledAt?: Date;
-  rejectedAt?: Date;
 }
 
 /** v1 orders have no per-item status — it follows the order's own status. */
 export function itemStatus(item: OrderItemLean, orderStatus: string): OrderItemStatus {
   if (item.status === "READY" || item.status === "PENDING") return item.status;
-  return orderStatus === "PENDING" || orderStatus === "PLACED" ? "PENDING" : "READY";
+  return orderStatus === "PENDING" ? "PENDING" : "READY";
 }
 
 export function serializeOrderItem(item: OrderItemLean, orderStatus: string): OrderItemDTO {
@@ -66,10 +64,8 @@ export function serializeOrder(doc: OrderLean): OrderDTO {
     totalAmount: doc.totalAmount,
     status: doc.status as OrderStatus,
     createdAt: doc.createdAt.toISOString(),
-    acceptedAt: doc.acceptedAt?.toISOString(),
     readyAt: doc.readyAt?.toISOString(),
     completedAt: doc.completedAt?.toISOString(),
     cancelledAt: doc.cancelledAt?.toISOString(),
-    rejectedAt: doc.rejectedAt?.toISOString(),
   };
 }

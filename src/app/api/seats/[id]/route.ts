@@ -4,13 +4,28 @@ import { Seat, type SeatDocument } from "@/models/Seat";
 import { requireStaff } from "@/lib/auth/staff";
 import { ROLES } from "@/lib/auth/access";
 import { seatUpdateSchema } from "@/lib/validation/tables";
-import { newSeatToken } from "@/lib/tables";
+import { loadSeatDetail, newSeatToken } from "@/lib/tables";
 import { emitRealtimeEvent } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { getTranslator } from "@/lib/i18n/server";
 import { jsonError, respond } from "@/lib/api";
 
 type Params = { params: Promise<{ id: string }> };
+
+/** The counter's seat page: the guest holding this QR and every order of their sitting. */
+export async function GET(_request: Request, { params }: Params) {
+  const staff = await requireStaff(ROLES.counter);
+  if (staff instanceof NextResponse) return staff;
+  const t = await getTranslator();
+
+  return respond(t, "err.ordersLoad", async () => {
+    const { id } = await params;
+    if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
+    const detail = await loadSeatDetail(id);
+    if (!detail) return jsonError(t("err.notFound"), 404);
+    return NextResponse.json(detail);
+  });
+}
 
 /** Switch a QR off/on, or regenerate its secret (the printed sticker stops working). */
 export async function PATCH(request: Request, { params }: Params) {

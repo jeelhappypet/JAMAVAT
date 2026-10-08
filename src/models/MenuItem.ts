@@ -9,6 +9,11 @@ const menuItemSchema = new Schema(
     category: { type: String },
     name: { type: String, required: true, trim: true },
     nameGu: { type: String, trim: true },
+    /** One line under the dish name on the guest menu ("2 shaak, dal, rice…"). */
+    description: { type: String, trim: true },
+    descriptionGu: { type: String, trim: true },
+    /** Small "Bestseller" tag on the guest menu. */
+    isBestseller: { type: Boolean, default: false },
     price: { type: Number, required: true, min: 0 },
     isVeg: { type: Boolean, default: true },
     isActive: { type: Boolean, default: true },

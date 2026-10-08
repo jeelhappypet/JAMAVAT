@@ -14,10 +14,11 @@ const PAGE_ACCESS: { prefix: string; roles: readonly StaffRole[] }[] = [
   { prefix: "/new-order", roles: ROLES.counter },
   { prefix: "/counter", roles: ROLES.counter },
   { prefix: "/kitchen", roles: ROLES.kitchen },
+  { prefix: "/today", roles: ROLES.admin },
   { prefix: "/menu", roles: ROLES.admin },
   { prefix: "/tables", roles: ROLES.admin },
   { prefix: "/staff", roles: ROLES.admin },
-  { prefix: "/developer", roles: ROLES.admin },
+  { prefix: "/reports", roles: ROLES.admin },
   { prefix: "/settings", roles: ROLES.admin },
 ];
 
@@ -35,5 +36,5 @@ export const EXPIRED_SESSION_PATH = "/api/auth/expire";
 export function homePathFor(role: StaffRole): string {
   if (role === "KITCHEN") return "/kitchen";
   if (role === "COUNTER") return "/counter";
-  return "/";
+  return "/today";
 }

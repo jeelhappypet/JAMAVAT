@@ -4,6 +4,7 @@ import { Counter } from "@/models/Counter";
 import { getBusinessDate } from "@/lib/utils/businessDate";
 import { requireStaff } from "@/lib/auth/staff";
 import { ROLES } from "@/lib/auth/access";
+import { getTranslator } from "@/lib/i18n/server";
 
 export async function GET() {
   const staff = await requireStaff(ROLES.counter);
@@ -19,6 +20,6 @@ export async function GET() {
       tokenNumber: (counter?.seq ?? 0) + 1,
     });
   } catch {
-    return NextResponse.json({ error: "ટોકન નંબર લાવી શકાયો નથી" }, { status: 500 });
+    return NextResponse.json({ error: (await getTranslator())("err.ordersLoad") }, { status: 500 });
   }
 }

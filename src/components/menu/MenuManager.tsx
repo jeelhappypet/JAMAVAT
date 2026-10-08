@@ -124,7 +124,15 @@ export function MenuManager() {
   async function submitDialog(values: EntityValues): Promise<string | null> {
     if (!dialog) return null;
     const base = { name: values.name.trim(), nameGu: values.nameGu.trim() };
-    const item = { ...base, price: Number(values.price), isVeg: values.isVeg, categoryId: values.categoryId };
+    const item = {
+      ...base,
+      price: Number(values.price),
+      isVeg: values.isVeg,
+      categoryId: values.categoryId,
+      description: values.description.trim(),
+      descriptionGu: values.descriptionGu.trim(),
+      isBestseller: values.isBestseller,
+    };
     let message: string | null;
     if (dialog.mode === "create") {
       const body = dialog.kind === "menu" ? base : dialog.kind === "category" ? { ...base, menuId: dialog.parentId } : item;
@@ -315,7 +323,16 @@ export function MenuManager() {
             dialog.mode === "create"
               ? { categoryId: dialog.kind === "item" ? dialog.parentId : undefined }
               : dialog.kind === "item"
-                ? { name: dialog.target.name, nameGu: dialog.target.nameGu, price: String(dialog.target.price), isVeg: dialog.target.isVeg, categoryId: dialog.target.categoryId }
+                ? {
+                    name: dialog.target.name,
+                    nameGu: dialog.target.nameGu,
+                    price: String(dialog.target.price),
+                    isVeg: dialog.target.isVeg,
+                    categoryId: dialog.target.categoryId,
+                    description: dialog.target.description,
+                    descriptionGu: dialog.target.descriptionGu,
+                    isBestseller: dialog.target.isBestseller,
+                  }
                 : { name: dialog.target.name, nameGu: dialog.target.nameGu }
           }
           onClose={() => setDialog(null)}

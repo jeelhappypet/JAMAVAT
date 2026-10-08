@@ -97,6 +97,8 @@ export function GuestVerifyView({ restaurantName, state, token, placing, onBack,
   }
 
   const code = digits.join("");
+  // The first empty box is the one being typed into — it alone gets the orange ring, as in the artboard.
+  const activeDigit = digits.findIndex((digit) => !digit);
   const working = busy || placing;
 
   return (
@@ -175,7 +177,7 @@ export function GuestVerifyView({ restaurantName, state, token, placing, onBack,
                     onKeyDown={(e) => {
                       if (e.key === "Backspace" && !digit && index > 0) inputs.current[index - 1]?.focus();
                     }}
-                    className={`h-14 w-full rounded-xl bg-surface text-center text-[22px] font-extrabold ${digit ? "border-[1.5px] border-stone-300" : "border-2 border-brand"}`}
+                    className={`h-14 w-full rounded-xl bg-surface text-center text-[22px] font-extrabold ${index === activeDigit ? "border-2 border-brand" : "border-[1.5px] border-border"}`}
                   />
                 ))}
               </div>

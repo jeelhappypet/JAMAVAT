@@ -1,4 +1,7 @@
+"use client";
+
 import { Button } from "./Button";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -15,12 +18,13 @@ export function ConfirmDialog({
   open,
   title,
   description,
-  confirmLabel = "હા",
-  cancelLabel = "રદ કરો",
+  confirmLabel,
+  cancelLabel,
   variant = "danger",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useI18n();
   if (!open) return null;
 
   return (
@@ -34,10 +38,10 @@ export function ConfirmDialog({
         {description ? <p className="mt-2 text-text-muted">{description}</p> : null}
         <div className="mt-6 flex gap-3">
           <Button variant="secondary" size="lg" className="flex-1" onClick={onCancel}>
-            {cancelLabel}
+            {cancelLabel ?? t("common.cancel")}
           </Button>
           <Button variant={variant} size="lg" className="flex-1" onClick={onConfirm}>
-            {confirmLabel}
+            {confirmLabel ?? t("common.yes")}
           </Button>
         </div>
       </div>

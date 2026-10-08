@@ -19,7 +19,21 @@ export const setupSchema = z.object({
   pin,
 });
 
-export const restaurantSchema = z.object({ restaurantName });
+const optionalText = (max: number) => z.string().trim().max(max).optional().transform((value) => value || undefined);
+
+export const restaurantSchema = z.object({
+  restaurantName,
+  address: optionalText(160),
+  phone: optionalText(30),
+  /** Must be a real web link — it becomes a button in every thank-you email. */
+  reviewUrl: z
+    .string()
+    .trim()
+    .max(300)
+    .optional()
+    .transform((value) => value || undefined)
+    .refine((value) => !value || /^https:\/\/\S+$/.test(value), "Enter a link that starts with https://"),
+});
 
 export const changePinSchema = z
   .object({

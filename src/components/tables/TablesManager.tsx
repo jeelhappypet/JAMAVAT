@@ -16,7 +16,8 @@ type Pending =
   | { kind: "deleteTable"; table: TableDTO };
 
 const iconButton =
-  "flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-stone-300 bg-surface text-stone-700 active:bg-surface-muted disabled:opacity-35";
+  "flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-border bg-surface text-foreground active:bg-surface-muted disabled:opacity-35";
+const outlineButton = "flex h-11 items-center rounded-xl border border-stone-300 bg-surface px-4 text-sm font-bold text-foreground";
 const inputClass = "h-12 w-full rounded-xl border border-stone-300 bg-surface px-3.5 text-base font-normal";
 
 function Icon({ d }: { d: string }) {
@@ -97,7 +98,10 @@ export function TablesManager() {
       setQrVersion((v) => v + 1);
     }
     if (action.kind === "deleteSeat") await act("DELETE", `/api/seats/${action.seat.id}`);
-    if (action.kind === "deleteTable") await act("DELETE", `/api/tables/${action.table.id}`);
+    if (action.kind === "deleteTable") {
+      await act("DELETE", `/api/tables/${action.table.id}`);
+      setForm(null);
+    }
   }
 
   const confirmCopy = pending
@@ -116,18 +120,14 @@ export function TablesManager() {
           <p className="text-[15px] leading-relaxed text-text-muted">{t("tables.subtitle")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setForm({ mode: "create" })} className={outlineButton}>
+            {t("tables.add")}
+          </button>
           {tables.length > 0 ? (
-            <Link href="/tables/print" className="flex h-[46px] items-center rounded-xl border border-stone-300 bg-surface px-4 text-[15px] font-bold">
+            <Link href="/tables/print" className={outlineButton}>
               {t("tables.printAll")}
             </Link>
           ) : null}
-          <button
-            type="button"
-            onClick={() => setForm({ mode: "create" })}
-            className="flex h-[46px] items-center gap-2 rounded-xl bg-brand px-[18px] text-[15px] font-extrabold text-white active:bg-brand-dark"
-          >
-            + {t("tables.add")}
-          </button>
         </div>
       </div>
 
@@ -142,70 +142,51 @@ export function TablesManager() {
         <div className="rounded-[18px] border border-dashed border-stone-300 bg-surface px-6 py-12 text-center text-[15px] text-text-muted">{t("tables.empty")}</div>
       ) : null}
 
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3">
-        {tables.map((table) => {
-          const anyInUse = table.seats.some((seat) => seat.session);
-          return (
-            <section key={table.id} className={`flex flex-col gap-2.5 rounded-2xl border border-border bg-surface p-3.5 ${table.isActive ? "" : "opacity-70"}`}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-base font-extrabold">{t("tables.table", { name: table.name })}</span>
-                  {table.area || !table.isActive ? (
-                    <span className="text-xs font-semibold text-text-muted">{[table.area, table.isActive ? undefined : t("tables.hidden")].filter(Boolean).join(" · ")}</span>
-                  ) : null}
-                </div>
-                <div className="flex gap-1.5">
-                  <button type="button" className="h-10 rounded-[10px] border border-dashed border-stone-400 bg-surface px-2.5 text-[13px] font-bold text-stone-700" onClick={() => act("POST", `/api/tables/${table.id}/seats`)}>
-                    {t("tables.addQr")}
-                  </button>
-                  <button type="button" className={iconButton} aria-label={t("tables.editTable")} title={t("tables.editTable")} onClick={() => setForm({ mode: "edit", table })}>
-                    <Icon d={ICONS.edit} />
-                  </button>
-                  <button type="button" className={iconButton} aria-label={table.isActive ? t("menu.hide") : t("menu.show")} title={table.isActive ? t("menu.hide") : t("menu.show")} onClick={() => act("PATCH", `/api/tables/${table.id}`, { isActive: !table.isActive })}>
-                    <Icon d={table.isActive ? ICONS.eyeOff : ICONS.eye} />
-                  </button>
-                  <button type="button" className={`${iconButton} text-danger`} disabled={anyInUse} aria-label={t("tables.deleteTable")} title={t("tables.deleteTable")} onClick={() => setPending({ kind: "deleteTable", table })}>
-                    <Icon d={ICONS.trash} />
-                  </button>
-                </div>
-              </div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+        {tables.map((table) => (
+          <section key={table.id} className={`flex flex-col gap-2.5 rounded-2xl border border-border bg-surface p-3.5 ${table.isActive ? "" : "opacity-60"}`}>
+            <div className="flex items-center justify-between gap-2">
+              <button type="button" onClick={() => setForm({ mode: "edit", table })} aria-label={t("tables.editLabel", { name: table.name })} className="min-w-0 truncate text-left text-base font-extrabold hover:underline">
+                {t("tables.table", { name: table.name })}
+                {table.area || !table.isActive ? (
+                  <span className="text-xs font-semibold text-text-muted"> · {[table.area, table.isActive ? undefined : t("tables.hidden")].filter(Boolean).join(" · ")}</span>
+                ) : null}
+              </button>
+              <button type="button" className="h-9 shrink-0 rounded-[10px] border border-dashed border-stone-400 bg-surface px-2.5 text-[13px] font-bold text-stone-700" onClick={() => act("POST", `/api/tables/${table.id}/seats`)}>
+                {t("tables.addQr")}
+              </button>
+            </div>
 
-              {table.seats.map((seat) => (
-                <div key={seat.id} className="flex items-center gap-2.5 rounded-xl bg-surface-muted p-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- server-generated SVG, no optimisation needed */}
-                  <img src={`/api/seats/${seat.id}/qr?v=${qrVersion}`} alt="" width={44} height={44} className="h-11 w-11 shrink-0 rounded-lg border border-border bg-white" />
-                  <span className="flex min-w-0 flex-grow flex-col">
-                    <span className="text-[15px] font-extrabold">{seat.code}</span>
-                    {seat.session ? (
-                      <span className="truncate text-xs font-semibold text-brand-dark">
-                        {t("tables.inUse")} · {seat.session.email}
-                      </span>
-                    ) : (
-                      <span className="text-xs font-semibold text-text-muted">{t("tables.free")}</span>
-                    )}
-                  </span>
-                  <a href={`/api/seats/${seat.id}/qr`} download className={iconButton} aria-label={t("tables.download", { code: seat.code })} title={t("tables.download", { code: seat.code })}>
-                    <Icon d={ICONS.download} />
-                  </a>
-                  <a href={`/t/${seat.token}`} target="_blank" rel="noreferrer" className={iconButton} aria-label={t("tables.open", { code: seat.code })} title={t("tables.open", { code: seat.code })}>
-                    <Icon d={ICONS.open} />
-                  </a>
-                  <button type="button" className={iconButton} aria-label={t("tables.regenerate", { code: seat.code })} title={t("tables.regenerate", { code: seat.code })} onClick={() => setPending({ kind: "regenerate", seat })}>
-                    <Icon d={ICONS.regenerate} />
-                  </button>
-                  {table.seats.length > 1 ? (
-                    <button type="button" className={`${iconButton} text-danger`} disabled={!!seat.session} aria-label={t("tables.deleteSeat", { code: seat.code })} title={t("tables.deleteSeat", { code: seat.code })} onClick={() => setPending({ kind: "deleteSeat", seat })}>
-                      <Icon d={ICONS.trash} />
-                    </button>
-                  ) : null}
-                </div>
-              ))}
-            </section>
-          );
-        })}
+            {table.seats.map((seat) => (
+              <div key={seat.id} className="flex items-center gap-2.5 rounded-xl bg-stone-50 p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element -- server-generated SVG, no optimisation needed */}
+                <img src={`/api/seats/${seat.id}/qr?v=${qrVersion}`} alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-lg border border-border bg-white p-0.5" />
+                <span className="flex min-w-0 flex-grow flex-col">
+                  <span className="text-[15px] font-extrabold">{seat.code}</span>
+                  {seat.session ? <span className="truncate text-xs font-semibold text-brand-dark">{t("tables.inUse")}</span> : null}
+                </span>
+                <a href={`/api/seats/${seat.id}/qr`} download className={iconButton} aria-label={t("tables.download", { code: seat.code })} title={t("tables.download", { code: seat.code })}>
+                  <Icon d={ICONS.download} />
+                </a>
+                <button type="button" className={iconButton} aria-label={t("tables.regenerate", { code: seat.code })} title={t("tables.regenerate", { code: seat.code })} onClick={() => setPending({ kind: "regenerate", seat })}>
+                  <Icon d={ICONS.regenerate} />
+                </button>
+              </div>
+            ))}
+          </section>
+        ))}
       </div>
 
-      {form ? <TableForm mode={form.mode} table={form.table} onClose={() => setForm(null)} send={send} /> : null}
+      {form ? (
+        <TableForm
+          mode={form.mode}
+          table={form.table ? tables.find((table) => table.id === form.table!.id) ?? form.table : undefined}
+          onClose={() => setForm(null)}
+          send={send}
+          onDeleteSeat={(seat) => setPending({ kind: "deleteSeat", seat })}
+          onDeleteTable={(table) => setPending({ kind: "deleteTable", table })}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={confirmCopy !== null}
@@ -226,11 +207,15 @@ function TableForm({
   table,
   onClose,
   send,
+  onDeleteSeat,
+  onDeleteTable,
 }: {
   mode: "create" | "edit";
   table?: TableDTO;
   onClose: () => void;
   send: (method: string, url: string, body?: unknown) => Promise<string | null>;
+  onDeleteSeat: (seat: SeatDTO) => void;
+  onDeleteTable: (table: TableDTO) => void;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState(table?.name ?? "");
@@ -287,6 +272,54 @@ function TableForm({
               {(name.trim() || "4") + ["A", "B", "C", "D"].slice(0, seats).join(", " + (name.trim() || "4"))}
             </span>
           </fieldset>
+        ) : null}
+        {mode === "edit" && table ? (
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-bold">{t("tables.qrCodes")}</span>
+            {table.seats.map((seat) => (
+              <div key={seat.id} className="flex items-center gap-2 rounded-xl bg-stone-50 p-2">
+                <span className="flex min-w-0 flex-grow flex-col">
+                  <span className="text-[15px] font-extrabold">{seat.code}</span>
+                  <span className="truncate text-xs font-semibold text-text-muted">{seat.session ? `${t("tables.inUse")} · ${seat.session.email ?? ""}` : t("tables.free")}</span>
+                </span>
+                <a href={`/t/${seat.token}`} target="_blank" rel="noreferrer" className={iconButton} aria-label={t("tables.open", { code: seat.code })} title={t("tables.open", { code: seat.code })}>
+                  <Icon d={ICONS.open} />
+                </a>
+                <button
+                  type="button"
+                  className={`${iconButton} text-danger`}
+                  disabled={!!seat.session || table.seats.length <= 1}
+                  aria-label={t("tables.deleteSeat", { code: seat.code })}
+                  title={t("tables.deleteSeat", { code: seat.code })}
+                  onClick={() => onDeleteSeat(seat)}
+                >
+                  <Icon d={ICONS.trash} />
+                </button>
+              </div>
+            ))}
+            <div className="mt-1 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  const message = await send("PATCH", `/api/tables/${table.id}`, { isActive: !table.isActive });
+                  if (message) setError(message);
+                }}
+                className="flex h-10 items-center gap-2 rounded-[10px] border border-stone-300 bg-surface px-3 text-sm font-bold"
+              >
+                <Icon d={table.isActive ? ICONS.eyeOff : ICONS.eye} />
+                {table.isActive ? t("tables.hideTable") : t("tables.showTable")}
+              </button>
+              <button
+                type="button"
+                disabled={table.seats.some((seat) => seat.session)}
+                onClick={() => onDeleteTable(table)}
+                className="flex h-10 items-center gap-2 rounded-[10px] border border-red-200 bg-surface px-3 text-sm font-bold text-danger disabled:opacity-40"
+              >
+                <Icon d={ICONS.trash} />
+                {t("tables.deleteTable")}
+              </button>
+            </div>
+          </div>
         ) : null}
         {error ? (
           <p role="alert" className="font-semibold text-danger">

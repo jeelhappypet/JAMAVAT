@@ -6,6 +6,8 @@ const name = z.string().trim().min(1).max(60);
 /** Optional Gujarati name; "" clears it. */
 const nameGu = z.string().trim().max(60);
 const price = z.coerce.number().min(0).max(100000);
+/** Optional one-liner under the dish name; "" clears it. */
+const description = z.string().trim().max(140);
 
 export const menuCreateSchema = z.object({ name, nameGu: nameGu.optional() });
 
@@ -28,6 +30,9 @@ export const itemCreateSchema = z.object({
   categoryId: objectId,
   name,
   nameGu: nameGu.optional(),
+  description: description.optional(),
+  descriptionGu: description.optional(),
+  isBestseller: z.boolean().optional(),
   price,
   isVeg: z.boolean().optional(),
 });
@@ -36,6 +41,9 @@ export const itemUpdateSchema = z.object({
   categoryId: objectId.optional(),
   name: name.optional(),
   nameGu: nameGu.optional(),
+  description: description.optional(),
+  descriptionGu: description.optional(),
+  isBestseller: z.boolean().optional(),
   price: price.optional(),
   isVeg: z.boolean().optional(),
   isActive: z.boolean().optional(),
@@ -53,7 +61,7 @@ export function toMongoUpdate(patch: Record<string, unknown>) {
   const $unset: Record<string, 1> = {};
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
-    if (key === "nameGu" && value === "") $unset[key] = 1;
+    if ((key === "nameGu" || key === "description" || key === "descriptionGu") && value === "") $unset[key] = 1;
     else $set[key] = value;
   }
   return {

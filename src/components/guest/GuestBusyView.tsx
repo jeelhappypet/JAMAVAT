@@ -22,21 +22,16 @@ export function GuestBusyView({ restaurantName, state, onBrowse }: { restaurantN
         <h1 className="text-[26px] font-extrabold leading-tight tracking-tight">{t("guest.busyTitle")}</h1>
         <p className="max-w-[320px] text-[15px] leading-relaxed text-text-muted">{t("guest.busyBody", { code: state.seatCode })}</p>
         <div className="mt-2 flex w-full flex-col gap-2.5 text-left">
-          <div className="flex items-start gap-3 rounded-2xl border border-border bg-surface px-4 py-3.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-surface-muted">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-                <path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" />
-              </svg>
-            </span>
-            <span className="text-sm leading-relaxed text-stone-700">
-              <strong className="text-foreground">{t("guest.busyOtherSide")}</strong>
-              <br />
-              {t("guest.busyOtherSideBody")}
-            </span>
-          </div>
+          {state.otherSeats.length > 0 ? (
+            <div className="flex items-start gap-3 rounded-2xl border border-border bg-surface px-4 py-3.5">
+              <span className="flex h-9 min-w-9 shrink-0 items-center justify-center rounded-[10px] bg-surface-muted px-1 text-sm font-extrabold">{state.otherSeats[0]}</span>
+              <span className="text-sm leading-relaxed text-stone-700">
+                <strong className="text-foreground">{t("guest.busyOtherSide")}</strong>
+                <br />
+                {t("guest.busyOtherSideBody", { codes: state.otherSeats.join(", ") })}
+              </span>
+            </div>
+          ) : null}
           <div className="flex items-start gap-3 rounded-2xl border border-border bg-surface px-4 py-3.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-surface-muted">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
