@@ -105,8 +105,10 @@ re-export the same hooks/components without adding a real boundary.
 **Menu** → **Category** → **MenuItem** (v2, fully dynamic). A Menu is e.g.
 "Gujarati" or "Punjabi" (`name`, optional `nameGu`, `sortOrder`, `isActive`);
 a Category belongs to a menu and is the unit of kitchen routing; a MenuItem
-has `categoryId`, `name`, `nameGu?`, `price`, `isVeg`, `isActive` (hidden
-by the admin) and `isAvailable` (sold out — kitchens can flip it).
+has `categoryId`, `name`, `nameGu?`, `description?`/`descriptionGu?`,
+`isBestseller`, `imageUrl?` (public Vercel Blob photo, see §8d), `price`,
+`isVeg`, `isActive` (hidden by the admin) and `isAvailable` (sold out —
+kitchens can flip it).
 
 v1 items carried a hardcoded `category` string (શાક / રોટલી / મીઠાઈ / અન્ય).
 `lib/menu/structure.ts#ensureMenuStructure` migrates them on first use —
@@ -124,7 +126,9 @@ per-item `status` PENDING/READY), `totalAmount`, `status`
 (`COUNTER`/`QR`), `clientRequestId` (idempotency key),
 `createdAt`/`readyAt`/`completedAt`/`cancelledAt`.
 QR orders also carry `seatId`, `seatCode` ("4A"), `guestSessionId`,
-`guestEmail` and an optional `note` (≤ 200 chars, the cooking note). Indexes:
+`guestEmail` and an optional `note` (≤ 200 chars, the cooking note). Parcels
+carry `paymentMode` (`CASH`/`UPI`/`CARD`, paid when ordering; missing on v1
+orders); dine-in payment is on the Bill. Indexes:
 `{businessDate, status}`, unique `{businessDate, tokenNumber}`,
 `{createdAt}`, unique-sparse `{clientRequestId}`.
 
@@ -179,6 +183,7 @@ signed guest cookie (§8b).
 | POST, PATCH/DELETE `[id]` | `/api/menu/menus` | admin | menus (delete only when empty) |
 | POST, PATCH/DELETE `[id]` | `/api/menu/categories` | admin | categories (delete only when empty; pulled from kitchen routing) |
 | POST, PATCH/DELETE `[id]` | `/api/menu/items` | admin; kitchen may PATCH only `isAvailable` for its own categories | dishes |
+| POST/DELETE | `/api/menu/items/[id]/photo` | admin | upload (multipart `photo`, ≤ 1 MB, already resized by the browser) / remove the dish photo |
 | POST | `/api/menu/reorder` | admin | display order of menus or categories |
 | POST | `/api/pusher/auth` | any staff | signs the private realtime channel subscription |
 | POST | `/api/orders` | counter | create order, idempotent on `clientRequestId` |
@@ -245,8 +250,12 @@ finished its part), `order:ready` (whole order), `order:completed`,
 Guests are not on the private channel. Each QR has a public channel
 `seat-{token}` (the token is the secret printed in the QR); the server sends
 an empty `guest:update` there when the counter changes that table (cancel,
-add item, settle, free) and the phone refetches its own state. Without
-Pusher the guest page polls every 10–30 s; the menu refreshes every 2 min.
+add item, settle, free) and the phone refetches its own state. A phone
+connects only while it has an open sitting **and** the page is on screen
+(the Pusher free plan allows 100 connections; a browsing or locked phone
+holds none), with a 2-min safety resync. Without Pusher the guest page polls
+every 10 s during a sitting; a QR someone else holds is checked every 30 s;
+the menu refreshes every 2 min.
 
 - `emitRealtimeEvent()` is **awaited** after the DB write: on Vercel a
   function can be frozen right after it responds, so a fire-and-forget
@@ -343,7 +352,8 @@ not a default to tighten later.
   QR, sends the thank-you email (`lib/billEmail.ts`, Email artboard; a mail
   failure never undoes the payment) and nudges the guest phone.
 - **Reports** (`lib/reports.ts`): sales = settled bills (after discount) +
-  parcel orders. `/today` (Today / Yesterday / Last 7 days / This month,
+  parcel orders. Payment mode adds bills and parcels together per mode
+  (v1 parcels without a mode show as "Parcel (mode not noted)"). `/today` (Today / Yesterday / Last 7 days / This month,
   vs the previous equal period, orders by hour, sales by menu, payment
   mode, top dishes, last 7 days) and `/reports` (month, day by day). One
   query for the whole date span with a field projection; screens reload at
@@ -351,6 +361,20 @@ not a default to tighten later.
 - **QR stickers** (`lib/qrSticker.ts`): 62 × 88 mm SVG with a 44 mm QR,
   restaurant name, "TABLE · ટેબલ" and the seat code — the per-seat download
   and the A4 print sheet (9 per page) use the same sticker.
+
+## 8d. Dish photos
+
+- Admin → Menu → dish dialog → **Add photo**. `lib/utils/dishPhoto.ts`
+  crops the picked photo to the guest menu's 6:5 box and encodes 480×400
+  WebP (JPEG on browsers that can't encode WebP), ~30–60 KB, in the
+  browser — the function never processes images.
+- `lib/menu/photo.ts` stores it in a **public** Vercel Blob store under a
+  random-suffixed URL with a one-year cache, then deletes the old one;
+  deleting a dish deletes its photo. Without `BLOB_READ_WRITE_TOKEN` the
+  dialog says photos aren't connected and nothing else changes.
+- `components/menu/DishPhoto.tsx` renders it (`next/image` with
+  `unoptimized`, lazy) — use it wherever a dish photo appears.
+- Prompts for generating photos and the free-plan math: `DISH_PHOTOS.md`.
 
 ## 8a. Design system & language
 
@@ -436,6 +460,8 @@ SMTP_HOST=                 # optional, default smtp.gmail.com
 SMTP_PORT=                 # optional, default 465 (TLS)
 MAIL_FROM=                 # optional sender address, default SMTP_USER
 APP_URL=                   # optional, e.g. https://jamavat.vercel.app — origin printed in QRs
+BLOB_READ_WRITE_TOKEN=     # added by Vercel when a public Blob store is connected — dish photos
+WHATSAPP_VERIFY_TOKEN=     # verify token for the WhatsApp Cloud API webhook (/api/whatsapp/webhook)
 ```
 
 Set `APP_URL` in production: without it QR links use the host the admin
@@ -515,7 +541,7 @@ read from code) during this build:
 ## 13. Deliberate Scope Boundaries
 
 Per the build brief, these were intentionally **not** added: customer
-accounts/online payment (guests only verify an email by OTP), image upload, roles/CRM/inventory/reports beyond what's
+accounts/online payment (guests only verify an email by OTP), roles/CRM/inventory/reports beyond what's
 specified, and no extra libraries (state management, UI kit, ORM
 alternatives, PWA plugin) beyond what's listed in §2 — each would add
 surface area the brief explicitly excludes for v1.

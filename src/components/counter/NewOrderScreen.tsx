@@ -202,13 +202,16 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
         footer={
           <>
             {seatId ? null : (
-              <SegmentedControl
-                label={t("seatBill.paidBy")}
-                value={paymentMode}
-                onChange={setPaymentMode}
-                className="mb-2.5 [&>button]:flex-1"
-                options={PAYMENT_MODES.map((mode) => ({ value: mode, label: t(PAY_LABEL[mode]) }))}
-              />
+              <div className="mb-2.5 flex items-center gap-3">
+                <span className="shrink-0 text-sm font-bold text-text-muted">{t("seatBill.paidBy")}</span>
+                <SegmentedControl
+                  label={t("seatBill.paidBy")}
+                  value={paymentMode}
+                  onChange={setPaymentMode}
+                  className="flex-1 [&>button]:flex-1"
+                  options={PAYMENT_MODES.map((mode) => ({ value: mode, label: t(PAY_LABEL[mode]) }))}
+                />
+              </div>
             )}
             <SwipeToSend
             label={seatId ? t("parcel.swipeSeat", { code: seatCode ?? "" }) : undefined}

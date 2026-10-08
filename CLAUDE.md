@@ -25,6 +25,7 @@ Never hand-style a button, checkbox, dropdown, text field, date field or dialog 
 | Error / success / info box | `Alert` |
 | Small status pill | `Badge` |
 | Panel | `Card` · empty list: `EmptyState` · loading: `LoadingState` |
+| Dish photo | `components/menu/DishPhoto` (6:5 box; upload goes through `DishPhotoField`, see `DISH_PHOTOS.md`) |
 
 `className` on these is for layout only (width, flex, margin). If a screen needs a new look, add a variant to the component — don't override colours from outside. Join classes with `cn()`.
 
@@ -32,7 +33,8 @@ Never hand-style a button, checkbox, dropdown, text field, date field or dialog 
 
 - Load only what the screen shows. One screen = the fewest calls; never fetch a whole tree (menu, tables) for one label — add the field to the API that's already called (see `SeatDetailDTO.kitchens`).
 - Realtime (Pusher) is a nudge, MongoDB is the truth. An event reloads only what it can change (`useCounterData` handlers). Heavy screens (reports) throttle reloads (`useThrottled`). Polling is only the fallback (`lib/realtime/polling.ts`).
-- Guests get pushes on the public per-QR channel (`notifyGuestSeat`) — never put data in those messages.
+- Guests get pushes on the public per-QR channel (`notifyGuestSeat`) — never put data in those messages. A guest phone connects only during its own sitting while on screen (`useGuestRealtime(…, enabled)`) — keep it that way, the Pusher free plan has 100 connections.
+- Images are resized in the browser before upload (`lib/utils/dishPhoto.ts`); don't add server-side image processing or Next's image optimizer for them.
 - Every state change is a conditional `findOneAndUpdate` on the status it starts from (409 if someone else won). Await `emitRealtimeEvent` / `notifyGuestSeat` after the DB write.
 - Queries that run often need an index (check the model's `schema.index`). Read with `.lean()` and `.select()` only the fields you use.
 - Route handlers: `requireStaff(roles)` first, `respond(t, failKey, …)` for errors, zod schemas in `lib/validation/`, messages through `t()` — no hardcoded text.
@@ -44,4 +46,4 @@ Every visible string is an i18n key in `src/lib/i18n/messages.ts` with English a
 
 ## Before you finish
 
-`npx tsc --noEmit`, `npx eslint src`, `npm run build`. Test against an isolated database, never the owner's (`jamavat_dev` is theirs, `JAMAVATDATA` is live).
+`npx tsc --noEmit`, `npx eslint src`, `npm test` (vitest, `tests/`), `npm run build`. Test against an isolated database, never the owner's (`jamavat_dev` is theirs, `JAMAVATDATA` is live).

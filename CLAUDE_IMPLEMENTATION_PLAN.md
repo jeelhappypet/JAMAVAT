@@ -43,6 +43,7 @@ that shape the code:
 | 2 | Dynamic Menu → Category → Item (additive v1 migration), menus admin page, kitchen routing matrix on Staff page, item-level kitchen status, new Kitchen screen (`/kitchen`, sold-out toggles, beep), Pusher private-channel realtime (Socket.IO removed), counter new-order grouped by menu with sold-out | ✅ |
 | 3 | Tables + seat QRs (admin page, SVG download, A4 print sheet, regenerate), guest QR page `/t/{token}` (menu, cart + cooking note, email OTP via Gmail SMTP once per phone, live status, busy/invalid screens), QR lock, counter screen `/counter` (accept/reject QR orders, running orders, free QR) | ✅ |
 | 4 | QR orders straight to kitchens (no accept, no "served" step); counter seat grid + seat page with settle (discount, payment mode, thank-you email, auto-free); Today + monthly reports; guest verification per sitting + reset after settle; guest Pusher channel; QR stickers; staff app headers/screens per the design; shared UI kit (CLAUDE.md) | ✅ |
+| 4b | Go-live pass: dish photos on Vercel Blob (browser-resized, `DISH_PHOTOS.md`), parcel payment mode in reports, guest Pusher only during a visible sitting, vitest unit tests (`npm test`) | ✅ |
 | 5 | Multi-restaurant (`restaurantId` everywhere, `/r/{slug}`), Jamavat SEO + inquiry site, HQ panel, per-restaurant PWA manifest | ⬜ |
 
 ## Known non-blocking items
@@ -50,8 +51,6 @@ that shape the code:
 - Pusher needs real keys to be exercised end-to-end; without them every
   screen falls back to 5s polling (verified). Once keys exist, check two
   devices: order on the counter → beep + ticket on the kitchen screen.
-- New order and Reports still have the v1 look and hardcoded Gujarati —
-  redesigned in Phase 4.
 - Gmail SMTP needs the owner's Gmail address + App Password in Vercel
   (`SMTP_USER`, `SMTP_PASS`). Without them production guests can't verify
   (the OTP send returns "email is down"); development shows the code on
@@ -60,6 +59,14 @@ that shape the code:
 - Phase 4 notes: settle closes the GuestSession with `closedReason:
   "SETTLED"` via `closeSeatSession()` in `lib/tables.ts`, then sends the
   thank-you email with `sendMail()` from `lib/mail.ts`.
-- No automated test suite yet. Highest-value first tests: order
-  creation/idempotency, the complete/cancel race guard, and the auth
-  rules (lockout, sessionVersion revocation, last-admin guard).
+- `npm test` covers pure logic only (i18n parity, page access, report
+  ranges, validation, bill email, QR sticker). API flows are still tested
+  by hand-run scripts against an isolated DB; next worth automating: order
+  idempotency, settle double-tap, auth lockout / sessionVersion.
+- Privacy policy page (linked from the guest Verify screen in the design)
+  is not built yet.
+- Vercel Hobby is non-commercial; move to Pro before selling Jamavat.
+- Free-plan headroom: Gmail sends ~500 mails/day (2,000 on Google
+  Workspace) and a sitting uses at most 2 (OTP + thank-you); Pusher free
+  allows 100 connections / 200k messages a day; Blob free is 1 GB storage
+  and 10 GB transfer a month (`DISH_PHOTOS.md`).
