@@ -7,6 +7,7 @@ import { ROLES } from "@/lib/auth/access";
 import { itemUpdateSchema, toMongoUpdate } from "@/lib/validation/menu";
 import { getKitchenScope } from "@/lib/orders/kitchen";
 import { toMenuItemDTO } from "@/lib/menu/structure";
+import { deleteDishPhoto } from "@/lib/menu/photo";
 import { emitRealtimeEvent } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { getTranslator } from "@/lib/i18n/server";
@@ -55,8 +56,9 @@ export async function DELETE(_request: Request, { params }: Params) {
   return respond(t, "err.saveFailed", async () => {
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
-    const deleted = await MenuItem.findByIdAndDelete(id).lean();
+    const deleted = await MenuItem.findByIdAndDelete(id).lean<MenuItemDocument>();
     if (!deleted) return jsonError(t("err.notFound"), 404);
+    await deleteDishPhoto(deleted.imageUrl);
     await emitRealtimeEvent(REALTIME_EVENTS.MENU_UPDATED, { reason: "item-deleted" });
     return NextResponse.json({ ok: true });
   });

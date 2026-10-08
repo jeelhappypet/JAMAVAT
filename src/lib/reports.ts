@@ -7,7 +7,7 @@ import { getBusinessDate } from "@/lib/utils/businessDate";
 import type { OrderLean } from "@/lib/orders/serialize";
 import type { MonthReportDTO, PaymentMode, ReportRange, TodayReportDTO } from "@/types";
 
-type ReportOrder = OrderLean & { guestSessionId?: unknown };
+type ReportOrder = OrderLean & { guestSessionId?: unknown; paymentMode?: PaymentMode };
 type ReportBill = Pick<BillDocument, "businessDate" | "total" | "paymentMode" | "orderIds">;
 
 /** YYYY-MM-DD ± days, calendar-correct (business dates are already Asia/Kolkata). */
@@ -50,6 +50,7 @@ const ORDER_FIELDS = {
   status: 1,
   totalAmount: 1,
   guestSessionId: 1,
+  paymentMode: 1,
   createdAt: 1,
   "items.menuItemId": 1,
   "items.nameSnapshot": 1,
@@ -93,7 +94,6 @@ function summarize(orders: ReportOrder[], bills: ReportBill[]) {
     cancelled: orders.length - live.length,
     averageBill: paidCount ? Math.round(sales / paidCount) : 0,
     bills: bills.length,
-    parcelSales,
   };
 }
 
@@ -153,10 +153,18 @@ export async function getTodayReport(range: ReportRange): Promise<TodayReportDTO
     }
   }
 
+  // Cash/UPI/Card across settled bills and parcels; v1 parcels never recorded a mode.
   const payment = new Map<PaymentMode, number>();
-  for (const bill of current.bills) payment.set(bill.paymentMode as PaymentMode, (payment.get(bill.paymentMode as PaymentMode) ?? 0) + bill.total);
+  const addPayment = (mode: PaymentMode, amount: number) => payment.set(mode, (payment.get(mode) ?? 0) + amount);
+  for (const bill of current.bills) addPayment(bill.paymentMode as PaymentMode, bill.total);
+  let unrecordedParcels = 0;
+  for (const order of live) {
+    if (order.guestSessionId) continue;
+    if (order.paymentMode) addPayment(order.paymentMode, order.totalAmount);
+    else unrecordedParcels += order.totalAmount;
+  }
   const byPayment: TodayReportDTO["byPayment"] = [...payment.entries()].map(([mode, amount]) => ({ mode, amount })).sort((a, b) => b.amount - a.amount);
-  if (now.parcelSales > 0) byPayment.push({ mode: "PARCEL", amount: now.parcelSales });
+  if (unrecordedParcels > 0) byPayment.push({ mode: "PARCEL", amount: unrecordedParcels });
 
   return {
     range,

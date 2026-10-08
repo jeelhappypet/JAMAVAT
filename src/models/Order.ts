@@ -1,5 +1,5 @@
 import { Schema, model, models } from "mongoose";
-import { ORDER_ITEM_STATUSES, ORDER_SOURCES, ORDER_STATUSES } from "@/types";
+import { ORDER_ITEM_STATUSES, ORDER_SOURCES, ORDER_STATUSES, PAYMENT_MODES } from "@/types";
 
 const orderItemSchema = new Schema(
   {
@@ -32,6 +32,8 @@ const orderSchema = new Schema(
     note: { type: String, trim: true, maxlength: 200 },
     items: { type: [orderItemSchema], required: true },
     totalAmount: { type: Number, required: true, min: 0 },
+    /** Parcels only — paid at the counter when ordered. Dine-in payment lives on the Bill. Missing on v1 orders. */
+    paymentMode: { type: String, enum: PAYMENT_MODES },
     status: { type: String, required: true, enum: ORDER_STATUSES, default: "PENDING" },
     clientRequestId: { type: String },
     readyAt: { type: Date },

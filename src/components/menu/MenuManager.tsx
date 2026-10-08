@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/Badge";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
 import { VegMark } from "@/components/menu/VegMark";
 import { MenuEntityDialog, type EntityKind, type EntityValues } from "@/components/menu/MenuEntityDialog";
+import { DishPhoto } from "@/components/menu/DishPhoto";
+import type { PhotoChange } from "@/components/menu/DishPhotoField";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
@@ -51,7 +53,8 @@ const ICONS = {
   plus: "M12 5v14M5 12h14",
 };
 
-export function MenuManager() {
+/** `photosEnabled`: a Vercel Blob store is connected (BLOB_READ_WRITE_TOKEN is set). */
+export function MenuManager({ photosEnabled }: { photosEnabled: boolean }) {
   const { t, lang } = useI18n();
   const [menus, setMenus] = useState<MenuDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,22 +84,47 @@ export function MenuManager() {
   // Another admin (or a kitchen marking sold out) changed the menu — stay in sync.
   const { state: realtimeState } = useRealtime({ [REALTIME_EVENTS.MENU_UPDATED]: load }, load);
 
-  /** Sends a change and reloads the tree. Returns an error message, or null when it worked. */
-  const send = useCallback(
-    async (method: string, url: string, body?: unknown): Promise<string | null> => {
+  /** Sends a change without reloading. Returns the error message (or null) and the response body. */
+  const request = useCallback(
+    async (method: string, url: string, body?: unknown): Promise<{ error: string | null; data: Record<string, unknown> | null }> => {
       const res = await fetch(url, {
         method,
         headers: body ? { "Content-Type": "application/json" } : undefined,
         body: body ? JSON.stringify(body) : undefined,
       });
-      if (redirectToLoginIfUnauthorized(res)) return null;
+      if (redirectToLoginIfUnauthorized(res)) return { error: null, data: null };
       const data = await res.json().catch(() => null);
-      if (!res.ok) return data?.error ?? t("err.saveFailed");
-      await load();
-      return null;
+      return { error: res.ok ? null : data?.error ?? t("err.saveFailed"), data };
     },
-    [load, t]
+    [t]
   );
+
+  /** Sends a change and reloads the tree. Returns an error message, or null when it worked. */
+  const send = useCallback(
+    async (method: string, url: string, body?: unknown): Promise<string | null> => {
+      const { error } = await request(method, url, body);
+      if (!error) await load();
+      return error;
+    },
+    [load, request]
+  );
+
+  /** Uploads or removes the dish photo once the dish itself is saved. */
+  async function savePhoto(itemId: string, change: PhotoChange): Promise<string | null> {
+    if (change.kind === "keep") return null;
+    const url = `${ENDPOINT.item}/${itemId}/photo`;
+    let res: Response;
+    if (change.kind === "set") {
+      const form = new FormData();
+      form.append("photo", change.blob, change.blob.type === "image/webp" ? "photo.webp" : "photo.jpg");
+      res = await fetch(url, { method: "POST", body: form });
+    } else {
+      res = await fetch(url, { method: "DELETE" });
+    }
+    if (redirectToLoginIfUnauthorized(res)) return null;
+    const data = await res.json().catch(() => null);
+    return res.ok ? null : data?.error ?? t("err.photoFailed");
+  }
 
   async function act(method: string, url: string, body?: unknown) {
     setError(null);
@@ -134,12 +162,23 @@ export function MenuManager() {
       descriptionGu: values.descriptionGu.trim(),
       isBestseller: values.isBestseller,
     };
+    if (dialog.kind === "item") {
+      const editing = dialog.mode === "edit" ? dialog.target : null;
+      const { error, data } = await request(editing ? "PATCH" : "POST", editing ? `${ENDPOINT.item}/${editing.id}` : ENDPOINT.item, item);
+      if (error) return error;
+      const itemId = editing ? editing.id : String(data?.id ?? "");
+      const photoError = itemId ? await savePhoto(itemId, values.photo) : null;
+      await load();
+      // The dish is saved either way — close, so a retry can't create it twice.
+      setDialog(null);
+      if (photoError) setError(photoError);
+      return null;
+    }
     let message: string | null;
     if (dialog.mode === "create") {
-      const body = dialog.kind === "menu" ? base : dialog.kind === "category" ? { ...base, menuId: dialog.parentId } : item;
-      message = await send("POST", ENDPOINT[dialog.kind], body);
+      message = await send("POST", ENDPOINT[dialog.kind], dialog.kind === "menu" ? base : { ...base, menuId: dialog.parentId });
     } else {
-      message = await send("PATCH", `${ENDPOINT[dialog.kind]}/${dialog.target.id}`, dialog.kind === "item" ? item : base);
+      message = await send("PATCH", `${ENDPOINT[dialog.kind]}/${dialog.target.id}`, base);
     }
     if (!message) setDialog(null);
     return message;
@@ -269,6 +308,7 @@ export function MenuManager() {
                   {category.items.map((item) => (
                     <li key={item.id} className={`flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 border-t border-stone-100 px-[18px] py-2.5 ${item.isActive ? "" : "opacity-60"}`}>
                       <div className="flex min-w-0 flex-[1_1_220px] items-center gap-2.5">
+                        {item.imageUrl ? <DishPhoto src={item.imageUrl} alt="" width={48} className="rounded-lg" /> : null}
                         <VegMark isVeg={item.isVeg} label={item.isVeg ? t("menu.veg") : t("menu.nonVeg")} />
                         <span className="flex min-w-0 flex-col">
                           <span className="truncate text-[15px] font-bold">{name(item)}</span>
@@ -324,6 +364,7 @@ export function MenuManager() {
                   }
                 : { name: dialog.target.name, nameGu: dialog.target.nameGu }
           }
+          photo={dialog.kind === "item" ? { currentUrl: dialog.mode === "edit" ? dialog.target.imageUrl : undefined, enabled: photosEnabled } : undefined}
           onClose={() => setDialog(null)}
           onSubmit={submitDialog}
         />

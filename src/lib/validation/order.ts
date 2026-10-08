@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PAYMENT_MODES } from "@/types";
 
 export const createOrderSchema = z.object({
   customerName: z.string().trim().max(80).optional(),
@@ -13,4 +14,6 @@ export const createOrderSchema = z.object({
   clientRequestId: z.string().min(1),
   /** "Add item" on a seat's page: the order joins that guest's bill instead of being a parcel. */
   seatId: z.string().min(1).optional(),
+  /** Parcels: how the customer paid at the counter. Ignored with `seatId` (that's settled on the bill). */
+  paymentMode: z.enum(PAYMENT_MODES).optional(),
 });

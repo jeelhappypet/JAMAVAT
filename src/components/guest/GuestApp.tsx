@@ -7,7 +7,7 @@ import { GuestVerifyView } from "@/components/guest/GuestVerifyView";
 import { GuestStatusView } from "@/components/guest/GuestStatusView";
 import { GuestBusyView } from "@/components/guest/GuestBusyView";
 import { useI18n } from "@/lib/i18n/I18nProvider";
-import { useGuestRealtime } from "@/lib/realtime/useGuestRealtime";
+import { GUEST_PUSH_CONFIGURED, useGuestRealtime, usePageVisible } from "@/lib/realtime/useGuestRealtime";
 import type { GuestStateDTO, MenuDTO, MenuItemDTO } from "@/types";
 
 export type GuestView = "menu" | "cart" | "verify" | "status" | "busy";
@@ -111,21 +111,25 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
   }, [token]);
 
   // Pusher nudges this phone when the counter changes its table (cancel, add item, settle, free);
-  // polling is only the fallback. A phone just browsing a free QR has nothing to wait for.
-  const live = useGuestRealtime(token, refreshState);
-  const waiting = state.lock !== "free" || state.orders.length > 0;
+  // polling is only the fallback. A phone just browsing a free QR has nothing to wait for, and
+  // one looking at someone else's QR only checks now and then whether it has freed up.
+  const mine = state.lock === "mine";
+  const visible = usePageVisible();
+  const live = useGuestRealtime(token, refreshState, mine && visible);
   useEffect(() => {
-    if (!waiting && live) return;
     const tick = () => {
       if (document.visibilityState === "visible") void refreshState();
     };
-    const interval = setInterval(tick, live ? 60000 : waiting ? 10000 : 30000);
-    document.addEventListener("visibilitychange", tick);
+    const every = mine ? (live ? 120000 : 10000) : state.lock === "taken" ? 30000 : 0;
+    const interval = every ? setInterval(tick, every) : undefined;
+    // With push, coming back on screen reconnects and that refetches once already.
+    const onShow = mine && GUEST_PUSH_CONFIGURED ? null : tick;
+    if (onShow) document.addEventListener("visibilitychange", onShow);
     return () => {
       clearInterval(interval);
-      document.removeEventListener("visibilitychange", tick);
+      if (onShow) document.removeEventListener("visibilitychange", onShow);
     };
-  }, [live, waiting, refreshState]);
+  }, [mine, live, state.lock, refreshState]);
 
   // Sold-out changes aren't pushed to guests; a slow refresh is enough (ordering re-checks anyway).
   useEffect(() => {

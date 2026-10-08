@@ -460,7 +460,7 @@ const en = {
   "today.hourAria": "{hour}: {n} orders",
   "today.byMenu": "Sales by menu",
   "today.byPayment": "Payment mode",
-  "today.parcelPaid": "Parcel (paid at order)",
+  "today.parcelPaid": "Parcel (mode not noted)",
   "today.noSales": "No sales yet",
   "today.noBills": "No bills settled yet",
   "today.noOrders": "No orders yet",
@@ -527,6 +527,19 @@ const en = {
   "guest.placedTitle": "Order placed!",
   "guest.placedBody": "Your food will be served at your table in a few minutes.",
   "guest.cancelledTag": "Cancelled",
+
+  "menu.photo": "Photo",
+  "menu.photoNone": "No photo",
+  "menu.photoAdd": "Add photo",
+  "menu.photoChange": "Change photo",
+  "menu.photoRemove": "Remove photo",
+  "menu.photoResizing": "Preparing…",
+  "menu.photoHint": "Any phone photo works — it's cropped and made small automatically.",
+  "menu.photoOff": "Photos turn on once Vercel Blob storage is connected to this app.",
+  "err.photoType": "Choose a JPG, PNG or WebP photo.",
+  "err.photoTooBig": "This photo is too big. Pick it again so it can be made smaller.",
+  "err.photoFailed": "The dish was saved, but the photo didn't upload. Try again.",
+  "err.photoStorageOff": "Photo storage isn't connected yet.",
 };
 
 export type MessageKey = keyof typeof en;
@@ -987,7 +1000,7 @@ const gu: Record<MessageKey, string> = {
   "today.hourAria": "{hour}: {n} ઓર્ડર",
   "today.byMenu": "મેનુ પ્રમાણે વેચાણ",
   "today.byPayment": "ચુકવણીની રીત",
-  "today.parcelPaid": "પાર્સલ (ઓર્ડર વખતે ચૂકવેલ)",
+  "today.parcelPaid": "પાર્સલ (રીત નોંધી નથી)",
   "today.noSales": "હજી કોઈ વેચાણ નથી",
   "today.noBills": "હજી કોઈ બિલ સેટલ થયું નથી",
   "today.noOrders": "હજી કોઈ ઓર્ડર નથી",
@@ -1054,9 +1067,23 @@ const gu: Record<MessageKey, string> = {
   "guest.placedTitle": "ઓર્ડર મળી ગયો!",
   "guest.placedBody": "થોડી જ મિનિટમાં તમારું જમવાનું ટેબલ પર પીરસાશે.",
   "guest.cancelledTag": "રદ",
+
+  "menu.photo": "ફોટો",
+  "menu.photoNone": "ફોટો નથી",
+  "menu.photoAdd": "ફોટો ઉમેરો",
+  "menu.photoChange": "ફોટો બદલો",
+  "menu.photoRemove": "ફોટો કાઢો",
+  "menu.photoResizing": "તૈયાર થાય છે…",
+  "menu.photoHint": "ફોનનો કોઈપણ ફોટો ચાલશે — એ આપમેળે કાપીને નાનો થઈ જશે.",
+  "menu.photoOff": "આ એપ સાથે Vercel Blob storage જોડાય પછી ફોટો ચાલુ થશે.",
+  "err.photoType": "JPG, PNG કે WebP ફોટો પસંદ કરો.",
+  "err.photoTooBig": "આ ફોટો બહુ મોટો છે. ફરી પસંદ કરો જેથી નાનો થઈ શકે.",
+  "err.photoFailed": "વાનગી સેવ થઈ, પણ ફોટો અપલોડ ન થયો. ફરી પ્રયાસ કરો.",
+  "err.photoStorageOff": "ફોટો storage હજી જોડાયું નથી.",
 };
 
-const MESSAGES: Record<Lang, Record<MessageKey, string>> = { en, gu };
+/** Both dictionaries — exported for the placeholder-parity test. */
+export const MESSAGES: Record<Lang, Record<MessageKey, string>> = { en, gu };
 
 export type Translate = (key: MessageKey, vars?: Record<string, string | number>) => string;
 

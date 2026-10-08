@@ -76,6 +76,7 @@ export function toMenuItemDTO(item: MenuItemDocument): MenuItemDTO {
     description: item.description || undefined,
     descriptionGu: item.descriptionGu || undefined,
     isBestseller: item.isBestseller === true,
+    imageUrl: item.imageUrl || undefined,
     price: item.price,
     isVeg: item.isVeg !== false,
     isActive: item.isActive !== false,

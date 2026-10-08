@@ -15,16 +15,19 @@ import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { Alert } from "@/components/ui/Alert";
-import { localName } from "@/lib/i18n/messages";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { localName, type MessageKey } from "@/lib/i18n/messages";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
-import type { MenuDTO, MenuItemDTO, SeatDetailDTO } from "@/types";
+import { PAYMENT_MODES, type MenuDTO, type MenuItemDTO, type PaymentMode, type SeatDetailDTO } from "@/types";
 
 const POLL_MS = 30000;
+const PAY_LABEL: Record<PaymentMode, MessageKey> = { CASH: "seatBill.cash", UPI: "seatBill.upi", CARD: "seatBill.card" };
 
 interface SuccessInfo {
   customerName?: string;
   tokenNumber: number;
   totalAmount: number;
+  paymentMode?: PaymentMode;
 }
 
 /** Tap dishes, swipe to send. A parcel gets a token number; with a seat, the dishes join that guest's bill. */
@@ -40,6 +43,8 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<SuccessInfo | null>(null);
   const clientRequestIdRef = useRef<string>(crypto.randomUUID());
+  /** Parcels are paid when ordered; most are cash, so every new parcel starts there. */
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>("CASH");
 
   const loadMenu = useCallback(async () => {
     try {
@@ -110,7 +115,7 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
         body: JSON.stringify({
           items: lines.map((line) => ({ menuItemId: line.menuItemId, quantity: line.quantity })),
           clientRequestId: clientRequestIdRef.current,
-          ...(seatId ? { seatId } : {}),
+          ...(seatId ? { seatId } : { paymentMode }),
         }),
       });
       if (redirectToLoginIfUnauthorized(res)) return;
@@ -118,13 +123,14 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
       if (!res.ok) throw new Error(data?.error ?? t("err.orderFailed"));
 
       setCart({});
+      setPaymentMode("CASH");
       setSummaryExpanded(false);
       clientRequestIdRef.current = crypto.randomUUID();
       if (seatId) {
         router.push(`/counter/seat/${seatId}`);
         return;
       }
-      setSuccess({ customerName: data.customerName, tokenNumber: data.tokenNumber, totalAmount: data.totalAmount });
+      setSuccess({ customerName: data.customerName, tokenNumber: data.tokenNumber, totalAmount: data.totalAmount, paymentMode });
       void loadNextToken();
       setTimeout(() => router.push("/counter/orders"), 2200);
     } catch (err) {
@@ -194,11 +200,22 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
         expanded={summaryExpanded}
         onExpandedChange={setSummaryExpanded}
         footer={
-          <SwipeToSend
+          <>
+            {seatId ? null : (
+              <SegmentedControl
+                label={t("seatBill.paidBy")}
+                value={paymentMode}
+                onChange={setPaymentMode}
+                className="mb-2.5 [&>button]:flex-1"
+                options={PAYMENT_MODES.map((mode) => ({ value: mode, label: t(PAY_LABEL[mode]) }))}
+              />
+            )}
+            <SwipeToSend
             label={seatId ? t("parcel.swipeSeat", { code: seatCode ?? "" }) : undefined}
             disabled={lines.length === 0 || Boolean(seatClosed)}
             onComplete={handleSend}
-          />
+            />
+          </>
         }
       />
 
@@ -208,7 +225,10 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
             {success.customerName ? <p className="text-lg text-text-muted">{success.customerName}</p> : null}
             <p className="text-sm font-bold uppercase tracking-wide text-text-muted">{t("parcel.tokenLabel")}</p>
             <p className="text-7xl font-extrabold text-brand">{success.tokenNumber}</p>
-            <p className="text-2xl font-semibold">₹{success.totalAmount}</p>
+            <p className="text-2xl font-semibold">
+              ₹{success.totalAmount}
+              {success.paymentMode ? <span className="text-text-muted"> · {t(PAY_LABEL[success.paymentMode])}</span> : null}
+            </p>
           </div>
         ) : null}
       </SuccessDialog>

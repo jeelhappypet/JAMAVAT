@@ -14,6 +14,8 @@ const menuItemSchema = new Schema(
     descriptionGu: { type: String, trim: true },
     /** Small "Bestseller" tag on the guest menu. */
     isBestseller: { type: Boolean, default: false },
+    /** Public Vercel Blob URL of the dish photo (480×400 WebP, resized in the browser). */
+    imageUrl: { type: String },
     price: { type: Number, required: true, min: 0 },
     isVeg: { type: Boolean, default: true },
     isActive: { type: Boolean, default: true },

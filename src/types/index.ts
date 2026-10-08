@@ -50,6 +50,8 @@ export interface MenuItemDTO {
   description?: string;
   descriptionGu?: string;
   isBestseller: boolean;
+  /** Dish photo (Vercel Blob). Missing = no photo box on the guest menu. */
+  imageUrl?: string;
   price: number;
   isVeg: boolean;
   /** Hidden from ordering entirely (admin's choice). */

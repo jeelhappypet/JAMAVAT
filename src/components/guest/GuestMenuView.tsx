@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
+import { DishPhoto } from "@/components/menu/DishPhoto";
 import { localName } from "@/lib/i18n/messages";
 import type { GuestStateDTO, MenuDTO } from "@/types";
 
@@ -169,7 +170,8 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
                     {item.description ? <span className="text-[13px] leading-relaxed text-text-muted">{localName(lang, item.description, item.descriptionGu)}</span> : null}
                     <span className="mt-1 text-[15px] font-extrabold">₹{item.price}</span>
                   </div>
-                  <div className="flex w-24 shrink-0 flex-col items-center justify-center">
+                  <div className="flex w-24 shrink-0 flex-col items-center justify-center gap-2">
+                    {item.imageUrl ? <DishPhoto src={item.imageUrl} alt={name(item)} className={item.isAvailable ? undefined : "opacity-50 grayscale"} /> : null}
                     {!item.isAvailable ? (
                       <span className="text-sm font-bold text-danger">{t("menu.soldOut")}</span>
                     ) : readOnly ? null : qty === 0 ? (

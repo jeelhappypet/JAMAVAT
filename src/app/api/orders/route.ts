@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   return respond(t, "err.orderFailed", async () => {
     await connectToDatabase();
-    const { customerName, items, clientRequestId, seatId } = createOrderSchema.parse(await request.json());
+    const { customerName, items, clientRequestId, seatId, paymentMode } = createOrderSchema.parse(await request.json());
 
     const existing = await Order.findOne({ clientRequestId }).lean<OrderLean>();
     if (existing) return NextResponse.json(serializeOrder(existing), { status: 200 });
@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
         source: "COUNTER",
         customerName: customerName || undefined,
         ...seatLink,
+        ...(seatId ? {} : { paymentMode: paymentMode ?? "CASH" }),
         items: built.items,
         totalAmount: built.totalAmount,
         status: "PENDING",
