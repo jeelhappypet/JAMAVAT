@@ -64,8 +64,8 @@ that shape the code:
   ranges, validation, bill email, QR sticker). API flows are still tested
   by hand-run scripts against an isolated DB; next worth automating: order
   idempotency, settle double-tap, auth lockout / sessionVersion.
-- Privacy policy page (linked from the guest Verify screen in the design)
-  is not built yet.
+- Privacy policy: public `/privacy` (data deletion at `/privacy#delete`) —
+  the URLs Meta needs to publish the app; the guest Verify screen can link to it.
 - Vercel Hobby is non-commercial; move to Pro before selling Jamavat.
 - Free-plan headroom: Gmail sends ~500 mails/day (2,000 on Google
   Workspace) and a sitting uses at most 2 (OTP + thank-you); Pusher free

@@ -582,6 +582,26 @@ const en = {
 
   "wa.hours": "{n} h",
   "wa.minutes": "{n} min",
+
+  "privacy.title": "Privacy Policy",
+  "privacy.updated": "Last updated: {date}",
+  "privacy.whoTitle": "Who we are",
+  "privacy.who": "Jamavat is a restaurant ordering and customer messaging app (built as a student project). This policy explains what information it keeps when you order at a table by QR code, when you message the restaurant on WhatsApp, and when staff use the app.",
+  "privacy.collectTitle": "What we collect",
+  "privacy.collectGuests": "QR ordering: your email address (to send a one-time code and your bill), the dishes you order, your cooking note and table, and the time.",
+  "privacy.collectWhatsApp": "WhatsApp: your WhatsApp number and profile name, the messages you send to the restaurant and its replies, and their delivery status, as provided by the WhatsApp Business Platform (Meta).",
+  "privacy.collectStaff": "Staff: name, role and a PIN that is stored only in hashed form.",
+  "privacy.useTitle": "How we use it",
+  "privacy.use": "Only to run the restaurant: take and cook your order, send your bill, and reply to your messages. We do not sell your information, show ads or use it for marketing.",
+  "privacy.shareTitle": "Who it is shared with",
+  "privacy.share": "Only the services the app runs on: Meta (WhatsApp Business Platform), Vercel (hosting), MongoDB Atlas (database), Google (email delivery) and Pusher (live screen updates). They process it on our behalf and not for their own purposes.",
+  "privacy.keepTitle": "How long we keep it",
+  "privacy.keep": "Order and bill records are kept for the restaurant's accounts. WhatsApp conversations are kept until you ask us to delete them.",
+  "privacy.deleteTitle": "Deleting your data",
+  "privacy.delete": "Email us from the address below with your WhatsApp number or email address and ask for deletion. We delete your WhatsApp conversations and personal details within 30 days and confirm by reply.",
+  "privacy.changesTitle": "Changes",
+  "privacy.changes": "If this policy changes, the new version will be posted on this page with a new date.",
+  "privacy.contact": "Questions or deletion requests:",
 };
 
 export type MessageKey = keyof typeof en;
@@ -1164,6 +1184,26 @@ const gu: Record<MessageKey, string> = {
 
   "wa.hours": "{n} કલાક",
   "wa.minutes": "{n} મિનિટ",
+
+  "privacy.title": "ગોપનીયતા નીતિ",
+  "privacy.updated": "છેલ્લે અપડેટ: {date}",
+  "privacy.whoTitle": "અમે કોણ છીએ",
+  "privacy.who": "જમાવટ રેસ્ટોરન્ટ માટે ઓર્ડર અને ગ્રાહક મેસેજિંગ એપ છે (વિદ્યાર્થી પ્રોજેક્ટ તરીકે બનાવેલી). તમે ટેબલ પર QR થી ઓર્ડર કરો, WhatsApp પર રેસ્ટોરન્ટને મેસેજ કરો કે સ્ટાફ એપ વાપરે ત્યારે કઈ માહિતી રાખવામાં આવે છે તે આ નીતિ સમજાવે છે.",
+  "privacy.collectTitle": "અમે શું સાચવીએ છીએ",
+  "privacy.collectGuests": "QR ઓર્ડર: તમારું ઇમેઇલ (એક વખતનો કોડ અને બિલ મોકલવા), તમે ઓર્ડર કરેલી વાનગીઓ, રસોઈ નોંધ, ટેબલ અને સમય.",
+  "privacy.collectWhatsApp": "WhatsApp: તમારો WhatsApp નંબર અને પ્રોફાઇલ નામ, તમે રેસ્ટોરન્ટને મોકલેલા મેસેજ અને તેના જવાબ, અને પહોંચ્યાની સ્થિતિ — જે WhatsApp Business Platform (Meta) આપે છે.",
+  "privacy.collectStaff": "સ્ટાફ: નામ, ભૂમિકા અને PIN — જે ફક્ત hash કરેલા સ્વરૂપે સચવાય છે.",
+  "privacy.useTitle": "અમે તેનો ઉપયોગ કેવી રીતે કરીએ છીએ",
+  "privacy.use": "ફક્ત રેસ્ટોરન્ટ ચલાવવા માટે: તમારો ઓર્ડર લેવો અને બનાવવો, બિલ મોકલવું અને તમારા મેસેજનો જવાબ આપવો. અમે તમારી માહિતી વેચતા નથી, જાહેરાત બતાવતા નથી કે માર્કેટિંગ માટે વાપરતા નથી.",
+  "privacy.shareTitle": "કોની સાથે શેર થાય છે",
+  "privacy.share": "ફક્ત એ સેવાઓ જેના પર એપ ચાલે છે: Meta (WhatsApp Business Platform), Vercel (હોસ્ટિંગ), MongoDB Atlas (ડેટાબેઝ), Google (ઇમેઇલ) અને Pusher (લાઇવ સ્ક્રીન અપડેટ). તેઓ અમારા વતી પ્રક્રિયા કરે છે, પોતાના હેતુ માટે નહીં.",
+  "privacy.keepTitle": "કેટલો સમય રાખીએ છીએ",
+  "privacy.keep": "ઓર્ડર અને બિલની નોંધ રેસ્ટોરન્ટના હિસાબ માટે રખાય છે. WhatsApp ચેટ તમે કાઢવાનું કહો ત્યાં સુધી રખાય છે.",
+  "privacy.deleteTitle": "તમારો ડેટા કાઢી નાખવો",
+  "privacy.delete": "નીચેના સરનામે તમારા WhatsApp નંબર કે ઇમેઇલ સાથે ડેટા કાઢવાની વિનંતી મોકલો. અમે 30 દિવસમાં તમારી WhatsApp ચેટ અને વ્યક્તિગત માહિતી કાઢી નાખીશું અને જવાબથી જાણ કરીશું.",
+  "privacy.changesTitle": "ફેરફાર",
+  "privacy.changes": "આ નીતિ બદલાશે તો નવી આવૃત્તિ નવી તારીખ સાથે આ પાના પર મુકાશે.",
+  "privacy.contact": "પ્રશ્નો કે ડેટા કાઢવાની વિનંતી:",
 };
 
 /** Both dictionaries — exported for the placeholder-parity test. */
