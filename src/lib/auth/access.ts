@@ -7,6 +7,8 @@ export const ROLES = {
   counter: ["ADMIN", "COUNTER"],
   kitchen: ["ADMIN", "KITCHEN"],
   anyStaff: ["ADMIN", "COUNTER", "KITCHEN"],
+  /** WhatsApp inbox: reading and replying to customer chats. */
+  whatsapp: ["ADMIN", "COUNTER"],
 } as const satisfies Record<string, readonly StaffRole[]>;
 
 /** Pages not listed here (e.g. "/") are open to every logged-in staff member. */
@@ -20,6 +22,7 @@ const PAGE_ACCESS: { prefix: string; roles: readonly StaffRole[] }[] = [
   { prefix: "/staff", roles: ROLES.admin },
   { prefix: "/reports", roles: ROLES.admin },
   { prefix: "/settings", roles: ROLES.admin },
+  { prefix: "/whatsapp", roles: ROLES.whatsapp },
 ];
 
 export function canAccessPage(role: StaffRole, pathname: string): boolean {

@@ -10,19 +10,22 @@ type EventHandlers = Record<string, (payload: unknown) => void>;
 const PUSHER_KEY = process.env.NEXT_PUBLIC_PUSHER_KEY;
 const PUSHER_CLUSTER = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
 
-// One connection + one channel subscription per page, shared by every hook on it.
-let shared: { pusher: Pusher; channel: Channel } | null = null;
+// One connection per page and one subscription per channel, shared by every hook on it.
+let pusherClient: Pusher | null = null;
+const channels = new Map<string, Channel>();
 
-function getShared() {
+function getShared(channelName: string) {
   if (!PUSHER_KEY || !PUSHER_CLUSTER) return null;
-  if (!shared) {
-    const pusher = new Pusher(PUSHER_KEY, {
-      cluster: PUSHER_CLUSTER,
-      channelAuthorization: { endpoint: "/api/pusher/auth", transport: "ajax" },
-    });
-    shared = { pusher, channel: pusher.subscribe(STAFF_CHANNEL) };
+  pusherClient ??= new Pusher(PUSHER_KEY, {
+    cluster: PUSHER_CLUSTER,
+    channelAuthorization: { endpoint: "/api/pusher/auth", transport: "ajax" },
+  });
+  let channel = channels.get(channelName);
+  if (!channel) {
+    channel = pusherClient.subscribe(channelName);
+    channels.set(channelName, channel);
   }
-  return shared;
+  return { pusher: pusherClient, channel };
 }
 
 function toState(pusherState: string, subscribed: boolean): RealtimeConnectionState {
@@ -32,13 +35,13 @@ function toState(pusherState: string, subscribed: boolean): RealtimeConnectionSt
 }
 
 /**
- * Subscribes to the staff channel and wires up event handlers. Calls
+ * Subscribes to the staff channel (or `channelName`) and wires up event handlers. Calls
  * `onReconnect` each time the subscription (re)succeeds so the caller can
  * refetch from the API — push is a notification layer, never the source of
  * truth. Without NEXT_PUBLIC_PUSHER_* it reports "disconnected" and callers
  * keep polling.
  */
-export function useRealtime(handlers: EventHandlers, onReconnect?: () => void) {
+export function useRealtime(handlers: EventHandlers, onReconnect?: () => void, channelName: string = STAFF_CHANNEL) {
   const [state, setState] = useState<RealtimeConnectionState>(() =>
     PUSHER_KEY && PUSHER_CLUSTER ? "connecting" : "disconnected"
   );
@@ -51,7 +54,7 @@ export function useRealtime(handlers: EventHandlers, onReconnect?: () => void) {
   });
 
   useEffect(() => {
-    const connection = getShared();
+    const connection = getShared(channelName);
     if (!connection) return;
     const { pusher, channel } = connection;
 
@@ -77,7 +80,7 @@ export function useRealtime(handlers: EventHandlers, onReconnect?: () => void) {
       channel.unbind("pusher:subscription_error", update);
       channel.unbind_global(onEvent);
     };
-  }, []);
+  }, [channelName]);
 
   return { state };
 }

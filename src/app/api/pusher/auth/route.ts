@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireStaff } from "@/lib/auth/staff";
 import { ROLES } from "@/lib/auth/access";
 import { getPusher } from "@/lib/realtime/server";
-import { STAFF_CHANNEL } from "@/lib/realtime/events";
+import { STAFF_CHANNEL, WHATSAPP_CHANNEL } from "@/lib/realtime/events";
 
 /** pusher-js calls this before subscribing to a private channel; only logged-in staff get a signature. */
 export async function POST(request: Request) {
@@ -15,7 +15,8 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const socketId = String(form.get("socket_id") ?? "");
   const channel = String(form.get("channel_name") ?? "");
-  if (!socketId || channel !== STAFF_CHANNEL) {
+  const allowed = channel === STAFF_CHANNEL || (channel === WHATSAPP_CHANNEL && (ROLES.whatsapp as readonly string[]).includes(staff.role));
+  if (!socketId || !allowed) {
     return NextResponse.json({ error: "Unknown channel" }, { status: 403 });
   }
 

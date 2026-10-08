@@ -258,3 +258,38 @@ export interface RestaurantSettingsDTO {
   /** "Rate us on Google" link in the thank-you email. */
   reviewUrl?: string;
 }
+
+// ---- WhatsApp inbox (/whatsapp)
+
+/** Inbound messages are "received"; outbound go accepted → sent → delivered → read, or failed. */
+export const WHATSAPP_MESSAGE_STATUSES = ["received", "accepted", "sent", "delivered", "read", "failed"] as const;
+export type WhatsAppMessageStatus = (typeof WHATSAPP_MESSAGE_STATUSES)[number];
+
+export interface WhatsAppConversationDTO {
+  id: string;
+  customerId: string;
+  customerName?: string;
+  /** Digits only, e.g. "919876543210". */
+  waId: string;
+  status: "open" | "closed";
+  lastMessage: string;
+  lastMessageDirection?: "inbound" | "outbound";
+  lastMessageAt?: string;
+  /** Free-form replies are allowed until this time (24 h after the customer's last message). */
+  replyWindowEndsAt?: string;
+  unreadCount: number;
+}
+
+export interface WhatsAppMessageDTO {
+  id: string;
+  conversationId: string;
+  direction: "inbound" | "outbound";
+  whatsappMessageId: string;
+  messageType: string;
+  text: string;
+  status: WhatsAppMessageStatus;
+  /** Why WhatsApp couldn't deliver it (failed only). */
+  error?: { code?: number; title?: string; message?: string };
+  sentBy?: string;
+  timestamp: string;
+}

@@ -185,6 +185,11 @@ signed guest cookie (§8b).
 | POST, PATCH/DELETE `[id]` | `/api/menu/items` | admin; kitchen may PATCH only `isAvailable` for its own categories | dishes |
 | POST/DELETE | `/api/menu/items/[id]/photo` | admin | upload (multipart `photo`, ≤ 1 MB, already resized by the browser) / remove the dish photo |
 | POST | `/api/menu/reorder` | admin | display order of menus or categories |
+| GET/POST | `/api/whatsapp/webhook` | Meta (verify token / optional signature) | webhook verification; incoming messages + delivery statuses |
+| GET | `/api/whatsapp/conversations` | admin, counter | WhatsApp chats, newest first (`?q=` name/number) |
+| GET | `/api/whatsapp/conversations/[id]/messages` | admin, counter | one chat, 50 messages a page (`?before=`) |
+| POST | `/api/whatsapp/conversations/[id]/read` | admin, counter | unread → 0 |
+| POST | `/api/whatsapp/messages/send` | admin, counter | text reply through the Cloud API (24-hour window) |
 | POST | `/api/pusher/auth` | any staff | signs the private realtime channel subscription |
 | POST | `/api/orders` | counter | create order, idempotent on `clientRequestId` |
 | GET | `/api/orders/next-token` | counter | next token preview |
@@ -376,6 +381,45 @@ not a default to tighten later.
   `unoptimized`, lazy) — use it wherever a dish photo appears.
 - Prompts for generating photos and the free-plan math: `DISH_PHOTOS.md`.
 
+## 8e. WhatsApp inbox
+
+Separate from the QR guest flow — nothing in ordering, tables or bills
+depends on it.
+
+- **Page** `/whatsapp` (admin + counter, `ROLES.whatsapp`), full screen with
+  its own header; not linked from the staff tab bars. Chat list + search on
+  the left, the chat on the right (one at a time on a phone), built from the
+  UI kit (`components/whatsapp/`).
+- **Webhook** `/api/whatsapp/webhook`: GET echoes `hub.challenge` when
+  `hub.verify_token` matches `WHATSAPP_VERIFY_TOKEN` (403 otherwise, also
+  when the env var is missing). POST verifies `X-Hub-Signature-256` when
+  `WHATSAPP_APP_SECRET` is set, parses with `lib/whatsapp/webhook.ts`
+  (pure, unit-tested), ignores other `phone_number_id`s (Meta's dashboard
+  samples), saves everything, then answers 200; only a DB error answers 500
+  so Meta retries.
+- **Data** (`models/WhatsApp*.ts`, `lib/whatsapp/store.ts`): customer by
+  unique `whatsappWaId` → one **open** conversation per customer and number
+  (partial unique index) → message unique on `whatsappMessageId` (the
+  idempotency key; a retry stops there, so unread isn't counted twice).
+  The conversation keeps `customerName`/`customerWaId` copies for the list
+  and search, `lastMessage`/`lastMessageAt` (never moved back by a late
+  webhook), `lastInboundAt` (24-hour window) and `unreadCount`.
+- **Sending** (`lib/whatsapp/graph.ts`): server-only call to
+  `graph.facebook.com/{WHATSAPP_GRAPH_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages`
+  with the bearer token, 15 s timeout. Refused up front outside the 24-hour
+  window (templates aren't built); Meta errors become categories (window,
+  recipient, auth, rate, timeout) with translated messages — the raw error
+  and the token never reach the browser or the logs. Saved only after Meta
+  returns a `wamid`.
+- **Statuses**: sent → delivered → read only move forward; failed keeps
+  Meta's code/title/details. A status that beats the send route's save is
+  retried once after 1.5 s.
+- **Realtime**: private Pusher channel `private-whatsapp`, authorised only
+  for `ROLES.whatsapp` (kitchens never get chats). Events
+  `whatsapp:message:new`, `whatsapp:message:sent` (`{ conversation, message }`),
+  `whatsapp:message:status`, `whatsapp:conversation:updated`. Socket.IO isn't
+  used — it can't run on Vercel functions; polling every 5 s is the fallback.
+
 ## 8a. Design system & language
 
 - The approved design canvas (link in CLAUDE_IMPLEMENTATION_PLAN.md) is the
@@ -461,7 +505,13 @@ SMTP_PORT=                 # optional, default 465 (TLS)
 MAIL_FROM=                 # optional sender address, default SMTP_USER
 APP_URL=                   # optional, e.g. https://jamavat.vercel.app — origin printed in QRs
 BLOB_READ_WRITE_TOKEN=     # added by Vercel when a public Blob store is connected — dish photos
+WHATSAPP_ACCESS_TOKEN=     # Cloud API token — server-only, never NEXT_PUBLIC_, never logged
+WHATSAPP_PHONE_NUMBER_ID=  # our number; webhook events for other ids are ignored
+WHATSAPP_BUSINESS_ACCOUNT_ID=
 WHATSAPP_VERIFY_TOKEN=     # verify token for the WhatsApp Cloud API webhook (/api/whatsapp/webhook)
+WHATSAPP_GRAPH_API_VERSION=  # default v26.0
+WHATSAPP_WEBHOOK_URL=      # informational: https://jamavat.vercel.app/api/whatsapp/webhook
+WHATSAPP_APP_SECRET=       # optional: enables X-Hub-Signature-256 checking on webhook POSTs
 ```
 
 Set `APP_URL` in production: without it QR links use the host the admin

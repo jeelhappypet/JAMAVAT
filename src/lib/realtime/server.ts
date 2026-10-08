@@ -1,6 +1,6 @@
 import Pusher from "pusher";
 import { Seat } from "@/models/Seat";
-import { GUEST_UPDATE_EVENT, STAFF_CHANNEL, guestChannel, type RealtimeEvent } from "./events";
+import { GUEST_UPDATE_EVENT, STAFF_CHANNEL, WHATSAPP_CHANNEL, guestChannel, type RealtimeEvent, type WhatsAppEvent } from "./events";
 
 let client: Pusher | null | undefined;
 
@@ -27,6 +27,17 @@ export async function emitRealtimeEvent(event: RealtimeEvent, payload: unknown):
   if (!pusher) return;
   try {
     await pusher.trigger(STAFF_CHANNEL, event, payload);
+  } catch (error) {
+    console.error(`[realtime] ${event} not delivered`, error);
+  }
+}
+
+/** WhatsApp inbox updates (private-whatsapp). Same rules as emitRealtimeEvent: awaited, never throws. */
+export async function emitWhatsAppEvent(event: WhatsAppEvent, payload: unknown): Promise<void> {
+  const pusher = getPusher();
+  if (!pusher) return;
+  try {
+    await pusher.trigger(WHATSAPP_CHANNEL, event, payload);
   } catch (error) {
     console.error(`[realtime] ${event} not delivered`, error);
   }

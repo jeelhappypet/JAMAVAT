@@ -17,6 +17,10 @@ const FIELD_MESSAGES: Record<string, MessageKey> = {
   token: "err.qrInvalid",
   note: "err.noteTooLong",
   items: "err.cartEmpty",
+  conversationId: "err.notFound",
+  to: "wa.err.invalidRecipient",
+  message: "wa.err.messageInvalid",
+  before: "err.checkForm",
 };
 
 /** Zod's own messages are English-only; map the first failing field to a translated one. */

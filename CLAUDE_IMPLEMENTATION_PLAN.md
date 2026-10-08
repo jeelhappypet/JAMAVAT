@@ -44,6 +44,7 @@ that shape the code:
 | 3 | Tables + seat QRs (admin page, SVG download, A4 print sheet, regenerate), guest QR page `/t/{token}` (menu, cart + cooking note, email OTP via Gmail SMTP once per phone, live status, busy/invalid screens), QR lock, counter screen `/counter` (accept/reject QR orders, running orders, free QR) | ✅ |
 | 4 | QR orders straight to kitchens (no accept, no "served" step); counter seat grid + seat page with settle (discount, payment mode, thank-you email, auto-free); Today + monthly reports; guest verification per sitting + reset after settle; guest Pusher channel; QR stickers; staff app headers/screens per the design; shared UI kit (CLAUDE.md) | ✅ |
 | 4b | Go-live pass: dish photos on Vercel Blob (browser-resized, `DISH_PHOTOS.md`), parcel payment mode in reports, guest Pusher only during a visible sitting, vitest unit tests (`npm test`) | ✅ |
+| 4c | WhatsApp inbox `/whatsapp`: Cloud API webhook (messages + statuses, idempotent), customer/conversation/message models, send API (24-hour window), private Pusher channel, unit + e2e tests | ✅ |
 | 5 | Multi-restaurant (`restaurantId` everywhere, `/r/{slug}`), Jamavat SEO + inquiry site, HQ panel, per-restaurant PWA manifest | ⬜ |
 
 ## Known non-blocking items

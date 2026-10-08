@@ -26,3 +26,22 @@ export const STAFF_CHANNEL = "private-staff";
 /** Public per-QR channel the guest page listens on (see notifyGuestSeat). */
 export const guestChannel = (seatToken: string) => `seat-${seatToken}`;
 export const GUEST_UPDATE_EVENT = "guest:update";
+
+/**
+ * WhatsApp inbox events go on their own private channel, authorised only for
+ * roles that may open /whatsapp — kitchen screens never receive customer chats.
+ */
+export const WHATSAPP_CHANNEL = "private-whatsapp";
+
+export const WHATSAPP_EVENTS = {
+  /** A customer's message was saved. Payload: { conversation, message }. */
+  MESSAGE_NEW: "whatsapp:message:new",
+  /** Staff sent a message (Meta accepted it). Payload: { conversation, message }. */
+  MESSAGE_SENT: "whatsapp:message:sent",
+  /** sent / delivered / read / failed from Meta. Payload: { conversationId, messageId, status, error? }. */
+  MESSAGE_STATUS: "whatsapp:message:status",
+  /** Unread count or preview changed. Payload: { conversation }. */
+  CONVERSATION_UPDATED: "whatsapp:conversation:updated",
+} as const;
+
+export type WhatsAppEvent = (typeof WHATSAPP_EVENTS)[keyof typeof WHATSAPP_EVENTS];
