@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import type { RestaurantSettingsDTO } from "@/types";
-
-const inputClass = "h-12 w-full rounded-xl border border-stone-300 bg-surface px-3.5 text-base font-normal";
+import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/TextField";
+import { Alert } from "@/components/ui/Alert";
 
 /** Restaurant name (header, login, guest pages) and the details printed in the thank-you email. */
 export function SettingsForm({ initial, mailReady }: { initial: RestaurantSettingsDTO; mailReady: boolean }) {
@@ -55,37 +56,19 @@ export function SettingsForm({ initial, mailReady }: { initial: RestaurantSettin
 
       <form onSubmit={handleSubmit} className="flex max-w-[640px] flex-col gap-3.5 rounded-[18px] border border-border bg-surface p-[18px]">
         <h2 className="text-[17px] font-extrabold">{t("settings.restaurant")}</h2>
-        <label className="flex flex-col gap-1.5 text-sm font-bold">
-          {t("settings.restaurantName")}
-          <input type="text" {...field("name")} className={inputClass} />
-          <span className="text-[13px] font-normal text-text-muted">{t("settings.restaurantHint")}</span>
-        </label>
+        <TextField label={t("settings.restaurantName")} hint={t("settings.restaurantHint")} {...field("name")} />
 
         <h2 className="mt-2 text-[17px] font-extrabold">{t("settings.emailTitle")}</h2>
         <p className="-mt-2 text-[13px] text-text-muted">{mailReady ? t("settings.emailHint") : t("settings.emailOff")}</p>
-        <label className="flex flex-col gap-1.5 text-sm font-bold">
-          {t("settings.address")}
-          <input type="text" {...field("address")} className={inputClass} autoComplete="street-address" />
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-bold">
-          {t("settings.phone")}
-          <input type="tel" {...field("phone")} className={inputClass} autoComplete="tel" />
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm font-bold">
-          {t("settings.reviewUrl")}
-          <input type="url" inputMode="url" placeholder="https://g.page/r/…" {...field("reviewUrl")} className={inputClass} />
-          <span className="text-[13px] font-normal text-text-muted">{t("settings.reviewHint")}</span>
-        </label>
+        <TextField label={t("settings.address")} autoComplete="street-address" {...field("address")} />
+        <TextField label={t("settings.phone")} type="tel" autoComplete="tel" {...field("phone")} />
+        <TextField label={t("settings.reviewUrl")} hint={t("settings.reviewHint")} type="url" inputMode="url" placeholder="https://g.page/r/…" {...field("reviewUrl")} />
 
-        {error ? (
-          <p role="alert" className="text-sm font-semibold text-danger">
-            {error}
-          </p>
-        ) : null}
+        {error ? <Alert>{error}</Alert> : null}
         <div className="flex items-center gap-3">
-          <button type="submit" disabled={saving} className="h-[46px] rounded-xl bg-brand px-[18px] text-[15px] font-extrabold text-white disabled:opacity-60">
+          <Button type="submit" size="lg" disabled={saving}>
             {saving ? t("common.saving") : t("common.save")}
-          </button>
+          </Button>
           {saved ? (
             <span role="status" className="flex items-center gap-1.5 text-sm font-semibold text-success">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

@@ -2,6 +2,7 @@
 
 import { GuestHeader } from "@/components/guest/GuestHeader";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { Button } from "@/components/ui/Button";
 import type { GuestStateDTO } from "@/types";
 
 /** "5 · Same QR on a 2nd phone" artboard. */
@@ -48,9 +49,9 @@ export function GuestBusyView({ restaurantName, state, onBrowse }: { restaurantN
         </div>
       </main>
       <div className="sticky bottom-0 border-t border-border bg-surface px-4 pb-4 pt-3">
-        <button type="button" onClick={onBrowse} className="flex h-[54px] w-full items-center justify-center rounded-[14px] border-[1.5px] border-stone-300 text-base font-bold">
+        <Button variant="secondary" size="xl" fullWidth onClick={onBrowse}>
           {t("guest.justBrowse")}
-        </button>
+        </Button>
       </div>
     </div>
   );

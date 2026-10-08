@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
 import { AccountMenu, logoutThisDevice } from "@/components/shell/AccountMenu";
 import { SoldOutList, withSoldOut } from "@/components/menu/SoldOutList";
@@ -186,17 +189,17 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
               sound={{ on: soundOn, toggle: toggleSound }}
               links={role === "ADMIN" ? [{ href: "/today", label: "account.openAdmin" }, { href: "/counter", label: "account.openCounter" }] : []}
             />
-            <button
-              type="button"
+            <Button
+              variant="outlineDark"
+              size="sm"
               disabled={loggingOut}
               onClick={() => {
                 setLoggingOut(true);
                 void logoutThisDevice();
               }}
-              className="h-10 rounded-[10px] border border-stone-600 bg-transparent px-3.5 text-sm font-semibold text-white disabled:opacity-60"
             >
               {loggingOut ? t("account.loggingOut") : t("account.logout")}
-            </button>
+            </Button>
           </div>
         </div>
       </header>
@@ -209,11 +212,7 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
           <span>{scope && !scope.all && scope.categories.length === 0 ? t("kitchen.noCategories") : scope?.all ? t("kitchen.infoAll") : t("kitchen.infoMine")}</span>
         </div>
 
-        {error ? (
-          <div role="alert" className="rounded-[14px] bg-danger-light px-4 py-3 text-sm font-semibold text-red-900">
-            {error}
-          </div>
-        ) : null}
+        {error ? <Alert>{error}</Alert> : null}
 
         <div className="flex flex-wrap items-start gap-6">
           <section className="flex min-w-0 flex-[999_1_560px] flex-col gap-3">
@@ -224,10 +223,7 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
             {loading ? (
               <LoadingState />
             ) : tickets.length === 0 ? (
-              <div className="flex flex-col items-center gap-1 rounded-[18px] border border-dashed border-stone-300 bg-surface px-6 py-14 text-center">
-                <p className="text-lg font-bold">{t("kitchen.empty")}</p>
-                <p className="text-sm text-text-muted">{t("kitchen.emptyHint")}</p>
-              </div>
+              <EmptyState title={t("kitchen.empty")} hint={t("kitchen.emptyHint")} />
             ) : (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5">
                 {tickets.map((ticket) => {
@@ -265,16 +261,20 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
                           {ticket.otherPendingCount === 1 ? t("kitchen.otherScreensOne") : t("kitchen.otherScreens", { n: ticket.otherPendingCount })}
                         </span>
                       ) : null}
-                      <button
-                        type="button"
+                      <Button
+                        variant="successSoft"
+                        size="xl"
+                        fullWidth
+                        className="mt-auto"
                         onClick={() => markReady(ticket.orderId)}
-                        className="mt-auto flex h-[52px] items-center justify-center gap-2 rounded-[14px] bg-success-light text-base font-extrabold text-green-800 active:brightness-95"
+                        icon={
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M5 13l4 4L19 7" />
+                          </svg>
+                        }
                       >
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M5 13l4 4L19 7" />
-                        </svg>
                         {t("kitchen.markReady")}
-                      </button>
+                      </Button>
                     </article>
                   );
                 })}

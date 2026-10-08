@@ -2,6 +2,7 @@
 
 import { GuestHeader } from "@/components/guest/GuestHeader";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { Button } from "@/components/ui/Button";
 import { formatClock } from "@/lib/utils/time";
 import { localName } from "@/lib/i18n/messages";
 import type { GuestStateDTO, MenuDTO, OrderDTO } from "@/types";
@@ -54,9 +55,9 @@ export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: G
           </span>
           <h1 className="text-[26px] font-extrabold leading-tight tracking-tight">{settled ? t("guest.thanksTitle") : t("guest.sessionEndedTitle")}</h1>
           <p className="max-w-[320px] text-[15px] leading-relaxed text-text-muted">{settled ? t("guest.thanksBody") : t("guest.sessionEnded")}</p>
-          <button type="button" onClick={onOrderMore} className="mt-2 flex h-[54px] w-full items-center justify-center rounded-[14px] border-[1.5px] border-brand text-base font-extrabold text-brand">
+          <Button variant="outline" size="xl" fullWidth className="mt-2" onClick={onOrderMore}>
             {t("guest.backToMenu")}
-          </button>
+          </Button>
         </main>
       </div>
     );
@@ -112,13 +113,20 @@ export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: G
           ) : null}
         </section>
 
-        <button type="button" onClick={onOrderMore} className="flex h-[54px] items-center justify-center gap-2 rounded-[14px] border-[1.5px] border-brand text-base font-extrabold text-brand">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M12 5v14" />
-            <path d="M5 12h14" />
-          </svg>
+        <Button
+          variant="outline"
+          size="xl"
+          fullWidth
+          onClick={onOrderMore}
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+          }
+        >
           {t("guest.orderMore")}
-        </button>
+        </Button>
 
         {orders.length > 1 ? (
           <section className="flex flex-col gap-2">

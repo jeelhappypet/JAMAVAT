@@ -3,6 +3,10 @@
 import { GuestHeader } from "@/components/guest/GuestHeader";
 import { VegMark } from "@/components/menu/VegMark";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { TextArea } from "@/components/ui/TextField";
+import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { localName } from "@/lib/i18n/messages";
 import type { GuestStateDTO, MenuDTO } from "@/types";
 
@@ -42,9 +46,9 @@ export function GuestCartView({ restaurantName, state, menus, cart, note, onNote
         {count === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <p className="text-lg font-bold">{t("guest.cartEmpty")}</p>
-            <button type="button" onClick={onBack} className="h-11 rounded-xl border border-brand px-5 text-sm font-bold text-brand">
+            <Button variant="outline" onClick={onBack}>
               {t("guest.browseMenu")}
-            </button>
+            </Button>
           </div>
         ) : (
           <>
@@ -63,15 +67,7 @@ export function GuestCartView({ restaurantName, state, menus, cart, note, onNote
                         <span className="line-clamp-2 text-[15px] font-bold leading-snug">{localName(lang, item.name, item.nameGu)}</span>
                         <span className="text-[13px] text-text-muted">{t("guest.each", { price: item.price })}</span>
                       </div>
-                      <div className="flex h-9 items-center rounded-[10px] border border-border">
-                        <button type="button" onClick={() => onQty(item.id, -1)} aria-label={t("guest.removeOne")} className="h-9 w-8 text-lg text-brand">
-                          −
-                        </button>
-                        <span className="min-w-[18px] text-center text-sm font-extrabold">{qty}</span>
-                        <button type="button" onClick={() => onQty(item.id, 1)} aria-label={t("guest.addOne")} className="h-9 w-8 text-lg text-brand">
-                          +
-                        </button>
-                      </div>
+                      <QuantityStepper tone="outline" value={qty} onChange={(delta) => onQty(item.id, delta)} decreaseLabel={t("guest.removeOne")} increaseLabel={t("guest.addOne")} />
                       <span className="w-14 text-right text-[15px] font-bold tabular-nums">₹{item.price * qty}</span>
                     </div>
                   );
@@ -79,19 +75,18 @@ export function GuestCartView({ restaurantName, state, menus, cart, note, onNote
               </section>
             ))}
 
-            <label className="flex flex-col gap-2 rounded-2xl border border-border bg-surface px-4 py-3.5">
-              <span className="text-sm font-bold">
-                {t("guest.note")} <span className="font-medium text-text-muted">{t("guest.optional")}</span>
-              </span>
-              <textarea
-                rows={2}
-                maxLength={200}
-                value={note}
-                onChange={(e) => onNote(e.target.value)}
-                placeholder={t("guest.notePlaceholder")}
-                className="resize-none rounded-[10px] border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none"
-              />
-            </label>
+            <TextArea
+              className="rounded-2xl border border-border bg-surface px-4 py-3.5"
+              label={
+                <span>
+                  {t("guest.note")} <span className="font-medium text-text-muted">{t("guest.optional")}</span>
+                </span>
+              }
+              maxLength={200}
+              value={note}
+              onChange={(e) => onNote(e.target.value)}
+              placeholder={t("guest.notePlaceholder")}
+            />
 
             <section className="flex flex-col gap-2 rounded-2xl border border-border bg-surface px-4 py-3.5">
               <div className="flex justify-between text-sm text-text-muted">
@@ -112,11 +107,7 @@ export function GuestCartView({ restaurantName, state, menus, cart, note, onNote
               <span>{t("guest.confirmInfo")}</span>
             </div>
 
-            {error ? (
-              <div role="alert" className="rounded-[14px] bg-danger-light px-4 py-3 text-sm font-semibold text-red-900">
-                {error}
-              </div>
-            ) : null}
+            {error ? <Alert>{error}</Alert> : null}
           </>
         )}
       </main>
@@ -126,14 +117,14 @@ export function GuestCartView({ restaurantName, state, menus, cart, note, onNote
           {state.verifiedEmail ? (
             <p className="text-center text-xs text-text-muted">
               {t("guest.verifiedAs", { email: state.verifiedEmail })} ·{" "}
-              <button type="button" onClick={onForget} className="font-bold text-brand underline-offset-2 hover:underline">
+              <Button variant="link" size="inline" onClick={onForget}>
                 {t("guest.notYou")}
-              </button>
+              </Button>
             </p>
           ) : null}
-          <button type="button" onClick={onPlace} disabled={placing} className="flex h-14 items-center justify-center rounded-2xl bg-brand text-[17px] font-extrabold text-white disabled:opacity-60">
+          <Button size="xl" fullWidth onClick={onPlace} disabled={placing}>
             {placing ? t("guest.placing") : t("guest.placeOrder", { total })}
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

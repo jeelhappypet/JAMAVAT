@@ -14,6 +14,7 @@ import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { Alert } from "@/components/ui/Alert";
 import { localName } from "@/lib/i18n/messages";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import type { MenuDTO, MenuItemDTO, SeatDetailDTO } from "@/types";
@@ -150,8 +151,8 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
           <h1 className="text-[26px] font-extrabold tracking-tight">{seatId ? t("parcel.addTitle", { code: seatCode ?? "…" }) : t("parcel.title")}</h1>
         </div>
 
-        {seatClosed ? <div className="rounded-[14px] bg-danger-light px-4 py-3 text-sm font-semibold text-red-900">{t("err.seatNotInUse")}</div> : null}
-        {error ? <div className="rounded-[14px] bg-danger-light px-4 py-3 text-sm font-semibold text-red-900">{error}</div> : null}
+        {seatClosed ? <Alert>{t("err.seatNotInUse")}</Alert> : null}
+        {error ? <Alert>{error}</Alert> : null}
 
         {loading ? (
           <LoadingState />

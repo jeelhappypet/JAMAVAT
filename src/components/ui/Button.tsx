@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "./cn";
 
-export type ButtonVariant = "primary" | "secondary" | "outline" | "danger" | "dangerSolid" | "success" | "successSoft" | "dark" | "ghost";
-export type ButtonSize = "sm" | "md" | "lg" | "xl";
+export type ButtonVariant = "primary" | "secondary" | "outline" | "danger" | "dangerSolid" | "success" | "successSoft" | "dark" | "outlineDark" | "ghost" | "link";
+export type ButtonSize = "inline" | "sm" | "md" | "lg" | "xl";
 
 const VARIANT: Record<ButtonVariant, string> = {
   /** Brand orange — the one main action on a screen. */
@@ -18,10 +18,15 @@ const VARIANT: Record<ButtonVariant, string> = {
   /** Kitchen "Mark ready". */
   successSoft: "bg-success-light font-extrabold text-green-800 active:brightness-95",
   dark: "bg-stone-900 font-extrabold text-white active:bg-stone-800",
+  /** On the dark kitchen header. */
+  outlineDark: "border border-stone-600 bg-transparent font-semibold text-white",
   ghost: "bg-transparent font-bold text-foreground active:bg-surface-muted",
+  /** Inline text action inside a sentence or a row ("Change", "Resend", "Not you?"). Use with size "inline". */
+  link: "bg-transparent font-bold text-brand underline-offset-2 hover:underline",
 };
 
 const SIZE: Record<ButtonSize, string> = {
+  inline: "min-h-6 px-1 text-sm",
   sm: "h-10 rounded-[10px] px-3.5 text-sm",
   md: "h-11 rounded-xl px-4 text-sm",
   lg: "h-12 rounded-xl px-[18px] text-[15px]",

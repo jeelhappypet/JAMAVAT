@@ -1,5 +1,7 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/Checkbox";
+import { Badge } from "@/components/ui/Badge";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { localName } from "@/lib/i18n/messages";
 import type { MenuDTO, StaffDTO } from "@/types";
@@ -76,23 +78,30 @@ export function RoutingMatrix({ staff, menus, currentStaffId, onToggle, onEdit }
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="truncate text-[15px] font-bold underline-offset-2 hover:underline">{member.name}</span>
                   <span className="flex flex-wrap gap-1">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${seesAll ? "bg-stone-200 text-stone-900" : "bg-brand-light text-brand-dark"}`}>
+                    <Badge size="sm" tone={seesAll ? "stone" : "orange"}>
                       {seesAll ? t("routing.roleAll", { role: t(`role.${member.role}`) }) : t(`role.${member.role}`)}
-                    </span>
-                    {member.id === currentStaffId ? <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">{t("staff.you")}</span> : null}
-                    {member.isLocked ? <span className="rounded-full bg-danger-light px-2 py-0.5 text-[11px] font-bold text-red-900">{t("staff.locked")}</span> : null}
+                    </Badge>
+                    {member.id === currentStaffId ? (
+                      <Badge size="sm" tone="brand">
+                        {t("staff.you")}
+                      </Badge>
+                    ) : null}
+                    {member.isLocked ? (
+                      <Badge size="sm" tone="red">
+                        {t("staff.locked")}
+                      </Badge>
+                    ) : null}
                   </span>
                 </span>
               </button>
               {columns.map(({ category }) => (
                 <span key={category.id} className="flex justify-center">
-                  <input
-                    type="checkbox"
+                  <Checkbox
+                    size="lg"
                     checked={seesAll || member.categoryIds.includes(category.id)}
                     disabled={seesAll}
                     onChange={() => onToggle(member, category.id)}
                     aria-label={t("routing.cellLabel", { name: member.name, category: localName(lang, category.name, category.nameGu) })}
-                    className="h-6 w-6 cursor-pointer accent-[#c2410c] disabled:cursor-default"
                   />
                 </span>
               ))}

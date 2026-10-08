@@ -1,5 +1,6 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/Checkbox";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { localName } from "@/lib/i18n/messages";
 import type { CategoryDTO, MenuDTO } from "@/types";
@@ -26,7 +27,7 @@ export function SoldOutList({
           {category.items.map((item) => (
             <label key={item.id} className="flex min-h-11 items-center justify-between gap-2.5 border-b border-stone-100 px-1 text-[15px] font-semibold">
               <span className={item.isAvailable ? "" : "text-danger line-through decoration-2"}>{localName(lang, item.name, item.nameGu)}</span>
-              <input type="checkbox" checked={!item.isAvailable} onChange={(e) => onToggle(item.id, e.target.checked)} className="h-[22px] w-[22px] accent-[#c2410c]" />
+              <Checkbox size="lg" checked={!item.isAvailable} onChange={(soldOut) => onToggle(item.id, soldOut)} />
             </label>
           ))}
         </div>

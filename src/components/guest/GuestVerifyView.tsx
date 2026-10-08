@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { GuestHeader } from "@/components/guest/GuestHeader";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/TextField";
+import { Alert } from "@/components/ui/Alert";
 import type { GuestStateDTO } from "@/types";
 
 interface GuestVerifyViewProps {
@@ -124,21 +127,10 @@ export function GuestVerifyView({ restaurantName, state, token, placing, onBack,
             }}
             className="flex flex-col gap-3"
           >
-            <label className="flex flex-col gap-1.5 text-sm font-bold">
-              {t("guest.email")}
-              <input
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-[52px] rounded-xl border border-stone-300 bg-surface px-3.5 text-base font-normal"
-              />
-            </label>
-            <button type="submit" disabled={working || !email.trim()} className="h-[52px] rounded-2xl bg-brand text-base font-extrabold text-white disabled:opacity-60">
+            <TextField label={t("guest.email")} type="email" inputMode="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Button type="submit" size="xl" fullWidth disabled={working || !email.trim()}>
               {busy ? t("guest.sending") : t("guest.sendCode")}
-            </button>
+            </Button>
           </form>
         ) : (
           <>
@@ -152,9 +144,9 @@ export function GuestVerifyView({ restaurantName, state, token, placing, onBack,
                 <span className="text-xs text-text-muted">{t("guest.codeSentTo")}</span>
                 <span className="truncate text-[15px] font-bold">{sentTo}</span>
               </span>
-              <button type="button" onClick={() => setSentTo(null)} className="px-1 py-2.5 text-sm font-bold text-brand">
+              <Button variant="link" size="inline" onClick={() => setSentTo(null)}>
                 {t("guest.change")}
-              </button>
+              </Button>
             </div>
 
             {devCode ? <div className="rounded-[14px] border border-dashed border-amber-500 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">{t("guest.devCode", { code: devCode })}</div> : null}
@@ -185,9 +177,9 @@ export function GuestVerifyView({ restaurantName, state, token, placing, onBack,
                 {resendIn > 0 ? (
                   <span>{t("guest.resendIn", { s: resendIn })}</span>
                 ) : (
-                  <button type="button" disabled={working} onClick={() => send(sentTo)} className="font-bold text-brand">
+                  <Button variant="link" size="inline" disabled={working} onClick={() => send(sentTo)}>
                     {t("guest.resend")}
-                  </button>
+                  </Button>
                 )}
               </div>
             </fieldset>
@@ -195,23 +187,14 @@ export function GuestVerifyView({ restaurantName, state, token, placing, onBack,
           </>
         )}
 
-        {error ? (
-          <div role="alert" className="rounded-[14px] bg-danger-light px-4 py-3 text-sm font-semibold text-red-900">
-            {error}
-          </div>
-        ) : null}
+        {error ? <Alert>{error}</Alert> : null}
       </main>
 
       {sentTo ? (
         <div className="sticky bottom-0 flex flex-col gap-2.5 border-t border-border bg-surface px-4 pb-4 pt-3">
-          <button
-            type="button"
-            disabled={working || code.length !== 6}
-            onClick={() => verify(code)}
-            className="flex h-14 items-center justify-center rounded-2xl bg-brand text-[17px] font-extrabold text-white disabled:opacity-60"
-          >
+          <Button size="xl" fullWidth disabled={working || code.length !== 6} onClick={() => verify(code)}>
             {busy ? t("guest.verifying") : placing ? t("guest.placing") : t("guest.verifyAndPlace")}
-          </button>
+          </Button>
           <p className="text-center text-xs text-text-muted">{t("guest.privacy")}</p>
         </div>
       ) : null}

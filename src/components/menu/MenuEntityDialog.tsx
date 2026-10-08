@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/TextField";
+import { Select } from "@/components/ui/Select";
+import { Checkbox } from "@/components/ui/Checkbox";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { Alert } from "@/components/ui/Alert";
 
 export type EntityKind = "menu" | "category" | "item";
 
@@ -33,9 +40,6 @@ const TITLES: Record<EntityKind, Record<"create" | "edit", MessageKey>> = {
   category: { create: "menu.addCategory", edit: "menu.editCategory" },
   item: { create: "menu.addItem", edit: "menu.editItem" },
 };
-
-const inputClass = "h-12 w-full rounded-xl border border-stone-300 bg-surface px-3.5 text-base font-normal";
-const labelClass = "flex flex-col gap-1.5 text-sm font-bold";
 
 export function MenuEntityDialog({ kind, mode, initial, categoryOptions = [], onClose, onSubmit }: MenuEntityDialogProps) {
   const { t } = useI18n();
@@ -68,89 +72,53 @@ export function MenuEntityDialog({ kind, mode, initial, categoryOptions = [], on
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="entity-dialog-title">
-      <form onSubmit={handleSubmit} className="flex max-h-full w-full max-w-md flex-col gap-4 overflow-y-auto rounded-[20px] bg-surface p-6 shadow-lg">
-        <h2 id="entity-dialog-title" className="text-xl font-extrabold">
-          {t(TITLES[kind][mode])}
-        </h2>
-
-        <label className={labelClass}>
-          {t("menu.nameEn")}
-          <input type="text" value={values.name} onChange={(e) => set("name", e.target.value)} className={inputClass} autoFocus />
-        </label>
-        <label className={labelClass}>
-          {t("menu.nameGu")}
-          <input type="text" lang="gu" value={values.nameGu} onChange={(e) => set("nameGu", e.target.value)} className={inputClass} />
-          <span className="text-[13px] font-normal text-text-muted">{t("menu.nameGuHint")}</span>
-        </label>
-
-        {kind === "item" ? (
-          <>
-            <div className="grid grid-cols-2 gap-3">
-              <label className={labelClass}>
-                {t("menu.price")}
-                <input type="number" inputMode="decimal" min={0} step="any" value={values.price} onChange={(e) => set("price", e.target.value)} className={inputClass} />
-              </label>
-              <fieldset className="flex flex-col gap-1.5">
-                <legend className="mb-1.5 text-sm font-bold">{t("menu.type")}</legend>
-                <div className="flex h-12 rounded-xl bg-stone-200 p-[3px]">
-                  {[true, false].map((isVeg) => (
-                    <button
-                      key={String(isVeg)}
-                      type="button"
-                      aria-pressed={values.isVeg === isVeg}
-                      onClick={() => set("isVeg", isVeg)}
-                      className={`flex-1 rounded-[9px] text-sm font-bold ${values.isVeg === isVeg ? "bg-surface text-brand-dark shadow-sm" : "text-text-muted"}`}
-                    >
-                      {isVeg ? t("menu.veg") : t("menu.nonVeg")}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-            </div>
-            <label className={labelClass}>
-              {t("menu.description")}
-              <input type="text" maxLength={140} value={values.description} onChange={(e) => set("description", e.target.value)} className={inputClass} />
-            </label>
-            <label className={labelClass}>
-              {t("menu.descriptionGu")}
-              <input type="text" lang="gu" maxLength={140} value={values.descriptionGu} onChange={(e) => set("descriptionGu", e.target.value)} className={inputClass} />
-              <span className="text-[13px] font-normal text-text-muted">{t("menu.descriptionHint")}</span>
-            </label>
-            <label className="flex items-center gap-2.5 text-sm font-bold">
-              <input type="checkbox" checked={values.isBestseller} onChange={(e) => set("isBestseller", e.target.checked)} className="h-5 w-5 accent-[#c2410c]" />
-              {t("menu.bestseller")}
-            </label>
-            {categoryOptions.length > 1 ? (
-              <label className={labelClass}>
-                {t("menu.category")}
-                <select value={values.categoryId} onChange={(e) => set("categoryId", e.target.value)} className={inputClass}>
-                  {categoryOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-          </>
-        ) : null}
-
-        {error ? (
-          <p role="alert" className="font-semibold text-danger">
-            {error}
-          </p>
-        ) : null}
-
-        <div className="mt-2 flex gap-3">
-          <button type="button" onClick={onClose} className="h-12 flex-1 rounded-xl border border-stone-300 bg-surface text-base font-bold">
+    <Modal
+      open
+      title={t(TITLES[kind][mode])}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      footer={
+        <>
+          <Button variant="secondary" size="lg" className="flex-1" onClick={onClose}>
             {t("common.cancel")}
-          </button>
-          <button type="submit" disabled={saving} className="h-12 flex-1 rounded-xl bg-brand text-base font-extrabold text-white disabled:opacity-60">
+          </Button>
+          <Button type="submit" size="lg" className="flex-1" disabled={saving}>
             {saving ? t("common.saving") : t("common.save")}
-          </button>
-        </div>
-      </form>
-    </div>
+          </Button>
+        </>
+      }
+    >
+      <TextField label={t("menu.nameEn")} value={values.name} onChange={(e) => set("name", e.target.value)} autoFocus />
+      <TextField label={t("menu.nameGu")} hint={t("menu.nameGuHint")} lang="gu" value={values.nameGu} onChange={(e) => set("nameGu", e.target.value)} />
+
+      {kind === "item" ? (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <TextField label={t("menu.price")} type="number" inputMode="decimal" min={0} step="any" value={values.price} onChange={(e) => set("price", e.target.value)} />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-bold">{t("menu.type")}</span>
+              <SegmentedControl
+                label={t("menu.type")}
+                value={values.isVeg ? "veg" : "nonveg"}
+                onChange={(value) => set("isVeg", value === "veg")}
+                className="[&>button]:flex-1"
+                options={[
+                  { value: "veg", label: t("menu.veg") },
+                  { value: "nonveg", label: t("menu.nonVeg") },
+                ]}
+              />
+            </div>
+          </div>
+          <TextField label={t("menu.description")} maxLength={140} value={values.description} onChange={(e) => set("description", e.target.value)} />
+          <TextField label={t("menu.descriptionGu")} hint={t("menu.descriptionHint")} lang="gu" maxLength={140} value={values.descriptionGu} onChange={(e) => set("descriptionGu", e.target.value)} />
+          <Checkbox checked={values.isBestseller} onChange={(checked) => set("isBestseller", checked)} label={<span className="text-sm font-bold">{t("menu.bestseller")}</span>} className="items-center" />
+          {categoryOptions.length > 1 ? (
+            <Select label={t("menu.category")} value={values.categoryId} onChange={(value) => set("categoryId", value)} options={categoryOptions.map((option) => ({ value: option.id, label: option.label }))} />
+          ) : null}
+        </>
+      ) : null}
+
+      {error ? <Alert>{error}</Alert> : null}
+    </Modal>
   );
 }

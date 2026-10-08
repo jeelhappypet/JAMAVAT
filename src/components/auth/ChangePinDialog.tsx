@@ -4,13 +4,16 @@ import { useState } from "react";
 import { PIN_PATTERN } from "@/lib/auth/constants";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/TextField";
+import { Alert } from "@/components/ui/Alert";
 
 interface ChangePinDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
-const inputClass = "h-12 w-full rounded-xl border border-stone-300 bg-surface px-3.5 text-center text-xl tracking-[0.5em]";
 const digitsOnly = (value: string) => value.replace(/\D/g, "").slice(0, 4);
 
 export function ChangePinDialog({ open, onClose }: ChangePinDialogProps) {
@@ -57,50 +60,41 @@ export function ChangePinDialog({ open, onClose }: ChangePinDialogProps) {
     }
   }
 
+  const pinProps = { type: "password", inputMode: "numeric" as const, autoComplete: "off", inputClassName: "text-center text-xl tracking-[0.5em]" };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="change-pin-title">
-      <div className="w-full max-w-sm rounded-[20px] bg-surface p-6 shadow-lg">
-        <h2 id="change-pin-title" className="text-xl font-extrabold">
-          {t("pin.title")}
-        </h2>
-
-        {done ? (
-          <>
-            <p className="mt-3 text-[15px] leading-relaxed text-text-muted">{t("pin.done")}</p>
-            <button type="button" onClick={close} className="mt-6 h-12 w-full rounded-xl bg-brand text-base font-extrabold text-white">
-              {t("common.done")}
-            </button>
-          </>
+    <Modal
+      open
+      size="sm"
+      title={t("pin.title")}
+      onClose={close}
+      onSubmit={done ? undefined : handleSubmit}
+      footer={
+        done ? (
+          <Button size="lg" fullWidth onClick={close}>
+            {t("common.done")}
+          </Button>
         ) : (
-          <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
-            <label className="flex flex-col gap-1.5 text-sm font-bold">
-              {t("pin.current")}
-              <input type="password" inputMode="numeric" autoComplete="off" value={currentPin} onChange={(e) => setCurrentPin(digitsOnly(e.target.value))} className={inputClass} />
-            </label>
-            <label className="flex flex-col gap-1.5 text-sm font-bold">
-              {t("pin.new")}
-              <input type="password" inputMode="numeric" autoComplete="off" value={newPin} onChange={(e) => setNewPin(digitsOnly(e.target.value))} className={inputClass} />
-            </label>
-            <label className="flex flex-col gap-1.5 text-sm font-bold">
-              {t("pin.repeat")}
-              <input type="password" inputMode="numeric" autoComplete="off" value={confirmPin} onChange={(e) => setConfirmPin(digitsOnly(e.target.value))} className={inputClass} />
-            </label>
-            {error ? (
-              <p role="alert" className="font-semibold text-danger">
-                {error}
-              </p>
-            ) : null}
-            <div className="mt-2 flex gap-3">
-              <button type="button" onClick={close} className="h-12 flex-1 rounded-xl border border-stone-300 bg-surface text-base font-bold">
-                {t("common.cancel")}
-              </button>
-              <button type="submit" disabled={saving} className="h-12 flex-1 rounded-xl bg-brand text-base font-extrabold text-white disabled:opacity-60">
-                {saving ? t("common.saving") : t("common.save")}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+          <>
+            <Button variant="secondary" size="lg" className="flex-1" onClick={close}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" size="lg" className="flex-1" disabled={saving}>
+              {saving ? t("common.saving") : t("common.save")}
+            </Button>
+          </>
+        )
+      }
+    >
+      {done ? (
+        <p className="text-[15px] leading-relaxed text-text-muted">{t("pin.done")}</p>
+      ) : (
+        <>
+          <TextField label={t("pin.current")} value={currentPin} onChange={(e) => setCurrentPin(digitsOnly(e.target.value))} {...pinProps} />
+          <TextField label={t("pin.new")} value={newPin} onChange={(e) => setNewPin(digitsOnly(e.target.value))} {...pinProps} />
+          <TextField label={t("pin.repeat")} value={confirmPin} onChange={(e) => setConfirmPin(digitsOnly(e.target.value))} {...pinProps} />
+          {error ? <Alert>{error}</Alert> : null}
+        </>
+      )}
+    </Modal>
   );
 }

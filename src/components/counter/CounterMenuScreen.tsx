@@ -7,6 +7,7 @@ import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { Alert } from "@/components/ui/Alert";
 import type { MenuDTO } from "@/types";
 
 /** Counter "Menu" tab: mark dishes sold out for the day (only the admin edits the menu itself). */
@@ -56,11 +57,7 @@ export function CounterMenuScreen() {
         <h1 className="text-[26px] font-extrabold tracking-tight">{t("counterMenu.title")}</h1>
         <p className="text-[15px] leading-relaxed text-text-muted">{t("counterMenu.subtitle")}</p>
       </div>
-      {error ? (
-        <div role="alert" className="rounded-[14px] bg-danger-light px-4 py-3 text-sm font-semibold text-red-900">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert>{error}</Alert> : null}
       {loading ? (
         <LoadingState />
       ) : groups.length === 0 ? (

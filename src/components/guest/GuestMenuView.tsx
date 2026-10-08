@@ -6,6 +6,7 @@ import { VegMark } from "@/components/menu/VegMark";
 import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { localName } from "@/lib/i18n/messages";
 import type { GuestStateDTO, MenuDTO } from "@/types";
 
@@ -176,15 +177,7 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
                         {t("guest.add")}
                       </Button>
                     ) : (
-                      <div className="flex h-10 w-24 items-center justify-between rounded-[10px] bg-brand text-white">
-                        <button type="button" onClick={() => onQty(item.id, -1)} aria-label={t("guest.removeOne")} className="h-10 w-8 text-xl font-bold">
-                          −
-                        </button>
-                        <span className="text-[15px] font-extrabold">{qty}</span>
-                        <button type="button" onClick={() => onQty(item.id, 1)} aria-label={t("guest.addOne")} className="h-10 w-8 text-xl font-bold">
-                          +
-                        </button>
-                      </div>
+                      <QuantityStepper value={qty} onChange={(delta) => onQty(item.id, delta)} decreaseLabel={t("guest.removeOne")} increaseLabel={t("guest.addOne")} />
                     )}
                   </div>
                 </article>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandMark, RestaurantInitial } from "@/components/brand/BrandMark";
 import { AccountMenu } from "@/components/shell/AccountMenu";
+import { IconButton } from "@/components/ui/IconButton";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
 import { ADMIN_NAV, COUNTER_NAV, activeHref, isCounterPath } from "@/components/shell/navItems";
 import { useRealtime } from "@/lib/realtime/useRealtime";
@@ -102,19 +103,12 @@ function CounterHeader({ restaurantName, staffName, role, pathname }: StaffHeade
         </nav>
         <div className="flex flex-wrap items-center gap-2">
           <RealtimeStatus state={state} />
-          <button
-            type="button"
-            onClick={toggleSound}
-            aria-pressed={soundOn}
-            aria-label={soundOn ? t("account.soundOn") : t("account.soundOff")}
-            title={soundOn ? t("account.soundOn") : t("account.soundOff")}
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface text-foreground"
-          >
+          <IconButton size="md" onClick={toggleSound} aria-pressed={soundOn} label={soundOn ? t("account.soundOn") : t("account.soundOff")}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M11 5 6 9H3v6h3l5 4V5Z" />
               {soundOn ? <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" /> : <path d="m22 9-6 6M16 9l6 6" />}
             </svg>
-          </button>
+          </IconButton>
           <AccountMenu
             name={staffName}
             role={role}

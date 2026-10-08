@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/TextField";
+import { Select } from "@/components/ui/Select";
+import { Alert } from "@/components/ui/Alert";
 import { PIN_PATTERN } from "@/lib/auth/constants";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useI18n } from "@/lib/i18n/I18nProvider";
@@ -12,9 +17,6 @@ import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { STAFF_ROLES, type MenuDTO, type StaffDTO, type StaffRole } from "@/types";
 
-const inputClass = "h-12 w-full rounded-xl border border-stone-300 bg-surface px-3.5 text-base font-normal";
-const labelClass = "flex flex-col gap-1.5 text-sm font-bold";
-const actionButton = "flex h-12 w-full items-center justify-center rounded-xl border border-stone-300 bg-surface text-[15px] font-bold";
 
 type PendingAction =
   | { kind: "role"; staff: StaffDTO; role: StaffRole }
@@ -178,19 +180,20 @@ export function StaffManager({ currentStaffId }: { currentStaffId: string }) {
           <h1 className="text-[26px] font-extrabold tracking-tight">{t("routing.title")}</h1>
           <p className="text-[15px] leading-relaxed text-text-muted">{t("routing.subtitle")}</p>
         </div>
-        <button type="button" onClick={() => setAdding(true)} className="flex h-[46px] items-center gap-2 rounded-xl bg-brand px-[18px] text-[15px] font-extrabold text-white active:bg-brand-dark">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M12 5v14M5 12h14" />
-          </svg>
+        <Button
+          size="lg"
+          onClick={() => setAdding(true)}
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          }
+        >
           {t("staff.add")}
-        </button>
+        </Button>
       </div>
 
-      {error ? (
-        <div role="alert" className="rounded-[14px] bg-danger-light px-4 py-3 text-sm font-semibold text-red-900">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert>{error}</Alert> : null}
 
       {loading ? (
         <LoadingState />
@@ -239,9 +242,9 @@ export function StaffManager({ currentStaffId }: { currentStaffId: string }) {
                   <span className="text-[15px] font-semibold text-text-muted">
                     {member.name} · {t(`role.${member.role}`)}
                   </span>
-                  <button type="button" onClick={() => update(member.id, { isActive: true })} className="h-10 rounded-[10px] border border-stone-300 bg-surface px-3.5 text-sm font-bold">
+                  <Button variant="secondary" size="sm" onClick={() => update(member.id, { isActive: true })}>
                     {t("staff.activate")}
-                  </button>
+                  </Button>
                 </div>
               ))}
             </section>
@@ -249,142 +252,120 @@ export function StaffManager({ currentStaffId }: { currentStaffId: string }) {
         </>
       )}
 
-      {adding ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="add-staff-title">
-          <form onSubmit={handleAdd} className="flex w-full max-w-md flex-col gap-3.5 rounded-[20px] bg-surface p-6 shadow-lg">
-            <h2 id="add-staff-title" className="text-xl font-extrabold">
-              {t("staff.add")}
-            </h2>
-            <label className={labelClass}>
-              {t("staff.name")}
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} autoFocus />
-            </label>
-            <label className={labelClass}>
-              {t("staff.role")}
-              <select value={role} onChange={(e) => setRole(e.target.value as StaffRole)} className={inputClass}>
-                {STAFF_ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {t(`role.${r}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={labelClass}>
-              {t("staff.firstPin")}
-              <input type="password" inputMode="numeric" autoComplete="off" value={pin} onChange={(e) => setPin(digitsOnly(e.target.value))} className={`${inputClass} text-center tracking-[0.4em]`} />
-            </label>
-            <p className="text-[13px] text-text-muted">{t("staff.firstPinHint")}</p>
-            <div className="mt-2 flex gap-3">
-              <button type="button" onClick={() => setAdding(false)} className="h-12 flex-1 rounded-xl border border-stone-300 bg-surface text-base font-bold">
-                {t("common.cancel")}
-              </button>
-              <button type="submit" disabled={saving} className="h-12 flex-1 rounded-xl bg-brand text-base font-extrabold text-white disabled:opacity-60">
-                {saving ? t("staff.adding") : t("staff.add")}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
+      <Modal
+        open={adding}
+        title={t("staff.add")}
+        onClose={() => setAdding(false)}
+        onSubmit={handleAdd}
+        footer={
+          <>
+            <Button variant="secondary" size="lg" className="flex-1" onClick={() => setAdding(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" size="lg" className="flex-1" disabled={saving}>
+              {saving ? t("staff.adding") : t("staff.add")}
+            </Button>
+          </>
+        }
+      >
+        <TextField label={t("staff.name")} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        <Select label={t("staff.role")} value={role} onChange={(value) => setRole(value as StaffRole)} options={STAFF_ROLES.map((r) => ({ value: r, label: t(`role.${r}`) }))} />
+        <TextField
+          label={t("staff.firstPin")}
+          hint={t("staff.firstPinHint")}
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          value={pin}
+          onChange={(e) => setPin(digitsOnly(e.target.value))}
+          inputClassName="text-center tracking-[0.4em]"
+        />
+      </Modal>
 
-      {editing && !pending && !resetTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="edit-staff-title">
-          <div className="flex w-full max-w-md flex-col gap-3.5 rounded-[20px] bg-surface p-6 shadow-lg">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-stone-200 text-base font-extrabold">{editing.name.charAt(0).toUpperCase()}</span>
-              <h2 id="edit-staff-title" className="text-xl font-extrabold">
-                {editing.name}
-              </h2>
-            </div>
-            <label className={labelClass}>
-              {t("staff.role")}
-              <select
-                value={editing.role}
-                onChange={(e) => setPending({ kind: "role", staff: editing, role: e.target.value as StaffRole })}
-                className={inputClass}
-              >
-                {STAFF_ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {t(`role.${r}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="button" className={actionButton} onClick={() => setResetTarget(editing)}>
+      <Modal
+        open={editing !== null && !pending && !resetTarget}
+        title={editing?.name ?? ""}
+        onClose={() => setEditing(null)}
+        footer={
+          <Button variant="dark" size="lg" fullWidth onClick={() => setEditing(null)}>
+            {t("common.done")}
+          </Button>
+        }
+      >
+        {editing ? (
+          <>
+            <Select label={t("staff.role")} value={editing.role} onChange={(value) => setPending({ kind: "role", staff: editing, role: value as StaffRole })} options={STAFF_ROLES.map((r) => ({ value: r, label: t(`role.${r}`) }))} />
+            <Button variant="secondary" size="lg" fullWidth onClick={() => setResetTarget(editing)}>
               {t("staff.resetPin")}
-            </button>
-            <button type="button" className={actionButton} onClick={() => setPending({ kind: "logout", staff: editing })}>
+            </Button>
+            <Button variant="secondary" size="lg" fullWidth onClick={() => setPending({ kind: "logout", staff: editing })}>
               {t("staff.logoutDevices")}
-            </button>
+            </Button>
             {editing.id !== currentStaffId ? (
-              <button type="button" className={`${actionButton} text-danger`} onClick={() => setPending({ kind: "deactivate", staff: editing })}>
+              <Button variant="danger" size="lg" fullWidth onClick={() => setPending({ kind: "deactivate", staff: editing })}>
                 {t("staff.deactivate")}
-              </button>
+              </Button>
             ) : null}
-            <button type="button" onClick={() => setEditing(null)} className="mt-1 h-12 rounded-xl bg-stone-900 text-base font-extrabold text-white">
-              {t("common.done")}
-            </button>
-          </div>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </Modal>
 
       <ConfirmDialog
         open={confirmCopy !== null}
         title={confirmCopy?.title ?? ""}
         description={confirmCopy?.description}
         confirmLabel={confirmCopy?.confirmLabel}
-        cancelLabel={t("common.cancel")}
         variant={confirmCopy?.variant}
         onConfirm={confirmPending}
         onCancel={() => setPending(null)}
       />
 
-      {resetTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="reset-pin-title">
-          <form onSubmit={handleResetPin} className="w-full max-w-sm rounded-[20px] bg-surface p-6 shadow-lg">
-            <h2 id="reset-pin-title" className="text-xl font-extrabold">
-              {t("staff.resetTitle", { name: resetTarget.name })}
-            </h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-text-muted">{t("staff.resetDesc")}</p>
-            <label className="mt-4 flex flex-col gap-1.5 text-sm font-bold">
-              {t("staff.newPin")}
-              <input
-                type="password"
-                inputMode="numeric"
-                autoComplete="off"
-                value={resetPin}
-                onChange={(e) => setResetPin(digitsOnly(e.target.value))}
-                className={`${inputClass} text-center text-xl tracking-[0.5em]`}
-                autoFocus
-              />
-            </label>
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button"
-                className="h-12 flex-1 rounded-xl border border-stone-300 bg-surface text-base font-bold"
-                onClick={() => {
-                  setResetTarget(null);
-                  setResetPin("");
-                }}
-              >
-                {t("common.cancel")}
-              </button>
-              <button type="submit" className="h-12 flex-1 rounded-xl bg-brand text-base font-extrabold text-white">
-                {t("staff.savePin")}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
+      <Modal
+        open={resetTarget !== null}
+        size="sm"
+        title={resetTarget ? t("staff.resetTitle", { name: resetTarget.name }) : ""}
+        onClose={() => {
+          setResetTarget(null);
+          setResetPin("");
+        }}
+        onSubmit={handleResetPin}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="flex-1"
+              onClick={() => {
+                setResetTarget(null);
+                setResetPin("");
+              }}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" size="lg" className="flex-1">
+              {t("staff.savePin")}
+            </Button>
+          </>
+        }
+      >
+        <p className="-mt-2 text-[15px] leading-relaxed text-text-muted">{t("staff.resetDesc")}</p>
+        <TextField
+          label={t("staff.newPin")}
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          value={resetPin}
+          onChange={(e) => setResetPin(digitsOnly(e.target.value))}
+          inputClassName="text-center text-xl tracking-[0.5em]"
+          autoFocus
+        />
+      </Modal>
     </>
   );
 }
 
+/** Routing check under the grid — the Alert tones with an icon in front. */
 function Note({ tone, children }: { tone: "ok" | "warn" | "info"; children: React.ReactNode }) {
-  const styles = {
-    ok: "bg-success-light text-green-900",
-    warn: "bg-danger-light text-red-900",
-    info: "border border-border bg-surface text-stone-700",
-  }[tone];
   const icon =
     tone === "ok" ? (
       <path d="M5 13l4 4L19 7" />
@@ -400,11 +381,13 @@ function Note({ tone, children }: { tone: "ok" | "warn" | "info"; children: Reac
       </>
     );
   return (
-    <div className={`flex items-start gap-2.5 rounded-[14px] px-4 py-3 text-sm font-semibold leading-relaxed ${styles}`}>
-      <svg className="mt-0.5 shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        {icon}
-      </svg>
-      <span>{children}</span>
-    </div>
+    <Alert tone={tone === "ok" ? "success" : tone === "warn" ? "error" : "info"}>
+      <span className="flex items-start gap-2.5">
+        <svg className="mt-0.5 shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          {icon}
+        </svg>
+        <span>{children}</span>
+      </span>
+    </Alert>
   );
 }

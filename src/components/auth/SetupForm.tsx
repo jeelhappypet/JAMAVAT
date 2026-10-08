@@ -4,9 +4,10 @@ import { useState } from "react";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { PIN_PATTERN } from "@/lib/auth/constants";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/TextField";
+import { Alert } from "@/components/ui/Alert";
 
-const inputClass = "h-12 w-full rounded-xl border border-stone-300 bg-surface px-3.5 text-base font-normal";
-const labelClass = "flex flex-col gap-1.5 text-sm font-bold";
 const digitsOnly = (value: string) => value.replace(/\D/g, "").slice(0, 4);
 
 export function SetupForm() {
@@ -50,37 +51,17 @@ export function SetupForm() {
             <h1 className="text-[26px] font-extrabold tracking-tight">{t("setup.title")}</h1>
             <p className="text-[15px] text-text-muted">{t("setup.subtitle")}</p>
           </div>
-          <label className={labelClass}>
-            {t("setup.key")}
-            <input type="password" value={setupKey} onChange={(e) => setSetupKey(e.target.value)} autoComplete="off" className={inputClass} />
-            <span className="text-[13px] font-normal text-text-muted">{t("setup.keyHint")}</span>
-          </label>
-          <label className={labelClass}>
-            {t("setup.restaurantName")}
-            <input type="text" value={restaurantName} onChange={(e) => setRestaurantName(e.target.value)} autoComplete="organization" className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            {t("setup.yourName")}
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className={inputClass} />
-          </label>
+          <TextField label={t("setup.key")} hint={t("setup.keyHint")} type="password" value={setupKey} onChange={(e) => setSetupKey(e.target.value)} autoComplete="off" />
+          <TextField label={t("setup.restaurantName")} value={restaurantName} onChange={(e) => setRestaurantName(e.target.value)} autoComplete="organization" />
+          <TextField label={t("setup.yourName")} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
           <div className="grid grid-cols-2 gap-3">
-            <label className={labelClass}>
-              {t("setup.pin")}
-              <input type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(digitsOnly(e.target.value))} autoComplete="off" className={`${inputClass} text-center tracking-[0.4em]`} />
-            </label>
-            <label className={labelClass}>
-              {t("setup.repeatPin")}
-              <input type="password" inputMode="numeric" value={confirmPin} onChange={(e) => setConfirmPin(digitsOnly(e.target.value))} autoComplete="off" className={`${inputClass} text-center tracking-[0.4em]`} />
-            </label>
+            <TextField label={t("setup.pin")} type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(digitsOnly(e.target.value))} autoComplete="off" inputClassName="text-center tracking-[0.4em]" />
+            <TextField label={t("setup.repeatPin")} type="password" inputMode="numeric" value={confirmPin} onChange={(e) => setConfirmPin(digitsOnly(e.target.value))} autoComplete="off" inputClassName="text-center tracking-[0.4em]" />
           </div>
-          {error ? (
-            <p role="alert" className="text-[15px] font-semibold text-danger">
-              {error}
-            </p>
-          ) : null}
-          <button type="submit" disabled={saving} className="h-[52px] rounded-[14px] bg-brand text-base font-extrabold text-white active:bg-brand-dark disabled:opacity-60">
+          {error ? <Alert>{error}</Alert> : null}
+          <Button type="submit" size="xl" fullWidth disabled={saving}>
             {saving ? t("setup.submitting") : t("setup.submit")}
-          </button>
+          </Button>
         </form>
       </main>
     </div>

@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
+import { Checkbox } from "@/components/ui/Checkbox";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
 import { VegMark } from "@/components/menu/VegMark";
 import { MenuEntityDialog, type EntityKind, type EntityValues } from "@/components/menu/MenuEntityDialog";
@@ -27,10 +32,6 @@ const ENDPOINT: Record<EntityKind, string> = {
   item: "/api/menu/items",
 };
 
-const iconButton =
-  "flex h-10 w-10 items-center justify-center rounded-[10px] border border-stone-300 bg-surface text-stone-700 active:bg-surface-muted disabled:opacity-35";
-const textButton = "h-10 rounded-[10px] border border-stone-300 bg-surface px-3.5 text-sm font-bold active:bg-surface-muted";
-const primaryButton = "h-10 rounded-[10px] bg-brand px-3.5 text-sm font-bold text-white active:bg-brand-dark";
 
 function Icon({ d }: { d: string }) {
   return (
@@ -163,14 +164,9 @@ export function MenuManager() {
         </div>
         <div className="flex items-center gap-2">
           <RealtimeStatus state={realtimeState} />
-          <button
-            type="button"
-            onClick={() => setDialog({ kind: "menu", mode: "create" })}
-            className="flex h-[46px] items-center gap-2 rounded-xl bg-brand px-[18px] text-[15px] font-extrabold text-white active:bg-brand-dark"
-          >
-            <Icon d={ICONS.plus} />
+          <Button size="lg" icon={<Icon d={ICONS.plus} />} onClick={() => setDialog({ kind: "menu", mode: "create" })}>
             {t("menu.addMenu")}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -184,11 +180,7 @@ export function MenuManager() {
         </div>
       ) : null}
 
-      {error ? (
-        <div role="alert" className="rounded-[14px] bg-danger-light px-4 py-3 text-sm font-semibold text-red-900">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert>{error}</Alert> : null}
 
       {loading ? <LoadingState /> : null}
 
@@ -200,31 +192,31 @@ export function MenuManager() {
               <>
                 <span className="text-lg font-extrabold">{name(menu)}</span>
                 {otherName(menu) ? <span className="text-sm text-text-muted">{otherName(menu)}</span> : null}
-                {!menu.isActive ? <Badge>{t("menu.hidden")}</Badge> : null}
+                {!menu.isActive ? <Badge size="sm" className="self-center">{t("menu.hidden")}</Badge> : null}
                 <span className="text-[13px] text-text-muted">· {menu.categories.length === 1 ? t("menu.categoriesCountOne") : t("menu.categoriesCount", { n: menu.categories.length })}</span>
               </>
             }
             actions={
               <>
-                <button type="button" className={primaryButton} onClick={() => setDialog({ kind: "category", mode: "create", parentId: menu.id })}>
+                <Button size="sm" onClick={() => setDialog({ kind: "category", mode: "create", parentId: menu.id })}>
                   + {t("menu.addCategory")}
-                </button>
-                <button type="button" className={iconButton} aria-label={t("menu.edit")} title={t("menu.edit")} onClick={() => setDialog({ kind: "menu", mode: "edit", target: menu })}>
+                </Button>
+                <IconButton label={t("menu.edit")} onClick={() => setDialog({ kind: "menu", mode: "edit", target: menu })}>
                   <Icon d={ICONS.edit} />
-                </button>
-                <button type="button" className={iconButton} aria-label={menu.isActive ? t("menu.hide") : t("menu.show")} title={menu.isActive ? t("menu.hide") : t("menu.show")} onClick={() => act("PATCH", `${ENDPOINT.menu}/${menu.id}`, { isActive: !menu.isActive })}>
+                </IconButton>
+                <IconButton label={menu.isActive ? t("menu.hide") : t("menu.show")} onClick={() => act("PATCH", `${ENDPOINT.menu}/${menu.id}`, { isActive: !menu.isActive })}>
                   <Icon d={menu.isActive ? ICONS.eyeOff : ICONS.eye} />
-                </button>
-                <button type="button" className={iconButton} aria-label={t("menu.moveUp")} title={t("menu.moveUp")} disabled={menuIndex === 0} onClick={() => move(menus, menuIndex, -1, "menu")}>
+                </IconButton>
+                <IconButton label={t("menu.moveUp")} disabled={menuIndex === 0} onClick={() => move(menus, menuIndex, -1, "menu")}>
                   <Icon d={ICONS.up} />
-                </button>
-                <button type="button" className={iconButton} aria-label={t("menu.moveDown")} title={t("menu.moveDown")} disabled={menuIndex === menus.length - 1} onClick={() => move(menus, menuIndex, 1, "menu")}>
+                </IconButton>
+                <IconButton label={t("menu.moveDown")} disabled={menuIndex === menus.length - 1} onClick={() => move(menus, menuIndex, 1, "menu")}>
                   <Icon d={ICONS.down} />
-                </button>
+                </IconButton>
                 {menu.categories.length === 0 ? (
-                  <button type="button" className={`${iconButton} text-danger`} aria-label={t("menu.delete")} title={t("menu.delete")} onClick={() => setDeleteTarget({ kind: "menu", id: menu.id, name: name(menu) })}>
+                  <IconButton danger label={t("menu.delete")} onClick={() => setDeleteTarget({ kind: "menu", id: menu.id, name: name(menu) })}>
                     <Icon d={ICONS.trash} />
-                  </button>
+                  </IconButton>
                 ) : null}
               </>
             }
@@ -240,31 +232,31 @@ export function MenuManager() {
                   <>
                     <span className="text-base font-extrabold">{name(category)}</span>
                     {otherName(category) ? <span className="text-sm text-text-muted">{otherName(category)}</span> : null}
-                    {!category.isActive ? <Badge>{t("menu.hidden")}</Badge> : null}
+                    {!category.isActive ? <Badge size="sm" className="self-center">{t("menu.hidden")}</Badge> : null}
                     <span className="text-[13px] text-text-muted">· {category.items.length === 1 ? t("menu.itemsCountOne") : t("menu.itemsCount", { n: category.items.length })}</span>
                   </>
                 }
                 actions={
                   <>
-                    <button type="button" className={textButton} onClick={() => setDialog({ kind: "item", mode: "create", parentId: category.id })}>
+                    <Button variant="secondary" size="sm" onClick={() => setDialog({ kind: "item", mode: "create", parentId: category.id })}>
                       + {t("menu.addItem")}
-                    </button>
-                    <button type="button" className={iconButton} aria-label={t("menu.edit")} title={t("menu.edit")} onClick={() => setDialog({ kind: "category", mode: "edit", target: category })}>
+                    </Button>
+                    <IconButton label={t("menu.edit")} onClick={() => setDialog({ kind: "category", mode: "edit", target: category })}>
                       <Icon d={ICONS.edit} />
-                    </button>
-                    <button type="button" className={iconButton} aria-label={category.isActive ? t("menu.hide") : t("menu.show")} title={category.isActive ? t("menu.hide") : t("menu.show")} onClick={() => act("PATCH", `${ENDPOINT.category}/${category.id}`, { isActive: !category.isActive })}>
+                    </IconButton>
+                    <IconButton label={category.isActive ? t("menu.hide") : t("menu.show")} onClick={() => act("PATCH", `${ENDPOINT.category}/${category.id}`, { isActive: !category.isActive })}>
                       <Icon d={category.isActive ? ICONS.eyeOff : ICONS.eye} />
-                    </button>
-                    <button type="button" className={iconButton} aria-label={t("menu.moveUp")} title={t("menu.moveUp")} disabled={categoryIndex === 0} onClick={() => move(menu.categories, categoryIndex, -1, "category")}>
+                    </IconButton>
+                    <IconButton label={t("menu.moveUp")} disabled={categoryIndex === 0} onClick={() => move(menu.categories, categoryIndex, -1, "category")}>
                       <Icon d={ICONS.up} />
-                    </button>
-                    <button type="button" className={iconButton} aria-label={t("menu.moveDown")} title={t("menu.moveDown")} disabled={categoryIndex === menu.categories.length - 1} onClick={() => move(menu.categories, categoryIndex, 1, "category")}>
+                    </IconButton>
+                    <IconButton label={t("menu.moveDown")} disabled={categoryIndex === menu.categories.length - 1} onClick={() => move(menu.categories, categoryIndex, 1, "category")}>
                       <Icon d={ICONS.down} />
-                    </button>
+                    </IconButton>
                     {category.items.length === 0 ? (
-                      <button type="button" className={`${iconButton} text-danger`} aria-label={t("menu.delete")} title={t("menu.delete")} onClick={() => setDeleteTarget({ kind: "category", id: category.id, name: name(category) })}>
+                      <IconButton danger label={t("menu.delete")} onClick={() => setDeleteTarget({ kind: "category", id: category.id, name: name(category) })}>
                         <Icon d={ICONS.trash} />
-                      </button>
+                      </IconButton>
                     ) : null}
                   </>
                 }
@@ -282,28 +274,25 @@ export function MenuManager() {
                           <span className="truncate text-[15px] font-bold">{name(item)}</span>
                           {otherName(item) ? <span className="truncate text-[13px] text-text-muted">{otherName(item)}</span> : null}
                         </span>
-                        {!item.isActive ? <Badge>{t("menu.hidden")}</Badge> : null}
+                        {!item.isActive ? <Badge size="sm" className="self-center">{t("menu.hidden")}</Badge> : null}
                       </div>
                       <span className="w-20 text-right text-[15px] font-extrabold tabular-nums">₹{item.price}</span>
-                      <label className="flex h-10 items-center gap-2 rounded-[10px] border border-stone-300 px-3 text-sm font-semibold">
-                        <input
-                          type="checkbox"
-                          checked={!item.isAvailable}
-                          onChange={() => act("PATCH", `${ENDPOINT.item}/${item.id}`, { isAvailable: !item.isAvailable })}
-                          className="h-5 w-5 accent-[#c2410c]"
-                        />
-                        <span className={item.isAvailable ? "text-stone-700" : "font-bold text-danger"}>{t("menu.soldOut")}</span>
-                      </label>
+                      <Checkbox
+                        checked={!item.isAvailable}
+                        onChange={() => act("PATCH", `${ENDPOINT.item}/${item.id}`, { isAvailable: !item.isAvailable })}
+                        className="h-10 items-center rounded-[10px] border border-stone-300 px-3 text-sm font-semibold"
+                        label={<span className={item.isAvailable ? "text-stone-700" : "font-bold text-danger"}>{t("menu.soldOut")}</span>}
+                      />
                       <div className="flex gap-2">
-                        <button type="button" className={iconButton} aria-label={t("menu.edit")} title={t("menu.edit")} onClick={() => setDialog({ kind: "item", mode: "edit", target: item })}>
+                        <IconButton label={t("menu.edit")} onClick={() => setDialog({ kind: "item", mode: "edit", target: item })}>
                           <Icon d={ICONS.edit} />
-                        </button>
-                        <button type="button" className={iconButton} aria-label={item.isActive ? t("menu.hide") : t("menu.show")} title={item.isActive ? t("menu.hide") : t("menu.show")} onClick={() => act("PATCH", `${ENDPOINT.item}/${item.id}`, { isActive: !item.isActive })}>
+                        </IconButton>
+                        <IconButton label={item.isActive ? t("menu.hide") : t("menu.show")} onClick={() => act("PATCH", `${ENDPOINT.item}/${item.id}`, { isActive: !item.isActive })}>
                           <Icon d={item.isActive ? ICONS.eyeOff : ICONS.eye} />
-                        </button>
-                        <button type="button" className={`${iconButton} text-danger`} aria-label={t("menu.delete")} title={t("menu.delete")} onClick={() => setDeleteTarget({ kind: "item", id: item.id, name: name(item) })}>
+                        </IconButton>
+                        <IconButton danger label={t("menu.delete")} onClick={() => setDeleteTarget({ kind: "item", id: item.id, name: name(item) })}>
                           <Icon d={ICONS.trash} />
-                        </button>
+                        </IconButton>
                       </div>
                     </li>
                   ))}
@@ -362,6 +351,3 @@ function Row({ title, actions, className = "" }: { title: ReactNode; actions: Re
   );
 }
 
-function Badge({ children }: { children: ReactNode }) {
-  return <span className="self-center rounded-full bg-stone-200 px-2 py-0.5 text-[11px] font-bold text-stone-700">{children}</span>;
-}

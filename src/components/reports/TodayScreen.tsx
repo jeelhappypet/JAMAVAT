@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { Alert } from "@/components/ui/Alert";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
@@ -63,26 +65,10 @@ export function TodayScreen() {
           <h1 className="text-[26px] font-extrabold tracking-tight">{t("today.title")}</h1>
           <span className="text-sm text-text-muted">{t("today.subtitle", { date: todayLabel })}</span>
         </div>
-        <div role="group" aria-label={t("today.range")} className="flex flex-wrap gap-1 rounded-xl bg-stone-200 p-1">
-          {REPORT_RANGES.map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={option === range}
-              onClick={() => setRange(option)}
-              className={`h-[38px] rounded-[9px] px-3.5 text-sm ${option === range ? "bg-surface font-bold text-foreground" : "font-semibold text-stone-700"}`}
-            >
-              {t(RANGE_LABEL[option])}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl label={t("today.range")} value={range} onChange={setRange} options={REPORT_RANGES.map((option) => ({ value: option, label: t(RANGE_LABEL[option]) }))} />
       </div>
 
-      {error ? (
-        <div role="alert" className="rounded-[14px] bg-danger-light px-4 py-3 text-sm font-semibold text-red-900">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert>{error}</Alert> : null}
 
       {!current ? (
         <LoadingState />
