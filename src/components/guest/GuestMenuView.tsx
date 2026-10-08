@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GuestHeader } from "@/components/guest/GuestHeader";
 import { VegMark } from "@/components/menu/VegMark";
+import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { localName } from "@/lib/i18n/messages";
 import type { GuestStateDTO, MenuDTO } from "@/types";
@@ -21,11 +23,18 @@ interface GuestMenuViewProps {
   onOrders: () => void;
 }
 
-/** "1 · Table menu" artboard: menu tabs only when there's more than one menu. */
+/**
+ * "1 · Menu" artboard. Header, search, menu tabs and category chips stay put;
+ * only the dish list scrolls (the page itself never does). Menu tabs only
+ * when there's more than one menu.
+ */
 export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count, total, readOnly, onCart, onOrders }: GuestMenuViewProps) {
   const { t, lang } = useI18n();
   const [activeMenuId, setActiveMenuId] = useState(menus[0]?.id);
   const [query, setQuery] = useState("");
+  const [activeCat, setActiveCat] = useState<string | undefined>(undefined);
+  const listRef = useRef<HTMLDivElement>(null);
+  const chipsRef = useRef<HTMLDivElement>(null);
 
   const menu = menus.find((m) => m.id === activeMenuId) ?? menus[0];
   const q = query.trim().toLowerCase();
@@ -39,38 +48,49 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
       .filter((section) => section.items.length > 0);
   }, [menu, q]);
 
-  const [activeCat, setActiveCat] = useState<string | undefined>(undefined);
+  const currentCat = sections.some((s) => s.category.id === activeCat) ? activeCat : sections[0]?.category.id;
 
-  // The chip for the section being read turns dark, like the artboard's first chip.
+  // The chip of the section being read turns dark (scroll-spy inside the list, not the page).
   useEffect(() => {
-    if (!menu) return;
-    const ids = menu.categories.map((category) => `cat-${category.id}`);
+    const root = listRef.current;
+    if (!root) return;
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
         if (visible) setActiveCat(visible.target.id.slice(4));
       },
-      { rootMargin: "-90px 0px -55% 0px" }
+      { root, rootMargin: "0px 0px -70% 0px" }
     );
-    ids.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
+    root.querySelectorAll("section[id^='cat-']").forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [menu, q]);
+  }, [sections]);
+
+  // Keep the dark chip in view when the list scrolls past the chips the row can show.
+  useEffect(() => {
+    chipsRef.current?.querySelector<HTMLElement>(`[data-cat="${currentCat}"]`)?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [currentCat]);
+
+  function jumpTo(categoryId: string) {
+    setActiveCat(categoryId);
+    document.getElementById(`cat-${categoryId}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
+  function pickMenu(id: string) {
+    setActiveMenuId(id);
+    setActiveCat(undefined);
+    listRef.current?.scrollTo({ top: 0 });
+  }
 
   const subtitle = [t("guest.table", { code: state.seatCode }), state.area].filter(Boolean).join(" · ");
   const name = (entry: { name: string; nameGu?: string }) => localName(lang, entry.name, entry.nameGu);
   const other = (entry: { name: string; nameGu?: string }) => (lang === "gu" ? (entry.nameGu ? entry.name : undefined) : entry.nameGu);
 
   return (
-    <div className="relative flex min-h-full w-full max-w-[480px] flex-col bg-background">
+    <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-background">
       <GuestHeader restaurantName={restaurantName} subtitle={subtitle} showLang />
 
-      <main className="flex flex-1 flex-col gap-3.5 px-4 pb-28 pt-3.5">
-        {readOnly ? (
-          <div className="rounded-[14px] bg-brand-light px-4 py-3 text-sm font-semibold text-orange-900">{t("guest.browseOnly")}</div>
-        ) : null}
+      <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 px-4 pb-3 pt-3">
+        {readOnly ? <div className="rounded-[14px] bg-brand-light px-4 py-2.5 text-sm font-semibold text-orange-900">{t("guest.browseOnly")}</div> : null}
 
         {state.orders.length > 0 && !readOnly ? (
           <button type="button" onClick={onOrders} className="flex h-11 items-center justify-between rounded-xl border border-brand bg-orange-50 px-4 text-sm font-bold text-brand-dark">
@@ -97,52 +117,43 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
         </label>
 
         {menus.length > 1 ? (
-          <div className="flex gap-1 rounded-[14px] bg-stone-200/70 p-1">
-            {menus.map((entry) => {
-              const active = entry.id === menu?.id;
-              const items = entry.categories.reduce((sum, c) => sum + c.items.length, 0);
+          <SegmentedControl
+            size="lg"
+            label={t("guest.menus")}
+            value={menu?.id ?? ""}
+            onChange={pickMenu}
+            options={menus.map((entry) => ({ value: entry.id, label: name(entry), count: entry.categories.reduce((sum, c) => sum + c.items.length, 0) }))}
+          />
+        ) : null}
+
+        {sections.length > 1 ? (
+          <div ref={chipsRef} className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
+            {sections.map(({ category }) => {
+              const on = currentCat === category.id;
               return (
                 <button
-                  key={entry.id}
+                  key={category.id}
                   type="button"
-                  aria-pressed={active}
-                  onClick={() => setActiveMenuId(entry.id)}
-                  className={`flex h-[46px] flex-1 items-center justify-center gap-2 rounded-[11px] text-[15px] font-bold ${active ? "bg-surface text-brand-dark shadow-sm" : "text-stone-700"}`}
+                  data-cat={category.id}
+                  aria-pressed={on}
+                  onClick={() => jumpTo(category.id)}
+                  className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-semibold ${on ? "border-stone-900 bg-stone-900 text-white" : "border-border bg-surface text-foreground"}`}
                 >
-                  {name(entry)}
-                  <span className="text-xs font-semibold text-text-muted">{items}</span>
+                  {name(category)}
                 </button>
               );
             })}
           </div>
         ) : null}
+      </div>
 
-        {menu && !q && menu.categories.length > 1 ? (
-          <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
-            {menu.categories.map((category) => {
-              const current = menu.categories.some((c) => c.id === activeCat) ? activeCat : menu.categories[0]?.id;
-              const on = current === category.id;
-              return (
-                <a
-                  key={category.id}
-                  href={`#cat-${category.id}`}
-                  onClick={() => setActiveCat(category.id)}
-                  aria-current={on ? "true" : undefined}
-                  className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-semibold ${on ? "border-stone-900 bg-stone-900 text-white" : "border-border bg-surface text-foreground"}`}
-                >
-                  {name(category)}
-                </a>
-              );
-            })}
-          </div>
-        ) : null}
-
+      <div ref={listRef} className="flex flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain px-4 pb-24 pt-3">
         {menus.length === 0 ? <p className="py-10 text-center text-[15px] text-text-muted">{t("guest.menuEmpty")}</p> : null}
         {menus.length > 0 && sections.length === 0 && q ? <p className="py-10 text-center text-[15px] text-text-muted">{t("guest.noResults", { q: query.trim() })}</p> : null}
 
         {sections.map(({ category, items }) => (
-          <section key={category.id} id={`cat-${category.id}`} className="flex scroll-mt-20 flex-col gap-2.5">
-            <h2 className="mt-1 text-lg font-extrabold tracking-tight">{name(category)}</h2>
+          <section key={category.id} id={`cat-${category.id}`} className="flex scroll-mt-3 flex-col gap-2.5">
+            <h2 className="text-lg font-extrabold tracking-tight">{name(category)}</h2>
             {items.map((item) => {
               const qty = cart[item.id] ?? 0;
               return (
@@ -161,9 +172,9 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
                     {!item.isAvailable ? (
                       <span className="text-sm font-bold text-danger">{t("menu.soldOut")}</span>
                     ) : readOnly ? null : qty === 0 ? (
-                      <button type="button" onClick={() => onQty(item.id, 1)} className="h-10 w-24 rounded-[10px] border-[1.5px] border-brand bg-surface text-sm font-extrabold tracking-wide text-brand">
+                      <Button variant="outline" size="sm" className="w-24 tracking-wide" onClick={() => onQty(item.id, 1)}>
                         {t("guest.add")}
-                      </button>
+                      </Button>
                     ) : (
                       <div className="flex h-10 w-24 items-center justify-between rounded-[10px] bg-brand text-white">
                         <button type="button" onClick={() => onQty(item.id, -1)} aria-label={t("guest.removeOne")} className="h-10 w-8 text-xl font-bold">
@@ -182,12 +193,12 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
           </section>
         ))}
 
-        <p className="mt-2 text-center text-xs text-text-muted">
+        <p className="text-center text-xs text-text-muted">
           {t("guest.poweredBy")} <strong className="text-foreground">Jamavat</strong>
         </p>
-      </main>
+      </div>
 
-      <div className="fixed bottom-3 left-1/2 z-30 w-[calc(100%-24px)] max-w-[456px] -translate-x-1/2">
+      <div className="absolute inset-x-3 bottom-3 z-30">
         {count > 0 && !readOnly ? (
           <button
             type="button"
@@ -207,7 +218,7 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
             </span>
           </button>
         ) : (
-          <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface px-4 py-3.5 text-sm text-text-muted">
+          <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface px-4 py-3.5 text-sm text-text-muted shadow-sm">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <rect x="3" y="6" width="18" height="12" rx="2" />
               <path d="M3 10h18" />

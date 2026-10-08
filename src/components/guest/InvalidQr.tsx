@@ -6,7 +6,7 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 export function InvalidQr({ restaurantName }: { restaurantName: string }) {
   const { t } = useI18n();
   return (
-    <div className="flex min-h-full w-full max-w-[480px] flex-col bg-background">
+    <div className="flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
       <GuestHeader restaurantName={restaurantName} showLang />
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16 text-center">
         <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-light text-brand">

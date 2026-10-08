@@ -10,7 +10,7 @@ export function GuestBusyView({ restaurantName, state, onBrowse }: { restaurantN
   const subtitle = [t("guest.table", { code: state.seatCode }), state.area].filter(Boolean).join(" · ");
 
   return (
-    <div className="flex min-h-full w-full max-w-[480px] flex-col bg-background">
+    <div className="flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
       <GuestHeader restaurantName={restaurantName} subtitle={subtitle} />
       <main className="flex flex-1 flex-col items-center gap-[18px] px-6 pb-6 pt-10 text-center">
         <span className="flex h-[84px] w-[84px] items-center justify-center rounded-[26px] bg-brand-light text-brand">

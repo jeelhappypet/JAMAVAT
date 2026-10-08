@@ -542,12 +542,21 @@ const en = {
   "guest.stepServed": "Served",
   "guest.earlierOrders": "Earlier orders",
   "guest.thanksTitle": "Thank you for dining with us!",
-  "guest.thanksBody": "Your bill of {total} is settled. See you again soon.",
+  "guest.thanksBody": "Your bill is settled. See you again soon!",
   "guest.thanksBodyEmail": "Your bill of {total} is settled. The details are on their way to {email}.",
   "guest.sessionEndedTitle": "This table was closed",
 
   "common.offline": "You're offline — nothing will be saved until the connection is back.",
   "common.yes": "Yes",
+
+  "counter.statusDone": "Done · {time}",
+  "counter.filterLabel": "Show",
+  "counter.cookingNow": "Cooking now",
+  "counter.recentlyReady": "Ready · last 30 min",
+  "guest.menus": "Menus",
+  "guest.placedTitle": "Order placed!",
+  "guest.placedBody": "Your food will be served at your table in a few minutes.",
+  "guest.cancelledTag": "Cancelled",
 };
 
 export type MessageKey = keyof typeof en;
@@ -1090,12 +1099,21 @@ const gu: Record<MessageKey, string> = {
   "guest.stepServed": "પીરસ્યું",
   "guest.earlierOrders": "પહેલાંના ઓર્ડર",
   "guest.thanksTitle": "અમારે ત્યાં જમવા બદલ આભાર!",
-  "guest.thanksBody": "તમારું {total} નું બિલ સેટલ થઈ ગયું. ફરી જરૂર પધારજો.",
+  "guest.thanksBody": "તમારું બિલ સેટલ થઈ ગયું. ફરી જરૂર પધારજો!",
   "guest.thanksBodyEmail": "તમારું {total} નું બિલ સેટલ થઈ ગયું. વિગતો {email} પર મોકલાઈ રહી છે.",
   "guest.sessionEndedTitle": "આ ટેબલ બંધ થયું",
 
   "common.offline": "તમે ઓફલાઇન છો — જોડાણ પાછું આવે ત્યાં સુધી કંઈ સેવ નહીં થાય.",
   "common.yes": "હા",
+
+  "counter.statusDone": "તૈયાર · {time}",
+  "counter.filterLabel": "બતાવો",
+  "counter.cookingNow": "અત્યારે બની રહ્યું છે",
+  "counter.recentlyReady": "તૈયાર · છેલ્લી 30 મિનિટ",
+  "guest.menus": "મેનુ",
+  "guest.placedTitle": "ઓર્ડર મળી ગયો!",
+  "guest.placedBody": "થોડી જ મિનિટમાં તમારું જમવાનું ટેબલ પર પીરસાશે.",
+  "guest.cancelledTag": "રદ",
 };
 
 const MESSAGES: Record<Lang, Record<MessageKey, string>> = { en, gu };

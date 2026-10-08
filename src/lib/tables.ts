@@ -5,6 +5,8 @@ import { Table, type TableDocument } from "@/models/Table";
 import { Seat, type SeatDocument } from "@/models/Seat";
 import { GuestSession, type GuestSessionDocument } from "@/models/GuestSession";
 import { Order } from "@/models/Order";
+import { Category, type CategoryDocument } from "@/models/Category";
+import { Menu, type MenuDocument } from "@/models/Menu";
 import { serializeOrder, type OrderLean } from "@/lib/orders/serialize";
 import type { SeatDTO, SeatDetailDTO, SeatState, TableDTO } from "@/types";
 
@@ -47,22 +49,20 @@ export async function loadTables({ activeOnly = false } = {}): Promise<TableDTO[
   const sessionIds = seats.map((seat) => seat.currentSessionId).filter(Boolean);
   const [sessions, orderCounts] = await Promise.all([
     GuestSession.find({ _id: { $in: sessionIds } }).lean<GuestSessionDocument[]>(),
-    Order.aggregate<{ _id: unknown; count: number; total: number; ready: number; lastPending: Date | null }>([
+    Order.aggregate<{ _id: unknown; count: number; total: number; lastPending: Date | null }>([
       { $match: { guestSessionId: { $in: sessionIds }, status: { $ne: "CANCELLED" } } },
       {
         $group: {
           _id: "$guestSessionId",
           count: { $sum: 1 },
           total: { $sum: "$totalAmount" },
-          ready: { $sum: { $cond: [{ $eq: ["$status", "READY"] }, 1, 0] } },
           lastPending: { $max: { $cond: [{ $eq: ["$status", "PENDING"] }, "$createdAt", null] } },
         },
       },
     ]),
   ]);
   const now = Date.now();
-  const stateOf = (stats?: { ready: number; lastPending: Date | null }): SeatState => {
-    if (stats?.ready) return "ready";
+  const stateOf = (stats?: { lastPending: Date | null }): SeatState => {
     if (stats?.lastPending && now - new Date(stats.lastPending).getTime() < NEW_ORDER_MS) return "new";
     return "eating";
   };
@@ -152,9 +152,22 @@ export async function loadSeatDetail(seatId: string): Promise<SeatDetailDTO | nu
   const orders = session
     ? (await Order.find({ guestSessionId: session._id }).sort({ createdAt: 1 }).lean<OrderLean[]>()).map(serializeOrder)
     : [];
+  // Name each item's kitchen here, so the page doesn't need the whole menu for one column.
+  const categoryIds = [...new Set(orders.flatMap((order) => order.items.map((item) => item.categoryId).filter(Boolean)))];
+  const categories = categoryIds.length ? await Category.find({ _id: { $in: categoryIds } }).select({ menuId: 1 }).lean<Pick<CategoryDocument, "_id" | "menuId">[]>() : [];
+  const menus = categories.length
+    ? await Menu.find({ _id: { $in: categories.map((c) => c.menuId) } }).select({ name: 1, nameGu: 1 }).lean<Pick<MenuDocument, "_id" | "name" | "nameGu">[]>()
+    : [];
+  const menuById = new Map(menus.map((menu) => [String(menu._id), menu]));
+  const kitchens: SeatDetailDTO["kitchens"] = {};
+  for (const category of categories) {
+    const menu = menuById.get(String(category.menuId));
+    if (menu) kitchens[String(category._id)] = { name: menu.name, nameGu: menu.nameGu || undefined };
+  }
   return {
     seat: { id: String(seat._id), code: seatCode(table.name, seat.label), label: seat.label, tableName: table.name, area: table.area || undefined },
     session: session ? { id: String(session._id), email: session.email || undefined, openedAt: session.createdAt.toISOString() } : undefined,
     orders,
+    kitchens,
   };
 }

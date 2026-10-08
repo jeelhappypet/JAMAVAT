@@ -6,6 +6,7 @@ import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
+import { useThrottled } from "@/lib/utils/useThrottled";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { localName, type MessageKey } from "@/lib/i18n/messages";
 import { REPORT_RANGES, type ReportKpi, type ReportRange, type TodayReportDTO } from "@/types";
@@ -45,7 +46,9 @@ export function TodayScreen() {
     load();
   }, [load]);
 
-  const { state } = useRealtime({ [REALTIME_EVENTS.ADMIN_STATS_UPDATED]: load }, load);
+  // Every order event nudges the report; recompute at most every 5 s.
+  const loadSoon = useThrottled(load, 5000);
+  const { state } = useRealtime({ [REALTIME_EVENTS.ADMIN_STATS_UPDATED]: loadSoon }, load);
   usePeriodicRefresh(load, 30000, state !== "connected");
 
   const locale = lang === "gu" ? "gu-IN" : "en-IN";

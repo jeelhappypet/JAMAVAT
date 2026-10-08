@@ -4,7 +4,7 @@ import { Seat, type SeatDocument } from "@/models/Seat";
 import { requireStaff } from "@/lib/auth/staff";
 import { ROLES } from "@/lib/auth/access";
 import { closeSeatSession } from "@/lib/tables";
-import { emitRealtimeEvent } from "@/lib/realtime/server";
+import { emitRealtimeEvent, notifyGuestSeat } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { getTranslator } from "@/lib/i18n/server";
 import { jsonError, respond } from "@/lib/api";
@@ -21,7 +21,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const seat = await Seat.findById(id).lean<SeatDocument>();
     if (!seat) return jsonError(t("err.notFound"), 404);
     if (seat.currentSessionId) await closeSeatSession(seat._id, seat.currentSessionId, "FREED");
-    await emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId: id });
+    await Promise.all([emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId: id }), notifyGuestSeat(seat._id)]);
     return NextResponse.json({ ok: true });
   });
 }

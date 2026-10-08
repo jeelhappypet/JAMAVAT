@@ -10,7 +10,6 @@ export const otpVerifySchema = z.object({
   token,
   email,
   code: z.string().regex(/^\d{6}$/),
-  remember: z.boolean().optional(),
 });
 
 export const guestOrderSchema = z.object({

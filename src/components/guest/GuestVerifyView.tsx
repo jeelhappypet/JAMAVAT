@@ -16,13 +16,12 @@ interface GuestVerifyViewProps {
 
 const RESEND_SECONDS = 30;
 
-/** "3 · Email OTP" artboard: email → 6-digit code → place order. Only once per phone (30 days). */
+/** "3 · Email OTP" artboard: email → 6-digit code → place order. Once per sitting at the table. */
 export function GuestVerifyView({ restaurantName, state, token, placing, onBack, onVerified }: GuestVerifyViewProps) {
   const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
-  const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devCode, setDevCode] = useState<string | null>(null);
@@ -66,7 +65,7 @@ export function GuestVerifyView({ restaurantName, state, token, placing, onBack,
       const res = await fetch("/api/guest/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, email: sentTo, code, remember }),
+        body: JSON.stringify({ token, email: sentTo, code }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? t("err.otpVerifyFailed"));
@@ -102,7 +101,7 @@ export function GuestVerifyView({ restaurantName, state, token, placing, onBack,
   const working = busy || placing;
 
   return (
-    <div className="flex min-h-full w-full max-w-[480px] flex-col bg-background">
+    <div className="flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
       <GuestHeader restaurantName={restaurantName} title={t("guest.almostDone")} subtitle={t("guest.step", { code: state.seatCode })} onBack={onBack} />
 
       <main className="flex flex-1 flex-col gap-5 px-5 pb-6 pt-7">
@@ -193,10 +192,6 @@ export function GuestVerifyView({ restaurantName, state, token, placing, onBack,
               </div>
             </fieldset>
 
-            <label className="flex items-start gap-2.5 text-[13px] leading-relaxed text-text-muted">
-              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#c2410c]" />
-              <span>{t("guest.remember")}</span>
-            </label>
           </>
         )}
 

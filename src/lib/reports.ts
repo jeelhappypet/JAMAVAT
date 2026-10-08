@@ -44,12 +44,33 @@ export function rangeDates(range: ReportRange, today = getBusinessDate()) {
   return { from: today, to: today, prevFrom: shiftDate(today, -1), prevTo: shiftDate(today, -1) };
 }
 
+/** Only the fields reports read — a month of orders stays small on the wire. */
+const ORDER_FIELDS = {
+  businessDate: 1,
+  status: 1,
+  totalAmount: 1,
+  guestSessionId: 1,
+  createdAt: 1,
+  "items.menuItemId": 1,
+  "items.nameSnapshot": 1,
+  "items.nameGuSnapshot": 1,
+  "items.categoryId": 1,
+  "items.quantity": 1,
+  "items.lineTotal": 1,
+};
+
+/** One round trip for a whole date span; callers slice it per period in memory. */
 async function loadPeriod(from: string, to: string) {
   const [orders, bills] = await Promise.all([
-    Order.find({ businessDate: { $gte: from, $lte: to } }).lean<ReportOrder[]>(),
+    Order.find({ businessDate: { $gte: from, $lte: to } }).select(ORDER_FIELDS).lean<ReportOrder[]>(),
     Bill.find({ businessDate: { $gte: from, $lte: to } }).select({ businessDate: 1, total: 1, paymentMode: 1, orderIds: 1 }).lean<ReportBill[]>(),
   ]);
   return { orders, bills };
+}
+
+function slice(data: Awaited<ReturnType<typeof loadPeriod>>, from: string, to: string) {
+  const inRange = (date: string) => date >= from && date <= to;
+  return { orders: data.orders.filter((order) => inRange(order.businessDate)), bills: data.bills.filter((bill) => inRange(bill.businessDate)) };
 }
 
 /**
@@ -92,13 +113,16 @@ export async function getTodayReport(range: ReportRange): Promise<TodayReportDTO
   const { from, to, prevFrom, prevTo } = rangeDates(range, today);
   const lastFrom = shiftDate(today, -6);
 
-  const [current, previous, last7, categories, menus] = await Promise.all([
-    loadPeriod(from, to),
-    loadPeriod(prevFrom, prevTo),
-    loadPeriod(lastFrom, today),
+  // The period, the one before it and the last 7 days overlap — fetch their union once.
+  const spanFrom = [from, prevFrom, lastFrom].sort()[0];
+  const [span, categories, menus] = await Promise.all([
+    loadPeriod(spanFrom, today),
     Category.find().select({ menuId: 1 }).lean<Pick<CategoryDocument, "_id" | "menuId">[]>(),
     Menu.find().select({ name: 1, nameGu: 1, sortOrder: 1 }).sort({ sortOrder: 1 }).lean<Pick<MenuDocument, "_id" | "name" | "nameGu">[]>(),
   ]);
+  const current = slice(span, from, to);
+  const previous = slice(span, prevFrom, prevTo);
+  const last7 = slice(span, lastFrom, today);
 
   const now = summarize(current.orders, current.bills);
   const before = summarize(previous.orders, previous.bills);

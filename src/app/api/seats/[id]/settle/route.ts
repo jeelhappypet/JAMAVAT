@@ -14,7 +14,7 @@ import { isMailConfigured, sendMail } from "@/lib/mail";
 import { renderBillEmail } from "@/lib/billEmail";
 import type { OrderLean } from "@/lib/orders/serialize";
 import { getBusinessDate } from "@/lib/utils/businessDate";
-import { emitRealtimeEvent } from "@/lib/realtime/server";
+import { emitRealtimeEvent, notifyGuestSeat } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { getTranslator } from "@/lib/i18n/server";
 import { jsonError, respond } from "@/lib/api";
@@ -115,6 +115,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     await Promise.all([
       emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId: id, settled: true }),
+      notifyGuestSeat(seat._id),
       emitRealtimeEvent(REALTIME_EVENTS.ORDER_COMPLETED, { seatId: id }),
       emitRealtimeEvent(REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "seat:settled" }),
     ]);

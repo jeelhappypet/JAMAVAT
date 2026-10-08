@@ -1,5 +1,6 @@
 import Pusher from "pusher";
-import { STAFF_CHANNEL, type RealtimeEvent } from "./events";
+import { Seat } from "@/models/Seat";
+import { GUEST_UPDATE_EVENT, STAFF_CHANNEL, guestChannel, type RealtimeEvent } from "./events";
 
 let client: Pusher | null | undefined;
 
@@ -28,5 +29,21 @@ export async function emitRealtimeEvent(event: RealtimeEvent, payload: unknown):
     await pusher.trigger(STAFF_CHANNEL, event, payload);
   } catch (error) {
     console.error(`[realtime] ${event} not delivered`, error);
+  }
+}
+
+/**
+ * Nudges the guest phone(s) on one QR to refetch their state — no data in
+ * the message, so the public channel leaks nothing. The channel name is the
+ * QR's secret token, which only people at that table have.
+ */
+export async function notifyGuestSeat(seatId: unknown): Promise<void> {
+  const pusher = getPusher();
+  if (!pusher || !seatId) return;
+  try {
+    const seat = await Seat.findById(seatId).select({ token: 1 }).lean<{ token?: string }>();
+    if (seat?.token) await pusher.trigger(guestChannel(seat.token), GUEST_UPDATE_EVENT, {});
+  } catch (error) {
+    console.error("[realtime] guest update not delivered", error);
   }
 }

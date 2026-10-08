@@ -6,11 +6,11 @@ import { getGuest, newDeviceId, setGuest } from "@/lib/guest/session";
 import { getTranslator } from "@/lib/i18n/server";
 import { jsonError, respond } from "@/lib/api";
 
-/** Checks the code and remembers the verified email on this device (30 days if asked). */
+/** Checks the code and marks this phone verified for its current sitting. */
 export async function POST(request: Request) {
   const t = await getTranslator();
   return respond(t, "err.otpVerifyFailed", async () => {
-    const { token, email, code, remember } = otpVerifySchema.parse(await request.json());
+    const { token, email, code } = otpVerifySchema.parse(await request.json());
     if (!(await resolveSeat(token))) return NextResponse.json({ error: t("err.qrInvalid"), code: "QR_INVALID" }, { status: 404 });
 
     const result = await verifyOtp(email, code);
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     // Keep the device id if this phone already has one — it may hold a QR lock.
     const current = await getGuest();
-    await setGuest({ did: current?.did ?? newDeviceId(), email }, remember ?? true);
+    await setGuest({ did: current?.did ?? newDeviceId(), email, vt: Date.now() });
     return NextResponse.json({ email });
   });
 }

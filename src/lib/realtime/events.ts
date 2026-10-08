@@ -22,3 +22,7 @@ export type RealtimeEvent = (typeof REALTIME_EVENTS)[keyof typeof REALTIME_EVENT
  * (Becomes one channel per restaurant in the multi-restaurant phase.)
  */
 export const STAFF_CHANNEL = "private-staff";
+
+/** Public per-QR channel the guest page listens on (see notifyGuestSeat). */
+export const guestChannel = (seatToken: string) => `seat-${seatToken}`;
+export const GUEST_UPDATE_EVENT = "guest:update";

@@ -35,7 +35,7 @@ export function GuestCartView({ restaurantName, state, menus, cart, note, onNote
     .filter((group) => group.items.length > 0);
 
   return (
-    <div className="relative flex min-h-full w-full max-w-[480px] flex-col bg-background">
+    <div className="relative flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
       <GuestHeader restaurantName={restaurantName} title={t("guest.yourOrder")} subtitle={`${t("guest.table", { code: state.seatCode })} · ${restaurantName}`} onBack={onBack} />
 
       <main className="flex flex-1 flex-col gap-3.5 px-4 pb-40 pt-4">

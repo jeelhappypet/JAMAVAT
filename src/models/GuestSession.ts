@@ -16,6 +16,8 @@ const guestSessionSchema = new Schema(
 );
 
 guestSessionSchema.index({ seatId: 1, status: 1 });
+// Per-sitting email verification and the guest's "thank you" screen look sessions up by phone.
+guestSessionSchema.index({ deviceId: 1, status: 1, closedAt: -1 });
 
 export type GuestSessionDocument = InferSchemaType<typeof guestSessionSchema> & { _id: Types.ObjectId; createdAt: Date };
 

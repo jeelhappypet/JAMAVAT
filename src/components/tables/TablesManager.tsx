@@ -160,7 +160,7 @@ export function TablesManager() {
             {table.seats.map((seat) => (
               <div key={seat.id} className="flex items-center gap-2.5 rounded-xl bg-stone-50 p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element -- server-generated SVG, no optimisation needed */}
-                <img src={`/api/seats/${seat.id}/qr?v=${qrVersion}`} alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-lg border border-border bg-white p-0.5" />
+                <img src={`/api/seats/${seat.id}/qr?plain=1&v=${qrVersion}`} alt="" width={64} height={64} className="h-16 w-16 shrink-0 rounded-lg border border-border bg-white p-0.5" />
                 <span className="flex min-w-0 flex-grow flex-col">
                   <span className="text-[15px] font-extrabold">{seat.code}</span>
                   {seat.session ? <span className="truncate text-xs font-semibold text-brand-dark">{t("tables.inUse")}</span> : null}

@@ -142,11 +142,8 @@ export interface SeatDTO {
   session?: SeatSessionDTO;
 }
 
-/**
- * eating: food on the way or served · new: an order came in during the last
- * few minutes · ready: something is cooked and waiting to be served.
- */
-export type SeatState = "eating" | "new" | "ready";
+/** eating: guest seated, food cooking or eaten · new: an order came in during the last few minutes. */
+export type SeatState = "eating" | "new";
 
 export interface SeatSessionDTO {
   id: string;
@@ -177,8 +174,8 @@ export interface GuestStateDTO {
   orders: OrderDTO[];
   /** The other sides of this table ("4B") — the "already in use" screen points to them. */
   otherSeats: string[];
-  /** This device's last sitting here just ended: settled (paid) or freed by the counter. */
-  ended?: { reason: "SETTLED" | "FREED"; total?: number; email?: string };
+  /** This device's last sitting here just ended: settled (paid) or freed by the counter. No details on purpose. */
+  ended?: { reason: "SETTLED" | "FREED" };
 }
 
 export const PAYMENT_MODES = ["CASH", "UPI", "CARD"] as const;
@@ -210,6 +207,8 @@ export interface SeatDetailDTO {
   seat: { id: string; code: string; label: string; tableName: string; area?: string };
   session?: { id: string; email?: string; openedAt: string };
   orders: OrderDTO[];
+  /** categoryId → its menu ("Gujarati"), i.e. the kitchen column of the bill. */
+  kitchens: Record<string, { name: string; nameGu?: string }>;
 }
 
 export const REPORT_RANGES = ["today", "yesterday", "week", "month"] as const;

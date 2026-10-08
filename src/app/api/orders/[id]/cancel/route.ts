@@ -4,7 +4,7 @@ import { connectToDatabase } from "@/lib/db/mongodb";
 import { Order } from "@/models/Order";
 import { serializeOrder, type OrderLean } from "@/lib/orders/serialize";
 import { freeSeatIfNothingToPay } from "@/lib/tables";
-import { emitRealtimeEvent } from "@/lib/realtime/server";
+import { emitRealtimeEvent, notifyGuestSeat } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { requireStaff } from "@/lib/auth/staff";
 import { ROLES } from "@/lib/auth/access";
@@ -39,6 +39,7 @@ export async function PATCH(_request: Request, { params }: { params: Promise<{ i
     await Promise.all([
       emitRealtimeEvent(REALTIME_EVENTS.ORDER_CANCELLED, { id: dto.id, tokenNumber: dto.tokenNumber, businessDate: dto.businessDate }),
       updated.seatId ? emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId: String(updated.seatId), freed }) : null,
+      updated.seatId ? notifyGuestSeat(updated.seatId) : null,
       emitRealtimeEvent(REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:cancelled" }),
     ]);
     return NextResponse.json(dto);

@@ -2,19 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { MonthPicker } from "@/components/ui/MonthPicker";
+import { Alert } from "@/components/ui/Alert";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { useThrottled } from "@/lib/utils/useThrottled";
 import type { MonthReportDTO } from "@/types";
 
 const rupees = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
-
-function shiftMonth(month: string, by: number): string {
-  const [y, m] = month.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1 + by, 1));
-  return date.toISOString().slice(0, 7);
-}
 
 /** Admin "Reports": one month at a time, day by day — same figures as Today, longer view. */
 export function ReportsScreen({ thisMonth }: { thisMonth: string }) {
@@ -40,13 +37,12 @@ export function ReportsScreen({ thisMonth }: { thisMonth: string }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- (re)load when the month changes
     load();
   }, [load]);
-  useRealtime({ [REALTIME_EVENTS.ADMIN_STATS_UPDATED]: load });
+  const loadSoon = useThrottled(load, 10000);
+  useRealtime({ [REALTIME_EVENTS.ADMIN_STATS_UPDATED]: loadSoon });
 
   const locale = lang === "gu" ? "gu-IN" : "en-IN";
-  const monthLabel = new Intl.DateTimeFormat(locale, { timeZone: "UTC", month: "long", year: "numeric" }).format(new Date(`${month}-01T00:00:00Z`));
   const dayLabel = (date: string) => new Intl.DateTimeFormat(locale, { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }).format(new Date(`${date}T00:00:00Z`));
   const current = report && report.month === month ? report : null;
-  const arrow = "flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface disabled:opacity-40";
 
   return (
     <>
@@ -55,26 +51,10 @@ export function ReportsScreen({ thisMonth }: { thisMonth: string }) {
           <h1 className="text-[26px] font-extrabold tracking-tight">{t("reports.title")}</h1>
           <span className="text-sm text-text-muted">{t("reports.subtitle")}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setMonth((m) => shiftMonth(m, -1))} aria-label={t("reports.prevMonth")} className={arrow}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="m15 6-6 6 6 6" />
-            </svg>
-          </button>
-          <span className="min-w-[150px] text-center text-base font-extrabold">{monthLabel}</span>
-          <button type="button" onClick={() => setMonth((m) => shiftMonth(m, 1))} disabled={month >= thisMonth} aria-label={t("reports.nextMonth")} className={arrow}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="m9 6 6 6-6 6" />
-            </svg>
-          </button>
-        </div>
+        <MonthPicker value={month} onChange={setMonth} max={thisMonth} />
       </div>
 
-      {error ? (
-        <div role="alert" className="rounded-[14px] bg-danger-light px-4 py-3 text-sm font-semibold text-red-900">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert>{error}</Alert> : null}
 
       {!current ? (
         <LoadingState />

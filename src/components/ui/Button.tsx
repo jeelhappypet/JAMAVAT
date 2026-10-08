@@ -1,40 +1,77 @@
+import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { cn } from "./cn";
 
-type Variant = "primary" | "success" | "danger" | "secondary" | "ghost";
-type Size = "md" | "lg" | "xl";
+export type ButtonVariant = "primary" | "secondary" | "outline" | "danger" | "dangerSolid" | "success" | "successSoft" | "dark" | "ghost";
+export type ButtonSize = "sm" | "md" | "lg" | "xl";
 
-const VARIANT_CLASS: Record<Variant, string> = {
-  primary: "bg-brand text-white active:bg-brand-dark",
-  success: "bg-success text-white active:brightness-90",
-  danger: "bg-danger text-white active:brightness-90",
-  secondary: "bg-surface text-foreground border border-border active:bg-surface-muted",
-  ghost: "bg-transparent text-foreground active:bg-surface-muted",
+const VARIANT: Record<ButtonVariant, string> = {
+  /** Brand orange — the one main action on a screen. */
+  primary: "bg-brand font-extrabold text-white active:bg-brand-dark",
+  /** Neutral outline — secondary actions ("Add table", "Cancel"). */
+  secondary: "border border-stone-300 bg-surface font-bold text-foreground active:bg-surface-muted",
+  /** Brand outline — "ADD", "Order more". */
+  outline: "border-[1.5px] border-brand bg-surface font-extrabold text-brand active:bg-orange-50",
+  danger: "border border-red-200 bg-surface font-bold text-danger active:bg-danger-light",
+  dangerSolid: "bg-danger font-extrabold text-white active:brightness-90",
+  success: "bg-success font-extrabold text-white active:brightness-90",
+  /** Kitchen "Mark ready". */
+  successSoft: "bg-success-light font-extrabold text-green-800 active:brightness-95",
+  dark: "bg-stone-900 font-extrabold text-white active:bg-stone-800",
+  ghost: "bg-transparent font-bold text-foreground active:bg-surface-muted",
 };
 
-const SIZE_CLASS: Record<Size, string> = {
-  md: "min-h-11 px-4 text-base",
-  lg: "min-h-14 px-6 text-lg",
-  xl: "min-h-16 px-8 text-xl",
+const SIZE: Record<ButtonSize, string> = {
+  sm: "h-10 rounded-[10px] px-3.5 text-sm",
+  md: "h-11 rounded-xl px-4 text-sm",
+  lg: "h-12 rounded-xl px-[18px] text-[15px]",
+  xl: "h-14 rounded-[14px] px-6 text-[17px]",
 };
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: Variant;
-  size?: Size;
+interface CommonProps {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  fullWidth?: boolean;
+  /** Icon before the label (an inline <svg>). */
+  icon?: ReactNode;
+  /** Layout only: width, flex, margin. */
+  className?: string;
   children: ReactNode;
 }
 
-export function Button({
-  variant = "primary",
-  size = "md",
-  className = "",
-  children,
-  ...props
-}: ButtonProps) {
+type ButtonProps = CommonProps & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children"> & { href?: undefined };
+type LinkProps = CommonProps & { href: string; onClick?: () => void; "aria-label"?: string };
+
+export function buttonClass({ variant = "primary", size = "md", fullWidth = false, className }: Pick<CommonProps, "variant" | "size" | "fullWidth" | "className">) {
+  return cn(
+    "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap disabled:pointer-events-none disabled:opacity-50",
+    VARIANT[variant],
+    SIZE[size],
+    fullWidth && "w-full",
+    className
+  );
+}
+
+/**
+ * The one button for the whole app (staff and guest). Pass `href` to get a
+ * link styled the same way. See CLAUDE.md → UI components.
+ */
+export function Button(props: ButtonProps | LinkProps) {
+  const { variant, size, fullWidth, icon, className, children } = props;
+  const classes = buttonClass({ variant, size, fullWidth, className });
+  if (props.href !== undefined) {
+    return (
+      <Link href={props.href} onClick={props.onClick} aria-label={props["aria-label"]} className={classes}>
+        {icon}
+        {children}
+      </Link>
+    );
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- strip the styling props before spreading onto <button>
+  const { variant: _v, size: _s, fullWidth: _f, icon: _i, className: _c, children: _ch, type = "button", ...rest } = props;
   return (
-    <button
-      className={`touch-target inline-flex items-center justify-center gap-2 rounded-2xl font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none ${VARIANT_CLASS[variant]} ${SIZE_CLASS[size]} ${className}`}
-      {...props}
-    >
+    <button type={type} className={classes} {...rest}>
+      {icon}
       {children}
     </button>
   );

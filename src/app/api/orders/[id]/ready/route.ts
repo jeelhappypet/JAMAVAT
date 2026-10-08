@@ -11,10 +11,11 @@ import { getTranslator } from "@/lib/i18n/server";
 import { jsonError, respond } from "@/lib/api";
 
 /**
- * A kitchen marks ITS items of an order ready (admin: every item). The
- * order itself turns READY only once no item anywhere is still pending, so
- * two kitchens sharing one order each finish their own part. Kitchens have
- * no cancel action — that stays with the counter.
+ * A kitchen marks ITS items of an order done (admin: every item). Once no
+ * item anywhere is still pending the order is finished: a parcel is
+ * COMPLETED right away (paid at the counter when ordered); a table's order
+ * turns READY and is closed when its bill is settled. There is no separate
+ * "served" step. Kitchens have no cancel action — that stays with the counter.
  */
 export async function PATCH(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const staff = await requireStaff(ROLES.kitchen);
@@ -47,9 +48,10 @@ export async function PATCH(_request: Request, { params }: { params: Promise<{ i
 
     // Whoever marks the last pending item flips the whole order — atomically,
     // in case two kitchens finish at the same moment.
+    const isParcel = !(order as OrderLean & { guestSessionId?: unknown }).guestSessionId;
     const finished = await Order.findOneAndUpdate(
       { _id: id, status: "PENDING", items: { $not: { $elemMatch: { status: { $ne: "READY" } } } } },
-      { $set: { status: "READY", readyAt: now } },
+      { $set: isParcel ? { status: "COMPLETED", readyAt: now, completedAt: now } : { status: "READY", readyAt: now } },
       { returnDocument: "after" }
     ).lean<OrderLean>();
 

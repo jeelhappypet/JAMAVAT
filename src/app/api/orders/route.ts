@@ -7,7 +7,7 @@ import { GuestSession, type GuestSessionDocument } from "@/models/GuestSession";
 import { createOrderSchema } from "@/lib/validation/order";
 import { getBusinessDate } from "@/lib/utils/businessDate";
 import { serializeOrder, type OrderLean } from "@/lib/orders/serialize";
-import { emitRealtimeEvent } from "@/lib/realtime/server";
+import { emitRealtimeEvent, notifyGuestSeat } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { requireStaff } from "@/lib/auth/staff";
 import { ROLES } from "@/lib/auth/access";
@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
     await Promise.all([
       emitRealtimeEvent(REALTIME_EVENTS.ORDER_CREATED, { id: dto.id, seatCode: dto.seatCode, tokenNumber: dto.tokenNumber }),
       seatId ? emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId }) : null,
+      seatId ? notifyGuestSeat(seatId) : null,
       emitRealtimeEvent(REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:created" }),
     ]);
     return NextResponse.json(dto, { status: 201 });

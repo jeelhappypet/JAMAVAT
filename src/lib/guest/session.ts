@@ -4,15 +4,18 @@ import { cookies } from "next/headers";
 /**
  * Guests never log in. They carry a signed cookie with a random device id
  * (the QR lock belongs to the device) and — once they've passed the email
- * OTP — their verified email. "Remember this phone" keeps it for 30 days;
- * otherwise it lasts until the browser closes.
+ * OTP — their verified email plus when they verified (`vt`). The email only
+ * counts for one sitting: see lib/guest/verified.ts.
  */
 export const GUEST_COOKIE = "jamavat_guest";
-const REMEMBER_SECONDS = 30 * 24 * 60 * 60;
+/** Long enough for any meal; a phone that comes back tomorrow simply starts fresh. */
+const COOKIE_SECONDS = 12 * 60 * 60;
 
 export interface GuestIdentity {
   did: string;
   email?: string;
+  /** Verified-at, ms. */
+  vt?: number;
 }
 
 function secret(): string {
@@ -55,13 +58,13 @@ export function newDeviceId(): string {
 }
 
 /** Route handlers only (cookies can't be set while rendering). */
-export async function setGuest(identity: GuestIdentity, remember: boolean) {
+export async function setGuest(identity: GuestIdentity) {
   const cookieStore = await cookies();
   cookieStore.set(GUEST_COOKIE, encode(identity), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    ...(remember ? { maxAge: REMEMBER_SECONDS } : {}),
+    maxAge: COOKIE_SECONDS,
   });
 }

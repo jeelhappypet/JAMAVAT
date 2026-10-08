@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { resolveSeat } from "@/lib/tables";
-import { getGuest } from "@/lib/guest/session";
+import { getGuest, setGuest } from "@/lib/guest/session";
 import { getGuestState } from "@/lib/guest/state";
 import { getTranslator } from "@/lib/i18n/server";
 import { respond } from "@/lib/api";
@@ -11,6 +11,10 @@ export async function GET(request: NextRequest) {
   return respond(t, "err.ordersLoad", async () => {
     const resolved = await resolveSeat(request.nextUrl.searchParams.get("token") ?? "");
     if (!resolved) return NextResponse.json({ error: t("err.qrInvalid"), code: "QR_INVALID" }, { status: 404 });
-    return NextResponse.json(await getGuestState(resolved, await getGuest()));
+    const guest = await getGuest();
+    const state = await getGuestState(resolved, guest);
+    // The sitting this email was verified for is over — forget it on the phone too.
+    if (guest?.email && !state.verifiedEmail) await setGuest({ did: guest.did });
+    return NextResponse.json(state);
   });
 }

@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/** Phone-width column on a grey backdrop that always covers the whole screen (also on wide screens). */
 export default function GuestLayout({ children }: { children: ReactNode }) {
-  return <div className="flex min-h-full flex-1 justify-center bg-stone-200">{children}</div>;
+  return (
+    <div className="min-h-dvh bg-stone-200">
+      <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-background">{children}</div>
+    </div>
+  );
 }

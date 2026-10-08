@@ -1,23 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
+import { ChoiceCards } from "@/components/ui/ChoiceCards";
+import { IconButton } from "@/components/ui/IconButton";
+import { TextField } from "@/components/ui/TextField";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { POLL_MS, SAFETY_RESYNC_MS } from "@/lib/realtime/polling";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { formatClock } from "@/lib/utils/time";
 import { localName, type MessageKey } from "@/lib/i18n/messages";
-import { PAYMENT_MODES, type BillDTO, type MenuDTO, type OrderDTO, type PaymentMode, type SeatDetailDTO } from "@/types";
+import { PAYMENT_MODES, type BillDTO, type OrderDTO, type PaymentMode, type SeatDetailDTO } from "@/types";
 
-const STATUS: Record<OrderDTO["status"], { label: MessageKey; className: string }> = {
-  PENDING: { label: "seatBill.statusCooking", className: "bg-orange-100 text-brand-dark" },
-  READY: { label: "seatBill.statusReady", className: "bg-success-light text-green-800" },
-  COMPLETED: { label: "seatBill.statusServed", className: "bg-success-light text-green-800" },
-  CANCELLED: { label: "seatBill.statusCancelled", className: "bg-danger-light text-red-800" },
+const STATUS: Record<OrderDTO["status"], { label: MessageKey; tone: "orange" | "green" | "red" }> = {
+  PENDING: { label: "seatBill.statusCooking", tone: "orange" },
+  READY: { label: "seatBill.statusReady", tone: "green" },
+  COMPLETED: { label: "seatBill.statusReady", tone: "green" },
+  CANCELLED: { label: "seatBill.statusCancelled", tone: "red" },
 };
 
 const PAY_LABEL: Record<PaymentMode, MessageKey> = { CASH: "seatBill.cash", UPI: "seatBill.upi", CARD: "seatBill.card" };
@@ -29,7 +36,6 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
   const { t, lang } = useI18n();
   const router = useRouter();
   const [detail, setDetail] = useState<SeatDetailDTO | null>(null);
-  const [menus, setMenus] = useState<MenuDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [discountText, setDiscountText] = useState("0");
@@ -56,27 +62,27 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
     }
   }, [seatId, t]);
 
-  const loadMenus = useCallback(async () => {
-    const res = await fetch("/api/menu");
-    if (redirectToLoginIfUnauthorized(res)) return;
-    const data = await res.json().catch(() => null);
-    if (res.ok) setMenus(data.menus);
-  }, []);
-
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
     load();
-    void loadMenus();
-  }, [load, loadMenus]);
+  }, [load]);
 
+  // Only this table's events matter: anything that changes it sends SEAT_UPDATED for this seat,
+  // and kitchen progress arrives as events for one of its orders.
+  const orderIds = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    orderIds.current = new Set(detail?.orders.map((order) => order.id) ?? []);
+  }, [detail]);
+  const ifMine = (payload: unknown) => {
+    const { id, seatId: forSeat } = (payload ?? {}) as { id?: string; seatId?: string };
+    if (forSeat === seatId || (id && orderIds.current.has(id))) void load();
+  };
   const { state } = useRealtime(
     {
-      [REALTIME_EVENTS.ORDER_CREATED]: load,
-      [REALTIME_EVENTS.ORDER_ITEMS_READY]: load,
-      [REALTIME_EVENTS.ORDER_READY]: load,
-      [REALTIME_EVENTS.ORDER_COMPLETED]: load,
-      [REALTIME_EVENTS.ORDER_CANCELLED]: load,
-      [REALTIME_EVENTS.SEAT_UPDATED]: load,
+      [REALTIME_EVENTS.ORDER_ITEMS_READY]: ifMine,
+      [REALTIME_EVENTS.ORDER_READY]: ifMine,
+      [REALTIME_EVENTS.ORDER_CANCELLED]: ifMine,
+      [REALTIME_EVENTS.SEAT_UPDATED]: ifMine,
     },
     load
   );
@@ -91,11 +97,10 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
     return () => clearInterval(interval);
   }, []);
 
-  const kitchenByCategory = useMemo(() => {
-    const map = new Map<string, string>();
-    menus.forEach((menu) => menu.categories.forEach((category) => map.set(category.id, localName(lang, menu.name, menu.nameGu))));
-    return map;
-  }, [menus, lang]);
+  const kitchenOf = (categoryId?: string) => {
+    const kitchen = categoryId ? detail?.kitchens[categoryId] : undefined;
+    return kitchen ? localName(lang, kitchen.name, kitchen.nameGu) : undefined;
+  };
 
   const orders = detail?.orders ?? [];
   const billable = orders.filter((order) => order.status !== "CANCELLED");
@@ -103,7 +108,7 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
   const discount = Math.max(0, Math.floor(Number(discountText) || 0));
   const toCollect = Math.max(0, itemsTotal - discount);
   const stillCooking = billable.filter((order) => order.status === "PENDING").length;
-  const clock = (iso: string) => new Date(iso).toLocaleTimeString(lang === "gu" ? "gu-IN" : "en-IN", { hour: "numeric", minute: "2-digit" });
+  const clock = (iso: string) => formatClock(iso, lang);
 
   async function settle() {
     if (!detail?.session) return;
@@ -156,28 +161,29 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
     <div className="flex min-h-full flex-1 flex-col bg-surface-muted">
       <header className="border-b border-border bg-surface print:hidden">
         <div className="mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-4 gap-y-3 px-[clamp(16px,3vw,32px)] py-3">
-          <Link href="/counter" aria-label={t("seatBill.back")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border text-foreground">
+          <IconButton href="/counter" label={t("seatBill.back")} size="md">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M19 12H5" />
               <path d="m11 6-6 6 6 6" />
             </svg>
-          </Link>
+          </IconButton>
           <div className="flex min-w-0 flex-grow flex-col">
             <span className="text-[22px] font-extrabold">{seat ? t("tables.table", { name: seat.code }) : "…"}</span>
             {subtitle ? <span className="text-[13px] text-text-muted">{subtitle}</span> : null}
           </div>
           {session && !settled ? (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={() => setConfirmFree(true)}
-              className="flex h-11 items-center gap-2 rounded-xl border border-stone-300 bg-surface px-3.5 text-sm font-bold text-foreground"
+              icon={
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="4" y="10" width="16" height="11" rx="2" />
+                  <path d="M8 10V7a4 4 0 0 1 7.5-2" />
+                </svg>
+              }
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <rect x="4" y="10" width="16" height="11" rx="2" />
-                <path d="M8 10V7a4 4 0 0 1 7.5-2" />
-              </svg>
               {t("seatBill.freeQr", { code: seat?.code ?? "" })}
-            </button>
+            </Button>
           ) : null}
         </div>
       </header>
@@ -205,33 +211,35 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
                   ? t("seatBill.emailFailed")
                   : t("seatBill.emailSkipped")}
             </p>
-            <Link href="/counter" className="mt-2 flex h-12 items-center rounded-xl bg-brand px-5 text-base font-extrabold text-white">
+            <Button href="/counter" size="lg" className="mt-2">
               {t("seatBill.backToSeats")}
-            </Link>
+            </Button>
           </section>
         ) : !session ? (
           <section className="mx-auto flex w-full max-w-[480px] flex-col items-center gap-3 rounded-[20px] border border-border bg-surface p-8 text-center">
             <h1 className="text-xl font-extrabold">{t("seatBill.freeTitle", { code: seat?.code ?? "" })}</h1>
             <p className="text-[15px] text-text-muted">{error ?? t("seatBill.freeBody")}</p>
-            <Link href="/counter" className="mt-2 flex h-12 items-center rounded-xl border border-stone-300 bg-surface px-5 text-base font-bold">
+            <Button href="/counter" variant="secondary" size="lg" className="mt-2">
               {t("seatBill.backToSeats")}
-            </Link>
+            </Button>
           </section>
         ) : (
           <>
             <section className="flex min-w-0 flex-[999_1_560px] flex-col gap-3.5">
               <div className="flex flex-wrap items-center justify-between gap-2.5">
                 <h2 className="text-lg font-extrabold">{t("seatBill.ordersTitle")}</h2>
-                <Link
+                <Button
                   href={`/new-order?seat=${seatId}`}
-                  className="flex h-11 items-center gap-2 rounded-xl border border-border bg-surface px-4 text-sm font-bold text-foreground"
+                  variant="secondary"
+                  icon={
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M12 5v14" />
+                      <path d="M5 12h14" />
+                    </svg>
+                  }
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M12 5v14" />
-                    <path d="M5 12h14" />
-                  </svg>
                   {t("seatBill.addItem")}
-                </Link>
+                </Button>
               </div>
 
               {orders.map((order, index) => (
@@ -243,7 +251,7 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
                         · {clock(order.createdAt)} · {order.source === "QR" ? t("seatBill.sourceQr") : t("seatBill.sourceCounter")}
                       </span>
                     </span>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS[order.status].className}`}>{t(STATUS[order.status].label)}</span>
+                    <Badge tone={STATUS[order.status].tone}>{t(STATUS[order.status].label)}</Badge>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[460px] border-collapse text-[15px]">
@@ -261,7 +269,7 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
                         {order.items.map((item, i) => (
                           <tr key={`${item.menuItemId}-${i}`} className={index === 0 || i > 0 ? "border-t border-stone-100" : ""}>
                             <td className="px-4 py-2.5 font-semibold">{localName(lang, item.nameSnapshot, item.nameGuSnapshot)}</td>
-                            <td className="px-2 py-2.5 text-text-muted">{(item.categoryId && kitchenByCategory.get(item.categoryId)) || item.categorySnapshot}</td>
+                            <td className="px-2 py-2.5 text-text-muted">{kitchenOf(item.categoryId) ?? item.categorySnapshot}</td>
                             <td className="px-2 py-2.5 text-right">{item.quantity}</td>
                             <td className={`px-4 py-2.5 text-right font-bold ${order.status === "CANCELLED" ? "line-through" : ""}`}>{rupees(item.lineTotal)}</td>
                           </tr>
@@ -288,7 +296,8 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
                 </div>
                 <label className="flex items-center justify-between gap-2.5 text-stone-700">
                   <span>{t("seatBill.discount")}</span>
-                  <input
+                  <TextField
+                    size="sm"
                     type="number"
                     inputMode="numeric"
                     min={0}
@@ -296,7 +305,8 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
                     value={discountText}
                     onChange={(e) => setDiscountText(e.target.value.replace(/[^\d]/g, "").slice(0, 7))}
                     onFocus={(e) => e.target.select()}
-                    className="h-10 w-[110px] rounded-[10px] border border-stone-300 px-2.5 text-right text-[15px] text-foreground"
+                    className="w-[110px]"
+                    inputClassName="text-right"
                   />
                 </label>
                 <div className="mt-1 flex items-baseline justify-between border-t border-dashed border-stone-300 pt-3">
@@ -305,32 +315,17 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
                 </div>
               </div>
 
-              <fieldset className="flex flex-col gap-2">
-                <legend className="mb-2 text-sm font-bold">{t("seatBill.paidBy")}</legend>
-                <div className="grid grid-cols-3 gap-2">
-                  {PAYMENT_MODES.map((option) => {
-                    const on = option === mode;
-                    return (
-                      <label
-                        key={option}
-                        className={`flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl text-[15px] ${on ? "border-2 border-brand bg-orange-50 font-extrabold text-brand-dark" : "border border-border font-bold"}`}
-                      >
-                        <input type="radio" name="pay" checked={on} onChange={() => setMode(option)} className="m-0 accent-[#c2410c]" />
-                        {t(PAY_LABEL[option])}
-                      </label>
-                    );
-                  })}
-                </div>
-              </fieldset>
+              <ChoiceCards name="pay" legend={t("seatBill.paidBy")} value={mode} onChange={setMode} options={PAYMENT_MODES.map((option) => ({ value: option, label: t(PAY_LABEL[option]) }))} />
 
               <div className="flex flex-col gap-2 rounded-[14px] border border-border bg-stone-50 p-3.5">
                 <span className="text-sm font-bold">{t("seatBill.emailTitle")}</span>
                 {session.email ? (
-                  <label className="flex items-center gap-2.5 text-sm">
-                    <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="m-0 h-5 w-5 accent-[#c2410c]" />
-                    <span className="min-w-0 flex-grow truncate">{session.email}</span>
-                    <span className="rounded-full bg-success-light px-2 py-0.5 text-[11px] font-bold text-green-800">{t("counter.verified")}</span>
-                  </label>
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <Checkbox checked={sendEmail} onChange={setSendEmail} label={<span className="block truncate">{session.email}</span>} className="min-w-0 flex-grow items-center" />
+                    <Badge tone="green" size="sm">
+                      {t("counter.verified")}
+                    </Badge>
+                  </div>
                 ) : (
                   <span className="text-sm text-text-muted">{t("seatBill.noEmail")}</span>
                 )}
@@ -343,20 +338,11 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
                 </div>
               ) : null}
 
-              {error ? (
-                <div role="alert" className="rounded-[14px] bg-danger-light px-4 py-3 text-sm font-semibold text-red-900">
-                  {error}
-                </div>
-              ) : null}
+              {error ? <Alert>{error}</Alert> : null}
 
-              <button
-                type="button"
-                onClick={settle}
-                disabled={settling || discount > itemsTotal}
-                className="h-14 rounded-[14px] bg-brand text-[17px] font-extrabold text-white disabled:opacity-60"
-              >
+              <Button size="xl" fullWidth onClick={settle} disabled={settling || discount > itemsTotal}>
                 {settling ? t("seatBill.settling") : t("seatBill.settleAction")}
-              </button>
+              </Button>
             </aside>
           </>
         )}
@@ -367,8 +353,6 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
         title={t("seatBill.freeConfirmTitle", { code: seat?.code ?? "" })}
         description={t("seatBill.freeConfirmDesc")}
         confirmLabel={t("counter.freeQr")}
-        cancelLabel={t("common.cancel")}
-        variant="danger"
         onConfirm={freeQr}
         onCancel={() => setConfirmFree(false)}
       />

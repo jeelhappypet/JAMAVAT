@@ -7,6 +7,7 @@ import { GuestVerifyView } from "@/components/guest/GuestVerifyView";
 import { GuestStatusView } from "@/components/guest/GuestStatusView";
 import { GuestBusyView } from "@/components/guest/GuestBusyView";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { useGuestRealtime } from "@/lib/realtime/useGuestRealtime";
 import type { GuestStateDTO, MenuDTO, MenuItemDTO } from "@/types";
 
 export type GuestView = "menu" | "cart" | "verify" | "status" | "busy";
@@ -66,6 +67,11 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
   // ---- cart persistence
   useEffect(() => {
     try {
+      // A finished sitting starts the next one empty — nothing of the last guest's cart survives.
+      if (stateRef.current.ended && stateRef.current.lock !== "mine") {
+        localStorage.removeItem(cartKey);
+        return;
+      }
       const saved = JSON.parse(localStorage.getItem(cartKey) ?? "null");
       // eslint-disable-next-line react-hooks/set-state-in-effect -- restore the saved cart once on mount
       if (saved && typeof saved === "object") setCart(saved.items ?? {});
@@ -88,8 +94,14 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
     const res = await fetch(`/api/guest/state?token=${encodeURIComponent(token)}`, { cache: "no-store" });
     if (!res.ok) return;
     const next: GuestStateDTO = await res.json();
-    // The counter settled (or freed) this guest's table while they were looking — show the thank-you.
-    if (next.ended && !stateRef.current.ended && stateRef.current.lock === "mine") setView("status");
+    // The counter settled (or freed) this table while the guest was looking: thank them and
+    // reset everything — cart, note, verified email — so the next guest starts clean.
+    if (next.lock !== "mine" && stateRef.current.lock === "mine") {
+      setCart({});
+      setNote("");
+      clientRequestId.current = crypto.randomUUID();
+      if (next.ended) setView("status");
+    }
     setState(next);
   }, [token]);
 
@@ -98,23 +110,28 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
     if (res.ok) setMenus((await res.json()).menus);
   }, [token]);
 
-  const hasActiveOrders = state.orders.some((order) => !FINAL.has(order.status));
+  // Pusher nudges this phone when the counter changes its table (cancel, add item, settle, free);
+  // polling is only the fallback. A phone just browsing a free QR has nothing to wait for.
+  const live = useGuestRealtime(token, refreshState);
+  const waiting = state.lock !== "free" || state.orders.length > 0;
   useEffect(() => {
+    if (!waiting && live) return;
     const tick = () => {
       if (document.visibilityState === "visible") void refreshState();
     };
-    const interval = setInterval(tick, hasActiveOrders ? 5000 : 20000);
+    const interval = setInterval(tick, live ? 60000 : waiting ? 10000 : 30000);
     document.addEventListener("visibilitychange", tick);
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, [hasActiveOrders, refreshState]);
+  }, [live, waiting, refreshState]);
 
+  // Sold-out changes aren't pushed to guests; a slow refresh is enough (ordering re-checks anyway).
   useEffect(() => {
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") void refreshMenu();
-    }, 60000);
+    }, 120000);
     return () => clearInterval(interval);
   }, [refreshMenu]);
 

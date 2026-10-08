@@ -2,7 +2,8 @@
 
 import { GuestHeader } from "@/components/guest/GuestHeader";
 import { useI18n } from "@/lib/i18n/I18nProvider";
-import { localName, type MessageKey } from "@/lib/i18n/messages";
+import { formatClock } from "@/lib/utils/time";
+import { localName } from "@/lib/i18n/messages";
 import type { GuestStateDTO, MenuDTO, OrderDTO } from "@/types";
 
 interface GuestStatusViewProps {
@@ -13,23 +14,20 @@ interface GuestStatusViewProps {
   onOrderMore: () => void;
 }
 
-const HEAD: Record<OrderDTO["status"], { eyebrow: MessageKey; title: MessageKey; tone: string }> = {
-  PENDING: { eyebrow: "guest.eyebrowCooking", title: "guest.statusCooking", tone: "text-brand-dark" },
-  READY: { eyebrow: "guest.eyebrowReady", title: "guest.statusReady", tone: "text-green-800" },
-  COMPLETED: { eyebrow: "guest.eyebrowServed", title: "guest.statusServed", tone: "text-green-800" },
-  CANCELLED: { eyebrow: "guest.eyebrowCancelled", title: "guest.statusCancelled", tone: "text-red-800" },
-};
-
 const rupees = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
 
-/** "4 · Order status" artboard: the newest order's progress, its items per kitchen, then the running total. */
+/**
+ * After ordering: a plain "it'll be served in a few minutes" (no step-by-step
+ * status — the owner wants it simple), the newest order's items per kitchen,
+ * earlier orders, and the running total.
+ */
 export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: GuestStatusViewProps) {
   const { t, lang } = useI18n();
   const orders = [...state.orders].reverse();
   const latest = orders[0];
   const billable = state.orders.filter((order) => order.status !== "CANCELLED");
   const total = billable.reduce((sum, order) => sum + order.totalAmount, 0);
-  const clock = (iso: string) => new Date(iso).toLocaleTimeString(lang === "gu" ? "gu-IN" : "en-IN", { hour: "numeric", minute: "2-digit" });
+  const clock = (iso: string) => formatClock(iso, lang);
 
   const kitchenOf = new Map<string, string>();
   menus.forEach((menu) => menu.categories.forEach((category) => kitchenOf.set(category.id, localName(lang, menu.name, menu.nameGu))));
@@ -46,7 +44,7 @@ export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: G
   if (!latest) {
     const settled = state.ended?.reason === "SETTLED";
     return (
-      <div className="flex min-h-full w-full max-w-[480px] flex-col bg-background">
+      <div className="flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
         <GuestHeader restaurantName={restaurantName} subtitle={[t("guest.table", { code: state.seatCode }), state.area].filter(Boolean).join(" · ")} />
         <main className="flex flex-1 flex-col items-center gap-[18px] px-6 pb-6 pt-10 text-center">
           <span className={`flex h-[84px] w-[84px] items-center justify-center rounded-[26px] ${settled ? "bg-success-light text-green-700" : "bg-brand-light text-brand"}`}>
@@ -55,13 +53,7 @@ export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: G
             </svg>
           </span>
           <h1 className="text-[26px] font-extrabold leading-tight tracking-tight">{settled ? t("guest.thanksTitle") : t("guest.sessionEndedTitle")}</h1>
-          <p className="max-w-[320px] text-[15px] leading-relaxed text-text-muted">
-            {settled
-              ? state.ended?.email
-                ? t("guest.thanksBodyEmail", { total: rupees(state.ended.total ?? 0), email: state.ended.email })
-                : t("guest.thanksBody", { total: rupees(state.ended?.total ?? 0) })
-              : t("guest.sessionEnded")}
-          </p>
+          <p className="max-w-[320px] text-[15px] leading-relaxed text-text-muted">{settled ? t("guest.thanksBody") : t("guest.sessionEnded")}</p>
           <button type="button" onClick={onOrderMore} className="mt-2 flex h-[54px] w-full items-center justify-center rounded-[14px] border-[1.5px] border-brand text-base font-extrabold text-brand">
             {t("guest.backToMenu")}
           </button>
@@ -70,15 +62,11 @@ export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: G
     );
   }
 
-  const head = HEAD[latest.status];
   const groups = groupsOf(latest);
-  const readyKitchens = groups.filter(([, items]) => items.every((item) => item.status === "READY")).length;
-  const cooking = latest.status === "PENDING";
-  const ready = latest.status === "READY";
-  const served = latest.status === "COMPLETED";
+  const cancelled = latest.status === "CANCELLED";
 
   return (
-    <div className="flex min-h-full w-full max-w-[480px] flex-col bg-background">
+    <div className="flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
       <GuestHeader
         restaurantName={restaurantName}
         title={t("guest.orderTitle", { n: latest.tokenNumber })}
@@ -92,50 +80,31 @@ export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: G
       />
 
       <main className="flex flex-1 flex-col gap-3.5 px-4 pb-6 pt-4">
-        <section className="flex flex-col gap-4 rounded-[18px] border border-border bg-surface p-[18px]">
+        <section className="flex items-start gap-3.5 rounded-[18px] border border-border bg-surface p-[18px]">
+          <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${cancelled ? "bg-danger-light text-red-700" : "bg-brand-light text-brand"}`}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              {cancelled ? <path d="M18 6 6 18M6 6l12 12" /> : <><path d="M3 18h18" /><path d="M5 18a7 7 0 0 1 14 0" /><path d="M12 8V6M10 6h4" /></>}
+            </svg>
+          </span>
           <div className="flex flex-col gap-1">
-            <span className={`text-[13px] font-bold tracking-wide ${head.tone}`}>{t(head.eyebrow)}</span>
-            <h1 className="text-2xl font-extrabold leading-tight tracking-tight">{t(head.title)}</h1>
-            <span className="text-[13px] text-text-muted">{latest.status === "CANCELLED" ? t("guest.statusCancelledBody") : t("guest.autoUpdate")}</span>
+            <h1 className="text-[22px] font-extrabold leading-tight tracking-tight">{cancelled ? t("guest.statusCancelled") : t("guest.placedTitle")}</h1>
+            <p className="text-[14px] leading-relaxed text-text-muted">{cancelled ? t("guest.statusCancelledBody") : t("guest.placedBody")}</p>
           </div>
-          {latest.status !== "CANCELLED" ? (
-            <ol className="flex flex-col">
-              <Step state="done" next={cooking ? "current" : "done"} label={t("guest.stepPlaced")} time={clock(latest.createdAt)} />
-              <Step
-                state={cooking ? "current" : "done"}
-                next={ready ? "current" : served ? "done" : "todo"}
-                label={t("guest.stepCooking")}
-                time={cooking ? t("guest.kitchensReady", { n: readyKitchens, total: groups.length }) : undefined}
-              />
-              <Step state={ready ? "current" : served ? "done" : "todo"} next={served ? "done" : "todo"} label={t("guest.stepReady")} time={latest.readyAt ? clock(latest.readyAt) : undefined} />
-              <Step state={served ? "done" : "todo"} label={t("guest.stepServed")} last />
-            </ol>
-          ) : null}
         </section>
 
         <section className="flex flex-col gap-3 rounded-[18px] border border-border bg-surface p-4">
-          {groups.map(([kitchen, items], index) => {
-            const groupReady = items.every((item) => item.status === "READY");
-            return (
-              <div key={kitchen} className="flex flex-col gap-3">
-                {index > 0 ? <div className="h-px bg-border" /> : null}
-                <div className="flex items-center justify-between">
-                  <h2 className="text-[15px] font-extrabold">{kitchen}</h2>
-                  {cooking || ready ? (
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${groupReady ? "bg-success-light text-green-800" : "bg-orange-100 text-brand-dark"}`}>
-                      {groupReady ? t("guest.partReady") : t("guest.partCooking")}
-                    </span>
-                  ) : null}
+          {groups.map(([kitchen, items], index) => (
+            <div key={kitchen} className="flex flex-col gap-3">
+              {index > 0 ? <div className="h-px bg-border" /> : null}
+              <h2 className="text-[15px] font-extrabold">{kitchen}</h2>
+              {items.map((item, i) => (
+                <div key={`${item.menuItemId}-${i}`} className="flex justify-between text-sm">
+                  <span>{itemName(item)}</span>
+                  <span className="text-text-muted">× {item.quantity}</span>
                 </div>
-                {items.map((item, i) => (
-                  <div key={`${item.menuItemId}-${i}`} className="flex justify-between text-sm">
-                    <span>{itemName(item)}</span>
-                    <span className="text-text-muted">× {item.quantity}</span>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          ))}
           {latest.note ? (
             <div className="rounded-[10px] bg-orange-50 px-3 py-2 text-[13px] text-orange-900">
               <strong>{t("guest.yourNote")}</strong> {latest.note}
@@ -160,13 +129,7 @@ export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: G
                   <span className="text-sm font-extrabold">
                     {t("guest.orderTitle", { n: order.tokenNumber })} <span className="font-semibold text-text-muted">· {clock(order.createdAt)}</span>
                   </span>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                      order.status === "CANCELLED" ? "bg-danger-light text-red-800" : order.status === "PENDING" ? "bg-orange-100 text-brand-dark" : "bg-success-light text-green-800"
-                    }`}
-                  >
-                    {t(HEAD[order.status].eyebrow)}
-                  </span>
+                  {order.status === "CANCELLED" ? <span className="rounded-full bg-danger-light px-2.5 py-0.5 text-xs font-bold text-red-800">{t("guest.cancelledTag")}</span> : null}
                 </div>
                 <span className="text-[13px] text-stone-700">{order.items.map((item) => `${itemName(item)} × ${item.quantity}`).join(", ")}</span>
               </div>
@@ -185,34 +148,5 @@ export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: G
         ) : null}
       </main>
     </div>
-  );
-}
-
-type StepState = "done" | "current" | "todo";
-
-/** One row of the timeline; the line below a done step is green into a done step, orange into the current one. */
-function Step({ state, next = "todo", label, time, last }: { state: StepState; next?: StepState; label: string; time?: string; last?: boolean }) {
-  const line = state === "done" ? (next === "done" ? "bg-green-700" : next === "current" ? "bg-brand" : "bg-border") : "bg-border";
-  return (
-    <li className="flex gap-3">
-      <div className="flex flex-col items-center">
-        {state === "done" ? (
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-700 text-white">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M5 13l4 4L19 7" />
-            </svg>
-          </span>
-        ) : state === "current" ? (
-          <span className="h-6 w-6 rounded-full border-[6px] border-brand bg-surface" />
-        ) : (
-          <span className="h-6 w-6 rounded-full border-2 border-stone-400 bg-surface" />
-        )}
-        {!last ? <span className={`min-h-[18px] w-0.5 flex-grow ${line}`} /> : null}
-      </div>
-      <div className={`flex flex-col ${last ? "" : "pb-3.5"}`}>
-        <span className={`text-[15px] font-bold ${state === "todo" ? "text-text-muted" : ""}`}>{label}</span>
-        {time ? <span className="text-[13px] text-text-muted">{time}</span> : null}
-      </div>
-    </li>
   );
 }

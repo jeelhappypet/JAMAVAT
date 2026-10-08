@@ -11,12 +11,21 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 import { localName } from "@/lib/i18n/messages";
 import type { MenuDTO, OrderDTO, TableDTO } from "@/types";
 
+interface Needs {
+  /** Seat grid: tables with who holds each QR. */
+  tables?: boolean;
+  /** Menu tree, only to name each item's kitchen. */
+  menus?: boolean;
+}
+
 /**
- * Everything the counter screens show — running orders, tables with their
- * QR state, and the menu (to name each item's kitchen). Pusher pushes
+ * What the counter screens show — running orders always, tables and the
+ * menu only for screens that ask (each one is an API call). Pusher pushes
  * refreshes; polling covers the gaps. Beeps when a new order arrives.
  */
-export function useCounterData() {
+export function useCounterData(needs: Needs = {}) {
+  const wantTables = needs.tables === true;
+  const wantMenus = needs.menus === true;
   const { t, lang } = useI18n();
   const [orders, setOrders] = useState<OrderDTO[]>([]);
   const [tables, setTables] = useState<TableDTO[]>([]);
@@ -54,18 +63,20 @@ export function useCounterData() {
   }, [t]);
 
   const loadTables = useCallback(async () => {
+    if (!wantTables) return;
     const res = await fetch("/api/tables");
     if (redirectToLoginIfUnauthorized(res)) return;
     const data = await res.json().catch(() => null);
     if (res.ok) setTables(data.tables);
-  }, []);
+  }, [wantTables]);
 
   const loadMenus = useCallback(async () => {
+    if (!wantMenus) return;
     const res = await fetch("/api/menu");
     if (redirectToLoginIfUnauthorized(res)) return;
     const data = await res.json().catch(() => null);
     if (res.ok) setMenus(data.menus);
-  }, []);
+  }, [wantMenus]);
 
   const resync = useCallback(() => {
     void loadOrders();
@@ -78,14 +89,17 @@ export function useCounterData() {
     void loadMenus();
   }, [resync, loadMenus]);
 
+  // Each event reloads only what it can change. Anything that touches a table (a guest's
+  // order, add item, cancel, settle, free) also sends SEAT_UPDATED, so order events only
+  // reload orders and the seat grid reloads once per change.
   const { state } = useRealtime(
     {
-      [REALTIME_EVENTS.ORDER_CREATED]: resync,
-      [REALTIME_EVENTS.ORDER_ITEMS_READY]: resync,
-      [REALTIME_EVENTS.ORDER_READY]: resync,
-      [REALTIME_EVENTS.ORDER_COMPLETED]: resync,
-      [REALTIME_EVENTS.ORDER_CANCELLED]: resync,
-      [REALTIME_EVENTS.SEAT_UPDATED]: resync,
+      [REALTIME_EVENTS.ORDER_CREATED]: loadOrders,
+      [REALTIME_EVENTS.ORDER_ITEMS_READY]: loadOrders,
+      [REALTIME_EVENTS.ORDER_READY]: loadOrders,
+      [REALTIME_EVENTS.ORDER_COMPLETED]: loadOrders,
+      [REALTIME_EVENTS.ORDER_CANCELLED]: loadOrders,
+      [REALTIME_EVENTS.SEAT_UPDATED]: loadTables,
       [REALTIME_EVENTS.MENU_UPDATED]: loadMenus,
     },
     resync

@@ -5,6 +5,7 @@ import { GuestSession, type GuestSessionDocument } from "@/models/GuestSession";
 import { guestOrderSchema } from "@/lib/validation/guest";
 import { resolveSeat } from "@/lib/tables";
 import { getGuest } from "@/lib/guest/session";
+import { verifiedEmail } from "@/lib/guest/verified";
 import { buildOrderItems, nextTokenNumber } from "@/lib/orders/build";
 import { serializeOrder, type OrderLean } from "@/lib/orders/serialize";
 import { getBusinessDate } from "@/lib/utils/businessDate";
@@ -25,7 +26,8 @@ export async function POST(request: Request) {
     const { token, items, note, clientRequestId } = guestOrderSchema.parse(await request.json());
 
     const guest = await getGuest();
-    if (!guest?.email) return NextResponse.json({ error: t("err.verifyFirst"), code: "VERIFY" }, { status: 401 });
+    const email = await verifiedEmail(guest);
+    if (!guest || !email) return NextResponse.json({ error: t("err.verifyFirst"), code: "VERIFY" }, { status: 401 });
 
     const resolved = await resolveSeat(token);
     if (!resolved) return NextResponse.json({ error: t("err.qrInvalid"), code: "QR_INVALID" }, { status: 404 });
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t("err.seatTaken"), code: "SEAT_TAKEN" }, { status: 409 });
     }
     if (!session) {
-      const created = await GuestSession.create({ seatId: seat._id, seatCode: code, email: guest.email, deviceId: guest.did });
+      const created = await GuestSession.create({ seatId: seat._id, seatCode: code, email, deviceId: guest.did });
       // Matches only if the QR is still free (or holds a session that was closed) — two phones can't both win.
       const claimed = await Seat.findOneAndUpdate(
         { _id: seat._id, $or: [{ currentSessionId: null }, { currentSessionId: seat.currentSessionId ?? null }] },
@@ -71,7 +73,7 @@ export async function POST(request: Request) {
         seatId: seat._id,
         seatCode: code,
         guestSessionId: session!._id,
-        guestEmail: guest.email,
+        guestEmail: email,
         note: note || undefined,
         items: built.items,
         totalAmount: built.totalAmount,

@@ -1,14 +1,18 @@
 import { GuestSession, type GuestSessionDocument } from "@/models/GuestSession";
 import { Order } from "@/models/Order";
 import { Seat, type SeatDocument } from "@/models/Seat";
-import { Bill, type BillDocument } from "@/models/Bill";
 import { serializeOrder, type OrderLean } from "@/lib/orders/serialize";
 import { seatCode, type ResolvedSeat } from "@/lib/tables";
 import type { GuestIdentity } from "@/lib/guest/session";
+import { verifiedEmail } from "@/lib/guest/verified";
 import type { GuestStateDTO } from "@/types";
 
-/** How long a phone keeps showing "Thank you, your bill is settled" after the counter closes its sitting. */
-const ENDED_VISIBLE_MS = 3 * 60 * 60 * 1000;
+/**
+ * How long a phone keeps showing "Thank you, your bill is settled" after the
+ * counter closes its sitting. Short on purpose, and it carries no email or
+ * amount: the next person to scan must never see the last guest's details.
+ */
+const ENDED_VISIBLE_MS = 15 * 60 * 1000;
 
 /** What a guest's phone needs to render: who holds the QR, and their own orders if it's them. */
 export async function getGuestState({ seat, table, code }: ResolvedSeat, guest: GuestIdentity | null): Promise<GuestStateDTO> {
@@ -32,16 +36,13 @@ export async function getGuestState({ seat, table, code }: ResolvedSeat, guest: 
     })
       .sort({ closedAt: -1 })
       .lean<GuestSessionDocument>();
-    if (last?.closedReason) {
-      const bill = last.closedReason === "SETTLED" ? await Bill.findOne({ guestSessionId: last._id }).lean<BillDocument>() : null;
-      ended = { reason: last.closedReason, total: bill?.total, email: bill?.email || undefined };
-    }
+    if (last?.closedReason) ended = { reason: last.closedReason };
   }
 
   return {
     seatCode: code,
     area: table.area || undefined,
-    verifiedEmail: guest?.email,
+    verifiedEmail: await verifiedEmail(guest),
     lock,
     orders,
     otherSeats: siblings.map((sibling) => seatCode(table.name, sibling.label)),
