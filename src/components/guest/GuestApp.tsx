@@ -8,34 +8,33 @@ import { GuestStatusView } from "@/components/guest/GuestStatusView";
 import { GuestBusyView } from "@/components/guest/GuestBusyView";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { GUEST_PUSH_CONFIGURED, useGuestRealtime, usePageVisible } from "@/lib/realtime/useGuestRealtime";
+import { guestUrlFor, startView, viewFromSearch, type GuestView } from "@/lib/guest/view";
 import type { GuestStateDTO, MenuDTO, MenuItemDTO } from "@/types";
-
-export type GuestView = "menu" | "cart" | "verify" | "status" | "busy";
 
 interface GuestAppProps {
   token: string;
   restaurantName: string;
   initialMenus: MenuDTO[];
   initialState: GuestStateDTO;
+  /** Step from the URL (?v=), so a reload or a back/forward lands where the guest was. */
+  initialView?: GuestView;
 }
 
-const FINAL = new Set(["COMPLETED", "CANCELLED"]);
+/** How old the menu may be before it's worth refetching (sold-out changes). */
+const MENU_STALE_MS = 120000;
+
+const viewFromUrl = () => viewFromSearch(new URLSearchParams(window.location.search).get("v") ?? undefined);
 
 /**
  * The guest's whole QR flow on one page (menu → cart → email OTP → status),
  * with the phone's back button moving between steps. The cart survives a
  * reload in localStorage; everything else comes from the server.
  */
-export function GuestApp({ token, restaurantName, initialMenus, initialState }: GuestAppProps) {
+export function GuestApp({ token, restaurantName, initialMenus, initialState, initialView }: GuestAppProps) {
   const { t } = useI18n();
   const [menus, setMenus] = useState(initialMenus);
   const [state, setState] = useState(initialState);
-  const [view, setView] = useState<GuestView>(() => {
-    // Just paid (or the counter closed the table): thank them before anything else.
-    if (initialState.ended && initialState.lock !== "mine") return "status";
-    if (initialState.lock === "taken") return "busy";
-    return initialState.orders.some((order) => !FINAL.has(order.status)) ? "status" : "menu";
-  });
+  const [view, setView] = useState<GuestView>(() => initialView ?? startView(initialState));
   const [browsing, setBrowsing] = useState(false);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [note, setNote] = useState("");
@@ -43,22 +42,47 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
   const [orderError, setOrderError] = useState<string | null>(null);
   const clientRequestId = useRef<string>(crypto.randomUUID());
   const stateRef = useRef(initialState);
+  /** Read by the popstate listener, which is registered once. */
+  const countRef = useRef(0);
   const cartKey = `jamavat:cart:${token}`;
 
   useEffect(() => {
     stateRef.current = state;
-  }, [state]);
+  });
 
-  // ---- navigation: each step is a history entry, so the phone's back button works
+  // ---- navigation
+  // Each step is a history entry *and* a URL (?v=), because a phone browser
+  // often reloads the document when the guest goes back. Without the URL the
+  // step would be recomputed from scratch and the guest would be dropped back
+  // on the "order placed" screen instead of the step they came from.
+  const urlFor = (next: GuestView) => guestUrlFor(window.location.pathname, next);
+
   const go = useCallback((next: GuestView) => {
     setView(next);
-    window.history.pushState({ guestView: next }, "");
+    window.history.pushState({ guestView: next }, "", urlFor(next));
+    window.scrollTo(0, 0);
+  }, []);
+
+  /** Same, without adding a history entry — for steps the guest must not come back to. */
+  const replace = useCallback((next: GuestView) => {
+    setView(next);
+    window.history.replaceState({ guestView: next }, "", urlFor(next));
     window.scrollTo(0, 0);
   }, []);
 
   useEffect(() => {
-    window.history.replaceState({ guestView: view }, "");
-    const onPop = (event: PopStateEvent) => setView((event.state?.guestView as GuestView) ?? "menu");
+    window.history.replaceState({ guestView: view }, "", urlFor(view));
+    const onPop = () => {
+      const next = viewFromUrl() ?? "menu";
+      // Going back past a placed order lands on the cart or verify step it came
+      // from, both now empty — show the menu instead of a dead screen.
+      if ((next === "cart" || next === "verify") && countRef.current === 0) {
+        setView("menu");
+        window.history.replaceState({ guestView: "menu" }, "", urlFor("menu"));
+        return;
+      }
+      setView(next);
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- register once with the first view
@@ -105,10 +129,23 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
     setState(next);
   }, [token]);
 
+  // 0 until the first refresh; the page was server-rendered with a fresh menu,
+  // so staleness is measured from when this screen opened.
+  const menuLoadedAt = useRef(0);
   const refreshMenu = useCallback(async () => {
+    menuLoadedAt.current = Date.now();
     const res = await fetch(`/api/guest/menu?token=${encodeURIComponent(token)}`, { cache: "no-store" });
     if (res.ok) setMenus((await res.json()).menus);
   }, [token]);
+
+  /** Only worth asking again if the copy on screen has gone stale. */
+  const refreshMenuIfStale = useCallback(() => {
+    if (Date.now() - menuLoadedAt.current > MENU_STALE_MS) void refreshMenu();
+  }, [refreshMenu]);
+
+  useEffect(() => {
+    menuLoadedAt.current = Date.now();
+  }, []);
 
   // Pusher nudges this phone when the counter changes its table (cancel, add item, settle, free);
   // polling is only the fallback. A phone just browsing a free QR has nothing to wait for, and
@@ -131,13 +168,17 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
     };
   }, [mine, live, state.lock, refreshState]);
 
-  // Sold-out changes aren't pushed to guests; a slow refresh is enough (ordering re-checks anyway).
+  // Sold-out changes aren't pushed to guests. A menu left open on the table
+  // doesn't need a timer asking every couple of minutes: it is refetched when
+  // the phone comes back to the page with a stale copy, and again when the
+  // guest opens the cart. Placing an order re-checks on the server anyway.
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (document.visibilityState === "visible") void refreshMenu();
-    }, 120000);
-    return () => clearInterval(interval);
-  }, [refreshMenu]);
+    const onShow = () => {
+      if (document.visibilityState === "visible") refreshMenuIfStale();
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => document.removeEventListener("visibilitychange", onShow);
+  }, [refreshMenuIfStale]);
 
   // ---- cart helpers
   const itemsById = useMemo(() => {
@@ -159,6 +200,9 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
   // Dishes that disappeared or sold out since they were added drop out of the count.
   const lines = Object.entries(cart).filter(([id]) => itemsById.get(id)?.isAvailable);
   const count = lines.reduce((sum, [, qty]) => sum + qty, 0);
+  useEffect(() => {
+    countRef.current = count;
+  });
   const total = lines.reduce((sum, [id, qty]) => sum + (itemsById.get(id)?.price ?? 0) * qty, 0);
 
   // ---- placing
@@ -198,11 +242,13 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
       setCart({});
       setNote("");
       await refreshState();
-      go("status");
+      // Replaces the cart/verify step: once the kitchen has the order, going
+      // back must not offer to send it again.
+      replace("status");
     } finally {
       setPlacing(false);
     }
-  }, [lines, note, token, go, refreshState, refreshMenu, t, view]);
+  }, [lines, note, token, go, replace, refreshState, refreshMenu, t, view]);
 
   const startCheckout = useCallback(() => {
     if (state.verifiedEmail) void placeOrder();
@@ -274,6 +320,7 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState }: 
       readOnly={state.lock === "taken"}
       onCart={() => {
         setOrderError(null);
+        refreshMenuIfStale();
         go("cart");
       }}
       onOrders={() => go("status")}

@@ -3,14 +3,16 @@ import type { MessageKey } from "@/lib/i18n/messages";
 export interface NavItem {
   href: string;
   label: MessageKey;
+  /** Shown instead of `label` on phones, where six full labels don't fit. */
+  shortLabel?: MessageKey;
 }
 
 /** Admin artboards: underline tabs under the restaurant name. */
 export const ADMIN_NAV: NavItem[] = [
   { href: "/today", label: "nav.today" },
-  { href: "/menu", label: "nav.menus" },
-  { href: "/staff", label: "nav.staffRouting" },
-  { href: "/tables", label: "nav.tables" },
+  { href: "/menu", label: "nav.menus", shortLabel: "nav.menu" },
+  { href: "/staff", label: "nav.staffRouting", shortLabel: "nav.staff" },
+  { href: "/tables", label: "nav.tables", shortLabel: "nav.tablesShort" },
   { href: "/reports", label: "nav.reports" },
   { href: "/settings", label: "nav.settings" },
 ];

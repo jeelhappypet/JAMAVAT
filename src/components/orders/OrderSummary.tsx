@@ -36,11 +36,11 @@ export function OrderSummary({
   const { t } = useI18n();
   const pieces = lines.reduce((sum, line) => sum + line.quantity, 0);
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 flex max-h-[75vh] flex-col rounded-t-3xl border-t border-border bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.12)] lg:sticky lg:top-6 lg:inset-x-auto lg:bottom-auto lg:max-h-[calc(100vh-3rem)] lg:rounded-3xl lg:border lg:shadow-sm">
+    <div className="fixed inset-x-0 bottom-0 z-30 flex max-h-[75dvh] flex-col rounded-t-3xl border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.12)] lg:sticky lg:top-6 lg:inset-x-auto lg:bottom-auto lg:max-h-[calc(100dvh-3rem)] lg:rounded-3xl lg:border lg:pb-0 lg:shadow-sm">
       <button
         type="button"
         onClick={() => onExpandedChange(!expanded)}
-        className="touch-target flex items-center gap-3 px-4 py-3 text-left"
+        className="touch-target flex items-center gap-3 px-4 py-2.5 text-left lg:py-3"
         aria-expanded={expanded}
       >
         <span className="min-w-0 flex-1 truncate text-lg font-bold">{heading}</span>
@@ -83,7 +83,7 @@ export function OrderSummary({
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-4 border-t border-border p-4">
+      <div className="flex flex-col gap-3 border-t border-border px-4 pb-3 pt-3 lg:gap-4 lg:pb-4">
         {expanded ? null : (
           <div className="flex min-h-6 items-center justify-between gap-3 text-sm text-text-muted">
             <span>{lines.length === 0 ? t("parcel.pickItems") : lines.length === 1 ? t("parcel.dishesOne") : t("parcel.dishes", { n: lines.length })}</span>

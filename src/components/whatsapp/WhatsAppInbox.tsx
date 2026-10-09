@@ -6,6 +6,7 @@ import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { WHATSAPP_CHANNEL, WHATSAPP_EVENTS } from "@/lib/realtime/events";
 import { POLL_MS, SAFETY_RESYNC_MS } from "@/lib/realtime/polling";
+import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
 import { cn } from "@/components/ui/cn";
 import { IconButton } from "@/components/ui/IconButton";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
@@ -203,18 +204,8 @@ export function WhatsAppInbox({ canSend, homeHref }: { canSend: boolean; homeHre
     return () => clearTimeout(handle);
   }, [query, loadConversations]);
 
-  // Fallback: poll without Pusher, a quiet resync with it; catch up when the tab comes back.
-  useEffect(() => {
-    const tick = () => {
-      if (visible()) void resync();
-    };
-    const interval = setInterval(tick, realtimeState === "connected" ? SAFETY_RESYNC_MS : POLL_MS);
-    document.addEventListener("visibilitychange", tick);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", tick);
-    };
-  }, [realtimeState, resync]);
+  // Fallback: poll without Pusher, a quiet resync with it; both only on screen.
+  usePeriodicRefresh(resync, realtimeState === "connected" ? SAFETY_RESYNC_MS : POLL_MS);
 
   // ---- send
   async function send(text: string): Promise<boolean> {

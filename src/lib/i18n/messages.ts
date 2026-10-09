@@ -602,6 +602,9 @@ const en = {
   "privacy.changesTitle": "Changes",
   "privacy.changes": "If this policy changes, the new version will be posted on this page with a new date.",
   "privacy.contact": "Questions or deletion requests:",
+
+  "nav.staff": "Staff",
+  "nav.tablesShort": "Tables",
 };
 
 export type MessageKey = keyof typeof en;
@@ -1204,6 +1207,9 @@ const gu: Record<MessageKey, string> = {
   "privacy.changesTitle": "ફેરફાર",
   "privacy.changes": "આ નીતિ બદલાશે તો નવી આવૃત્તિ નવી તારીખ સાથે આ પાના પર મુકાશે.",
   "privacy.contact": "પ્રશ્નો કે ડેટા કાઢવાની વિનંતી:",
+
+  "nav.staff": "સ્ટાફ",
+  "nav.tablesShort": "ટેબલ",
 };
 
 /** Both dictionaries — exported for the placeholder-parity test. */

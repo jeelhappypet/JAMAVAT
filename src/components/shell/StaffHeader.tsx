@@ -56,7 +56,10 @@ function AdminHeader({ restaurantName, staffName, role, pathname }: StaffHeaderP
             ]}
           />
         </div>
-        <nav aria-label={t("nav.admin")} className="no-scrollbar -mx-1 flex gap-0.5 overflow-x-auto">
+        {/* Six tabs don't fit one phone row, and a hidden side-scroller leaves
+            half of them undiscoverable — so phones get a two-row grid of short
+            labels, and the artboard's single underline row returns at sm. */}
+        <nav aria-label={t("nav.admin")} className="-mx-1 grid grid-cols-3 sm:flex sm:gap-0.5">
           {ADMIN_NAV.map((item) => {
             const active = item.href === current;
             return (
@@ -64,9 +67,10 @@ function AdminHeader({ restaurantName, staffName, role, pathname }: StaffHeaderP
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`whitespace-nowrap border-b-2 px-3.5 py-3 text-sm ${active ? "border-brand font-extrabold text-brand-dark" : "border-transparent font-semibold text-stone-700"}`}
+                className={`whitespace-nowrap border-b-2 px-2 py-3 text-center text-sm sm:px-3.5 sm:text-left ${active ? "border-brand font-extrabold text-brand-dark" : "border-transparent font-semibold text-stone-700"}`}
               >
-                {t(item.label)}
+                <span className="sm:hidden">{t(item.shortLabel ?? item.label)}</span>
+                <span className="hidden sm:inline">{t(item.label)}</span>
               </Link>
             );
           })}

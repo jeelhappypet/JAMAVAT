@@ -42,7 +42,7 @@ export function GuestCartView({ restaurantName, state, menus, cart, note, onNote
     <div className="relative flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
       <GuestHeader restaurantName={restaurantName} title={t("guest.yourOrder")} subtitle={`${t("guest.table", { code: state.seatCode })} · ${restaurantName}`} onBack={onBack} />
 
-      <main className="flex flex-1 flex-col gap-3.5 px-4 pb-40 pt-4">
+      <main className="flex flex-1 flex-col gap-3.5 px-4 pb-32 pt-4">
         {count === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <p className="text-lg font-bold">{t("guest.cartEmpty")}</p>
@@ -113,7 +113,7 @@ export function GuestCartView({ restaurantName, state, menus, cart, note, onNote
       </main>
 
       {count > 0 ? (
-        <div className="fixed bottom-0 left-1/2 z-30 flex w-full max-w-[480px] -translate-x-1/2 flex-col gap-2 border-t border-border bg-surface px-4 pb-4 pt-3">
+        <div className="fixed bottom-0 left-1/2 z-30 flex w-full max-w-[480px] -translate-x-1/2 flex-col gap-2 border-t border-border bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           {state.verifiedEmail ? (
             <p className="text-center text-xs text-text-muted">
               {t("guest.verifiedAs", { email: state.verifiedEmail })} ·{" "}

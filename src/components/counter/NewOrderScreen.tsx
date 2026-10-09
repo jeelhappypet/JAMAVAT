@@ -143,7 +143,9 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
   const seatClosed = seatId && seat && !seat.session;
 
   return (
-    <div className="flex flex-col gap-5 pb-[55vh] lg:flex-row lg:items-start lg:gap-8 lg:pb-0">
+    // The bottom padding clears the summary docked at the bottom of a phone
+    // screen; on lg the summary sits beside the dishes instead.
+    <div className="flex flex-col gap-5 pb-64 lg:flex-row lg:items-start lg:gap-8 lg:pb-0">
       <div className="flex flex-1 flex-col gap-5">
         <div className="flex flex-wrap items-center gap-3">
           {seatId ? (

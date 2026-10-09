@@ -420,6 +420,25 @@ depends on it.
   `whatsapp:message:status`, `whatsapp:conversation:updated`. Socket.IO isn't
   used — it can't run on Vercel functions; polling every 5 s is the fallback.
 
+## 8f. Phones
+
+Everything is used on a phone — the guest's, and often the owner's — so:
+
+- **Guest steps live in the URL** (`?v=cart|verify|status`, the menu is the
+  bare QR link; `lib/guest/view.ts`). A phone browser reloads the document on
+  back, which would otherwise recompute the step and strand the guest on the
+  "order placed" screen. The bare URL therefore always resolves to the menu,
+  even with an order cooking — it is the entry back walks to. Placing an order
+  *replaces* the cart/verify step so it can't be re-sent, and a back press onto
+  an emptied cart heals to the menu.
+- **Admin tabs**: six labels don't fit one phone row and a hidden side-scroller
+  leaves half of them undiscoverable, so phones get a two-row grid of short
+  labels (`NavItem.shortLabel`) and the artboard's single row returns at `sm`.
+- **Staff routing** is a card per login with category chips on phones; the
+  matrix needs ~840px and its name column scrolls out of sight (`RoutingMatrix`).
+- Bottom bars (guest menu/cart, counter order summary) clear the home
+  indicator with `env(safe-area-inset-bottom)`.
+
 ## 8a. Design system & language
 
 - The approved design canvas (link in CLAUDE_IMPLEMENTATION_PLAN.md) is the

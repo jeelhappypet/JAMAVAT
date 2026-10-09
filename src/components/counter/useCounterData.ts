@@ -5,6 +5,7 @@ import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { POLL_MS, SAFETY_RESYNC_MS } from "@/lib/realtime/polling";
+import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
 import { playNewOrderBeep } from "@/lib/utils/beep";
 import { COUNTER_SOUND, useSoundPref, useUnlockSoundOnFirstTap } from "@/lib/utils/soundPref";
 import { useI18n } from "@/lib/i18n/I18nProvider";
@@ -105,10 +106,7 @@ export function useCounterData(needs: Needs = {}) {
     resync
   );
 
-  useEffect(() => {
-    const interval = setInterval(resync, state === "connected" ? SAFETY_RESYNC_MS : POLL_MS);
-    return () => clearInterval(interval);
-  }, [state, resync]);
+  usePeriodicRefresh(resync, state === "connected" ? SAFETY_RESYNC_MS : POLL_MS);
 
   // "12 min", "New order" and ticket ages move along without refetching.
   useEffect(() => {

@@ -149,7 +149,7 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
         ) : null}
       </div>
 
-      <div ref={listRef} className="flex flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain px-4 pb-24 pt-3">
+      <div ref={listRef} className="flex flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain px-4 pb-28 pt-3">
         {menus.length === 0 ? <p className="py-10 text-center text-[15px] text-text-muted">{t("guest.menuEmpty")}</p> : null}
         {menus.length > 0 && sections.length === 0 && q ? <p className="py-10 text-center text-[15px] text-text-muted">{t("guest.noResults", { q: query.trim() })}</p> : null}
 
@@ -193,7 +193,8 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
         </p>
       </div>
 
-      <div className="absolute inset-x-3 bottom-3 z-30">
+      {/* max() keeps the bar clear of the home indicator when the guest page runs as an installed app. */}
+      <div className="absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30">
         {count > 0 && !readOnly ? (
           <button
             type="button"

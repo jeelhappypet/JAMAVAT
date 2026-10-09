@@ -32,7 +32,8 @@ Never hand-style a button, checkbox, dropdown, text field, date field or dialog 
 ## API and data
 
 - Load only what the screen shows. One screen = the fewest calls; never fetch a whole tree (menu, tables) for one label — add the field to the API that's already called (see `SeatDetailDTO.kitchens`).
-- Realtime (Pusher) is a nudge, MongoDB is the truth. An event reloads only what it can change (`useCounterData` handlers). Heavy screens (reports) throttle reloads (`useThrottled`). Polling is only the fallback (`lib/realtime/polling.ts`).
+- Realtime (Pusher) is a nudge, MongoDB is the truth. An event reloads only what it can change (`useCounterData` handlers). Heavy screens (reports) throttle reloads (`useThrottled`). Polling is only the fallback (`lib/realtime/polling.ts`) and always goes through `usePeriodicRefresh`, which pauses while the page is off screen — never write a bare `setInterval(fetch…)`.
+- Don't put a screen's data on a timer when an event or the guest's own next tap can fetch it (the guest menu refetches when it's stale and the phone comes back, not every two minutes).
 - Guests get pushes on the public per-QR channel (`notifyGuestSeat`) — never put data in those messages. A guest phone connects only during its own sitting while on screen (`useGuestRealtime(…, enabled)`) — keep it that way, the Pusher free plan has 100 connections.
 - Images are resized in the browser before upload (`lib/utils/dishPhoto.ts`); don't add server-side image processing or Next's image optimizer for them.
 - Every state change is a conditional `findOneAndUpdate` on the status it starts from (409 if someone else won). Await `emitRealtimeEvent` / `notifyGuestSeat` after the DB write.

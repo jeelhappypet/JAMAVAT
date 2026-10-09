@@ -12,6 +12,7 @@ import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { POLL_MS, SAFETY_RESYNC_MS } from "@/lib/realtime/polling";
+import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
 import { playNewOrderBeep } from "@/lib/utils/beep";
 import { KITCHEN_SOUND, useSoundPref, useUnlockSoundOnFirstTap } from "@/lib/utils/soundPref";
 import { useI18n } from "@/lib/i18n/I18nProvider";
@@ -96,10 +97,7 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
     resync
   );
 
-  useEffect(() => {
-    const interval = setInterval(loadTickets, state === "connected" ? SAFETY_RESYNC_MS : POLL_MS);
-    return () => clearInterval(interval);
-  }, [state, loadTickets]);
+  usePeriodicRefresh(loadTickets, state === "connected" ? SAFETY_RESYNC_MS : POLL_MS);
 
   // Ticket ages ("4 min") tick along without refetching.
   useEffect(() => {
