@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { unlockSound } from "@/lib/utils/beep";
+import { askNotificationPermission } from "@/lib/utils/orderNotification";
 
 const CHANGE_EVENT = "jamavat:sound-pref";
 
@@ -33,7 +34,10 @@ export function useSoundPref(key: string): [boolean, () => void] {
   const on = useSyncExternalStore(subscribe, () => read(key), () => true);
   const toggle = useCallback(() => {
     const next = !read(key);
-    if (next) void unlockSound();
+    if (next) {
+      void unlockSound();
+      askNotificationPermission();
+    }
     try {
       localStorage.setItem(key, next ? "on" : "off");
     } catch {
@@ -45,18 +49,23 @@ export function useSoundPref(key: string): [boolean, () => void] {
 }
 
 /**
- * Browsers keep audio locked until the user taps the page. Staff tap the
- * screen within seconds of opening it, so unlock on that first tap instead
- * of making them find a "sound on" button.
+ * Browsers keep audio locked — and won't ask for notification permission —
+ * until the user taps the page. Staff tap the screen within seconds of
+ * opening it, so unlock both on that first tap instead of making them find
+ * a "sound on" button.
  */
-export function useUnlockSoundOnFirstTap() {
+export function useUnlockAlertsOnFirstTap() {
   useEffect(() => {
     const unlock = () => void unlockSound();
+    // A click (not pointerdown) counts as the gesture every browser needs for the permission prompt.
+    const ask = () => askNotificationPermission();
     window.addEventListener("pointerdown", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
+    window.addEventListener("click", ask, { once: true });
     return () => {
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
+      window.removeEventListener("click", ask);
     };
   }, []);
 }

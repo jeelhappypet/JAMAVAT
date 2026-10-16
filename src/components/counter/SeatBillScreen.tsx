@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { SkeletonCards } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
@@ -189,7 +189,7 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
       <main className="mx-auto flex w-full max-w-[1360px] flex-1 flex-wrap items-start gap-6 px-[clamp(16px,3vw,32px)] pb-10 pt-5">
         {loading ? (
           <div className="w-full">
-            <LoadingState />
+            <SkeletonCards count={2} minWidth={300} />
           </div>
         ) : settled ? (
           <section className="mx-auto flex w-full max-w-[480px] flex-col items-center gap-3 rounded-[20px] border border-border bg-surface p-8 text-center">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { SkeletonCards } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Alert } from "@/components/ui/Alert";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useCounterData } from "@/components/counter/useCounterData";
+import { TablePickerDialog } from "@/components/counter/TablePickerDialog";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { formatClock } from "@/lib/utils/time";
 import { localName } from "@/lib/i18n/messages";
@@ -26,6 +27,7 @@ export function OrdersScreen() {
   const { orders, loading, error, busyIds, act } = useCounterData();
   const [cancelling, setCancelling] = useState<OrderDTO | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [pickingTable, setPickingTable] = useState(false);
 
   const shown = orders.filter((order) => (filter === "all" ? true : filter === "dineIn" ? !!order.seatCode : !order.seatCode));
   const cooking = shown.filter((order) => order.status === "PENDING");
@@ -83,17 +85,32 @@ export function OrdersScreen() {
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-[26px] font-extrabold tracking-tight">{t("counter.running")}</h1>
-        <Button
-          href="/new-order"
-          icon={
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          }
-        >
-          {t("counter.newParcel")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => setPickingTable(true)}
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M3 10h18M5 10v9M19 10v9M8 6h8" />
+              </svg>
+            }
+          >
+            {t("counter.newTableOrder")}
+          </Button>
+          <Button
+            href="/new-order"
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            }
+          >
+            {t("counter.newParcel")}
+          </Button>
+        </div>
       </div>
+
+      <TablePickerDialog open={pickingTable} onClose={() => setPickingTable(false)} />
 
       <SegmentedControl
         label={t("counter.filterLabel")}
@@ -110,7 +127,7 @@ export function OrdersScreen() {
       {error ? <Alert>{error}</Alert> : null}
 
       {loading ? (
-        <LoadingState />
+        <SkeletonCards count={3} minWidth={270} />
       ) : (
         <>
           <h2 className="text-lg font-extrabold">

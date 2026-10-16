@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { SkeletonCards } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
@@ -40,7 +40,7 @@ export function SeatsScreen() {
   const runningTotal = inUse.reduce((sum, seat) => sum + (seat.session?.total ?? 0), 0);
   const cooking = orders.filter((order) => order.status === "PENDING").length;
   const fresh = orders
-    .filter((order) => order.seatCode && order.status === "PENDING" && minutesSince(order.createdAt, now) < NEW_FOR_MINUTES)
+    .filter((order) => order.source === "QR" && order.status === "PENDING" && minutesSince(order.createdAt, now) < NEW_FOR_MINUTES)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   const areas = useMemo(() => {
@@ -72,7 +72,7 @@ export function SeatsScreen() {
         {error ? <Alert>{error}</Alert> : null}
 
         {loading ? (
-          <LoadingState />
+          <SkeletonCards kind="table" count={6} minWidth={250} />
         ) : areas.length === 0 ? (
           <EmptyState title={t("counter.noTables")} />
         ) : (
@@ -182,11 +182,12 @@ function SeatTile({ seat, now }: { seat: SeatDTO; now: number }) {
   const session = seat.session;
   const base = "flex min-h-[104px] flex-col justify-between gap-3 rounded-[14px] border-[1.5px] p-3";
   if (!session) {
+    // A free table: tap to order for it from the counter (no email/OTP; its QR then shows "in use").
     return (
-      <div className={`${base} ${TILE.free}`}>
+      <Link href={`/new-order?seat=${seat.id}`} aria-label={t("counter.startOrder", { code: seat.code })} className={`${base} ${TILE.free} transition-colors hover:border-brand hover:bg-orange-50`}>
         <span className="text-2xl font-extrabold tracking-tight">{seat.code}</span>
         <span className="text-[13px] font-semibold">{t("counter.free")}</span>
-      </div>
+      </Link>
     );
   }
   return (

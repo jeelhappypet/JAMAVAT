@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { SkeletonList } from "@/components/ui/Skeleton";
 import { SoldOutList, withSoldOut } from "@/components/menu/SoldOutList";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
@@ -59,7 +59,7 @@ export function CounterMenuScreen() {
       </div>
       {error ? <Alert>{error}</Alert> : null}
       {loading ? (
-        <LoadingState />
+        <SkeletonList rows={8} />
       ) : groups.length === 0 ? (
         <div className="rounded-[18px] border border-dashed border-stone-300 bg-surface px-6 py-12 text-center text-[15px] text-text-muted">{t("guest.menuEmpty")}</div>
       ) : (

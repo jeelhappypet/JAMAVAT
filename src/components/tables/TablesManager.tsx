@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { SkeletonCards } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Alert } from "@/components/ui/Alert";
@@ -133,7 +133,7 @@ export function TablesManager() {
 
       {error ? <Alert>{error}</Alert> : null}
 
-      {loading ? <LoadingState /> : null}
+      {loading ? <SkeletonCards kind="table" count={4} minWidth={280} /> : null}
       {!loading && tables.length === 0 ? <EmptyState title={t("tables.empty")} /> : null}
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">

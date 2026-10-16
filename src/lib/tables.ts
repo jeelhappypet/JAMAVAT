@@ -132,6 +132,50 @@ export async function closeSeatSession(seatId: unknown, sessionId: unknown, reas
   return closed.modifiedCount === 1;
 }
 
+/**
+ * Where a counter order for a table goes: the sitting already open on that
+ * QR (a guest's, or one the counter opened), or — when the QR is free — a
+ * new sitting the counter opens for a walk-in table. That one has no email
+ * and belongs to no phone, so anyone who scans the QR sees "in use" until
+ * it's settled or freed. Taking the lock is the same conditional update a
+ * guest's first order uses: if a guest's phone wins the race, the counter's
+ * dishes simply join the guest's sitting.
+ */
+export async function sittingForCounterOrder(
+  seatId: string,
+  staffId: string
+): Promise<{ session: GuestSessionDocument; opened: boolean } | null> {
+  await connectToDatabase();
+  const seat = await Seat.findById(seatId).lean<SeatDocument>();
+  if (!seat) return null;
+  const openSession = (id: unknown) => GuestSession.findOne({ _id: id, status: "OPEN" }).lean<GuestSessionDocument>();
+
+  const current = seat.currentSessionId ? await openSession(seat.currentSessionId) : null;
+  if (current) return { session: current, opened: false };
+
+  if (seat.isActive === false) return null;
+  const table = await Table.findOne({ _id: seat.tableId, isActive: true }).lean<TableDocument>();
+  if (!table) return null;
+
+  const created = await GuestSession.create({
+    seatId: seat._id,
+    seatCode: seatCode(table.name, seat.label),
+    deviceId: `counter:${staffId}`,
+    openedBy: "COUNTER",
+  });
+  const claimed = await Seat.findOneAndUpdate(
+    { _id: seat._id, $or: [{ currentSessionId: null }, { currentSessionId: seat.currentSessionId ?? null }] },
+    { $set: { currentSessionId: created._id } },
+    { returnDocument: "after" }
+  ).lean();
+  if (claimed) return { session: created.toObject() as GuestSessionDocument, opened: true };
+
+  await GuestSession.deleteOne({ _id: created._id });
+  const winner = await Seat.findById(seat._id).select({ currentSessionId: 1 }).lean<Pick<SeatDocument, "currentSessionId">>();
+  const session = winner?.currentSessionId ? await openSession(winner.currentSessionId) : null;
+  return session ? { session, opened: false } : null;
+}
+
 /** Frees the QR once a sitting has nothing left to pay for (its last order was cancelled). */
 export async function freeSeatIfNothingToPay(seatId: unknown, sessionId: unknown): Promise<boolean> {
   const remaining = await Order.countDocuments({ guestSessionId: sessionId, status: { $ne: "CANCELLED" } });

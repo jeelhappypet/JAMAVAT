@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { SkeletonReport } from "@/components/ui/Skeleton";
 import { MonthPicker } from "@/components/ui/MonthPicker";
 import { Alert } from "@/components/ui/Alert";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
@@ -57,7 +57,7 @@ export function ReportsScreen({ thisMonth }: { thisMonth: string }) {
       {error ? <Alert>{error}</Alert> : null}
 
       {!current ? (
-        <LoadingState />
+        <SkeletonReport />
       ) : (
         <>
           <div className="flex flex-wrap gap-3">

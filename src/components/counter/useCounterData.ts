@@ -6,8 +6,8 @@ import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { POLL_MS, SAFETY_RESYNC_MS } from "@/lib/realtime/polling";
 import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
-import { playNewOrderBeep } from "@/lib/utils/beep";
-import { COUNTER_SOUND, useSoundPref, useUnlockSoundOnFirstTap } from "@/lib/utils/soundPref";
+import { alertNewOrders } from "@/lib/utils/orderNotification";
+import { COUNTER_SOUND, useSoundPref, useUnlockAlertsOnFirstTap } from "@/lib/utils/soundPref";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { localName } from "@/lib/i18n/messages";
 import type { MenuDTO, OrderDTO, TableDTO } from "@/types";
@@ -38,7 +38,7 @@ export function useCounterData(needs: Needs = {}) {
   const knownIds = useRef<Set<string> | null>(null);
   const [soundOn] = useSoundPref(COUNTER_SOUND);
   const soundRef = useRef(soundOn);
-  useUnlockSoundOnFirstTap();
+  useUnlockAlertsOnFirstTap();
 
   useEffect(() => {
     soundRef.current = soundOn;
@@ -51,8 +51,15 @@ export function useCounterData(needs: Needs = {}) {
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error);
       const next: OrderDTO[] = data.orders;
-      // Beep for orders this screen hasn't seen yet (never on the first load).
-      if (knownIds.current && soundRef.current && next.some((order) => !knownIds.current!.has(order.id))) playNewOrderBeep();
+      // Chime + notify for guest orders this screen hasn't seen yet (never on the first load). Orders the
+      // counter typed in itself (parcels, table orders) don't ring back at the person who just sent them.
+      if (knownIds.current) {
+        const seen = knownIds.current;
+        alertNewOrders(
+          next.filter((order) => !seen.has(order.id) && order.source !== "COUNTER"),
+          { t, lang, sound: soundRef.current }
+        );
+      }
       knownIds.current = new Set(next.map((order) => order.id));
       setOrders(next);
       setError(null);
@@ -61,7 +68,7 @@ export function useCounterData(needs: Needs = {}) {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, lang]);
 
   const loadTables = useCallback(async () => {
     if (!wantTables) return;

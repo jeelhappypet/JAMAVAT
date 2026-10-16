@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { SkeletonList } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -196,7 +196,7 @@ export function StaffManager({ currentStaffId }: { currentStaffId: string }) {
       {error ? <Alert>{error}</Alert> : null}
 
       {loading ? (
-        <LoadingState />
+        <SkeletonList rows={4} />
       ) : (
         <>
           {columns.length === 0 ? <Note tone="info">{t("routing.noCategories")}</Note> : null}

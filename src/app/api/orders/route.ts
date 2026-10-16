@@ -2,8 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isValidObjectId } from "mongoose";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { Order } from "@/models/Order";
-import { Seat, type SeatDocument } from "@/models/Seat";
-import { GuestSession, type GuestSessionDocument } from "@/models/GuestSession";
+import type { GuestSessionDocument } from "@/models/GuestSession";
 import { createOrderSchema } from "@/lib/validation/order";
 import { getBusinessDate } from "@/lib/utils/businessDate";
 import { serializeOrder, type OrderLean } from "@/lib/orders/serialize";
@@ -14,10 +13,13 @@ import { ROLES } from "@/lib/auth/access";
 import { getTranslator } from "@/lib/i18n/server";
 import { isDuplicateKeyError, jsonError, respond } from "@/lib/api";
 import { buildOrderItems, nextTokenNumber } from "@/lib/orders/build";
+import { freeSeatIfNothingToPay, sittingForCounterOrder } from "@/lib/tables";
 
 /**
- * Counter order: a parcel with a token number, or — with `seatId` — extra
- * dishes for a seated guest that go on their bill.
+ * Counter order: a parcel with a token number, or — with `seatId` — dishes
+ * for a table that go on its bill: the open sitting's (a guest's "Add item"),
+ * or a new sitting the counter opens on a free table (no email, no OTP; the
+ * QR shows "in use" to anyone who scans it until the bill is settled).
  */
 export async function POST(request: NextRequest) {
   const staff = await requireStaff(ROLES.counter);
@@ -31,18 +33,20 @@ export async function POST(request: NextRequest) {
     const existing = await Order.findOne({ clientRequestId }).lean<OrderLean>();
     if (existing) return NextResponse.json(serializeOrder(existing), { status: 200 });
 
-    let seatLink: Record<string, unknown> = {};
-    if (seatId) {
-      const seat = isValidObjectId(seatId) ? await Seat.findById(seatId).lean<SeatDocument>() : null;
-      const session = seat?.currentSessionId
-        ? await GuestSession.findOne({ _id: seat.currentSessionId, status: "OPEN" }).lean<GuestSessionDocument>()
-        : null;
-      if (!seat || !session) return jsonError(t("err.seatNotInUse"), 409);
-      seatLink = { seatId: seat._id, seatCode: session.seatCode, guestSessionId: session._id, guestEmail: session.email };
-    }
+    if (seatId && !isValidObjectId(seatId)) return jsonError(t("err.notFound"), 404);
 
+    // Check the dishes before touching the table, so a sold-out dish never leaves a free QR locked.
     const built = await buildOrderItems(items, t);
     if (!built.ok) return jsonError(built.error, built.status);
+
+    let sitting: { session: GuestSessionDocument; opened: boolean } | null = null;
+    let seatLink: Record<string, unknown> = {};
+    if (seatId) {
+      sitting = await sittingForCounterOrder(seatId, staff.id);
+      if (!sitting) return jsonError(t("err.seatNotInUse"), 409);
+      const { session } = sitting;
+      seatLink = { seatId: session.seatId, seatCode: session.seatCode, guestSessionId: session._id, guestEmail: session.email || undefined };
+    }
     const businessDate = getBusinessDate();
 
     let created;
@@ -64,6 +68,8 @@ export async function POST(request: NextRequest) {
         const raced = await Order.findOne({ clientRequestId }).lean<OrderLean>();
         if (raced) return NextResponse.json(serializeOrder(raced), { status: 200 });
       }
+      // Don't leave a table this request just opened locked with nothing on it.
+      if (sitting?.opened) await freeSeatIfNothingToPay(sitting.session.seatId, sitting.session._id);
       throw error;
     }
 

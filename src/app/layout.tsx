@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Gujarati, Plus_Jakarta_Sans } from "next/font/google";
 import { OfflineIndicator } from "@/components/realtime/OfflineIndicator";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
+import { TopProgress } from "@/components/shell/TopProgress";
 import { I18nProvider } from "@/lib/i18n/I18nProvider";
 import { getLang } from "@/lib/i18n/server";
 import "./globals.css";
@@ -54,6 +55,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <I18nProvider lang={lang}>
           <ServiceWorkerRegister />
+          <TopProgress />
           <OfflineIndicator />
           {children}
         </I18nProvider>

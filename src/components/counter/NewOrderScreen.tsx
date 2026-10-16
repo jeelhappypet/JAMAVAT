@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { SkeletonDishes } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CategorySection } from "@/components/menu/CategorySection";
 import { MenuItemCard } from "@/components/menu/MenuItemCard";
@@ -30,7 +30,11 @@ interface SuccessInfo {
   paymentMode?: PaymentMode;
 }
 
-/** Tap dishes, swipe to send. A parcel gets a token number; with a seat, the dishes join that guest's bill. */
+/**
+ * Tap dishes, swipe to send. A parcel gets a token number; with a seat, the
+ * dishes join that table's bill — or, on a free table, open a new one from
+ * the counter (no email/OTP; the QR shows "in use" until it's settled).
+ */
 export function NewOrderScreen({ seatId }: { seatId?: string }) {
   const router = useRouter();
   const { lang, t } = useI18n();
@@ -140,7 +144,8 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
   }
 
   const seatCode = seat?.seat.code;
-  const seatClosed = seatId && seat && !seat.session;
+  /** A free table: this order opens it. */
+  const newTable = Boolean(seatId && seat && !seat.session);
 
   return (
     // The bottom padding clears the summary docked at the bottom of a phone
@@ -149,21 +154,23 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
       <div className="flex flex-1 flex-col gap-5">
         <div className="flex flex-wrap items-center gap-3">
           {seatId ? (
-            <Link href={`/counter/seat/${seatId}`} aria-label={t("seatBill.back")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface">
+            <Link href={newTable ? "/counter" : `/counter/seat/${seatId}`} aria-label={t("seatBill.back")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M19 12H5" />
                 <path d="m11 6-6 6 6 6" />
               </svg>
             </Link>
           ) : null}
-          <h1 className="text-[26px] font-extrabold tracking-tight">{seatId ? t("parcel.addTitle", { code: seatCode ?? "…" }) : t("parcel.title")}</h1>
+          <h1 className="text-[26px] font-extrabold tracking-tight">
+            {seatId ? (newTable ? t("parcel.newTableTitle", { code: seatCode ?? "…" }) : t("parcel.addTitle", { code: seatCode ?? "…" })) : t("parcel.title")}
+          </h1>
         </div>
 
-        {seatClosed ? <Alert>{t("err.seatNotInUse")}</Alert> : null}
+        {newTable ? <Alert tone="info">{t("parcel.newTableNote", { code: seatCode ?? "" })}</Alert> : null}
         {error ? <Alert>{error}</Alert> : null}
 
         {loading ? (
-          <LoadingState />
+          <SkeletonDishes />
         ) : menuItems.length === 0 ? (
           <EmptyState title={t("guest.menuEmpty")} />
         ) : (
@@ -216,9 +223,9 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
               </div>
             )}
             <SwipeToSend
-            label={seatId ? t("parcel.swipeSeat", { code: seatCode ?? "" }) : undefined}
-            disabled={lines.length === 0 || Boolean(seatClosed)}
-            onComplete={handleSend}
+              label={seatId ? t(newTable ? "parcel.swipeNewSeat" : "parcel.swipeSeat", { code: seatCode ?? "" }) : undefined}
+              disabled={lines.length === 0 || Boolean(seatId && !seat)}
+              onComplete={handleSend}
             />
           </>
         }

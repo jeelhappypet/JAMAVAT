@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { SkeletonCards } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -13,8 +13,8 @@ import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { POLL_MS, SAFETY_RESYNC_MS } from "@/lib/realtime/polling";
 import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
-import { playNewOrderBeep } from "@/lib/utils/beep";
-import { KITCHEN_SOUND, useSoundPref, useUnlockSoundOnFirstTap } from "@/lib/utils/soundPref";
+import { alertNewOrders } from "@/lib/utils/orderNotification";
+import { KITCHEN_SOUND, useSoundPref, useUnlockAlertsOnFirstTap } from "@/lib/utils/soundPref";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { localName } from "@/lib/i18n/messages";
 import type { KitchenScopeDTO, KitchenTicketDTO, MenuDTO, StaffRole } from "@/types";
@@ -39,7 +39,7 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
   const [soundOn, toggleSound] = useSoundPref(KITCHEN_SOUND);
   const knownIds = useRef<Set<string> | null>(null);
   const soundRef = useRef(soundOn);
-  useUnlockSoundOnFirstTap();
+  useUnlockAlertsOnFirstTap();
 
   const loadTickets = useCallback(async () => {
     try {
@@ -48,9 +48,11 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error);
       const next: KitchenTicketDTO[] = data.tickets;
-      // Beep only for tickets this screen hasn't seen before (not on first load).
-      if (knownIds.current && soundRef.current && next.some((ticket) => !knownIds.current!.has(ticket.orderId))) {
-        playNewOrderBeep();
+      // Chime + notify only for tickets this screen hasn't seen before (not on first load).
+      if (knownIds.current) {
+        const seen = knownIds.current;
+        const fresh = next.filter((ticket) => !seen.has(ticket.orderId)).map((ticket) => ({ ...ticket, id: ticket.orderId }));
+        alertNewOrders(fresh, { t, lang, sound: soundRef.current });
       }
       knownIds.current = new Set(next.map((ticket) => ticket.orderId));
       setTickets(next);
@@ -61,7 +63,7 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, lang]);
 
   const loadMenus = useCallback(async () => {
     const res = await fetch("/api/menu?activeOnly=1");
@@ -219,7 +221,7 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
             </h2>
 
             {loading ? (
-              <LoadingState />
+              <SkeletonCards count={4} minWidth={260} />
             ) : tickets.length === 0 ? (
               <EmptyState title={t("kitchen.empty")} hint={t("kitchen.emptyHint")} />
             ) : (

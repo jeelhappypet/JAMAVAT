@@ -7,6 +7,14 @@ const RESEND_AFTER_SECONDS = 30;
 const MAX_SENDS_PER_HOUR = 5;
 const MAX_ATTEMPTS = 5;
 
+/**
+ * The owner's own test inbox: no mail is sent, there are no send limits,
+ * and the code is always 000000 — so the guest flow can be tested again and
+ * again without waiting for Gmail. Anyone typing this exact address gets in
+ * with that code, which only lets them order at a table under this email.
+ */
+const TEST_CODES = new Map<string, string>([["zeelpansuriya8@gmail.com", "000000"]]);
+
 function hashCode(email: string, code: string): string {
   return createHmac("sha256", `otp:${process.env.ADMIN_SESSION_SECRET}`).update(`${email}:${code}`).digest("hex");
 }
@@ -18,6 +26,7 @@ export type SendResult =
   | { ok: false; reason: "MAIL_DOWN" };
 
 export async function sendOtp(email: string, restaurantName: string): Promise<SendResult> {
+  if (TEST_CODES.has(email)) return { ok: true };
   const recent = await EmailOtp.find({ email, createdAt: { $gt: new Date(Date.now() - 60 * 60 * 1000) } })
     .sort({ createdAt: -1 })
     .lean<EmailOtpDocument[]>();
@@ -65,6 +74,8 @@ export async function sendOtp(email: string, restaurantName: string): Promise<Se
 export type VerifyResult = { ok: true } | { ok: false; reason: "WRONG"; left: number } | { ok: false; reason: "EXPIRED" | "TOO_MANY" };
 
 export async function verifyOtp(email: string, code: string): Promise<VerifyResult> {
+  const testCode = TEST_CODES.get(email);
+  if (testCode) return code === testCode ? { ok: true } : { ok: false, reason: "WRONG", left: MAX_ATTEMPTS };
   const latest = await EmailOtp.findOne({ email }).sort({ createdAt: -1 }).lean<EmailOtpDocument>();
   if (!latest || latest.expiresAt.getTime() < Date.now()) return { ok: false, reason: "EXPIRED" };
   if (latest.attempts >= MAX_ATTEMPTS) return { ok: false, reason: "TOO_MANY" };

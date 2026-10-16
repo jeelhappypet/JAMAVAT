@@ -4,7 +4,7 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 import { formatWaNumber } from "@/lib/whatsapp/phone";
 import { cn } from "@/components/ui/cn";
 import { TextField } from "@/components/ui/TextField";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { SkeletonList } from "@/components/ui/Skeleton";
 import { Alert } from "@/components/ui/Alert";
 import type { WhatsAppConversationDTO } from "@/types";
 import { listTime } from "./format";
@@ -41,7 +41,7 @@ export function ConversationList({ conversations, loading, error, query, onQuery
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {error ? <Alert className="m-3">{error}</Alert> : null}
         {loading ? (
-          <LoadingState />
+          <SkeletonList rows={7} bare header={false} />
         ) : conversations.length === 0 ? (
           <div className="flex flex-col items-center gap-1 px-6 py-12 text-center">
             <p className="text-[15px] font-bold text-stone-700">{searching ? t("wa.noResults", { q: query.trim() }) : t("wa.empty")}</p>

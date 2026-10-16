@@ -344,6 +344,17 @@ not a default to tighten later.
 - **Menu screen**: header, search, menu tabs and category chips are fixed;
   only the dish list scrolls (scroll-spy highlights the current chip).
 
+- **Counter table order** (Orders tab → "New table order", or a free seat
+  tile): `/new-order?seat=` on a free QR opens a sitting from the counter
+  (`GuestSession.openedBy: "COUNTER"`, no email, `deviceId: counter:<staffId>`)
+  with the same conditional lock update a guest's first order uses — so a
+  guest who scans that QR gets the "already in use" screen until the bill is
+  settled or freed. If a guest's phone wins the race, the counter's dishes
+  join that guest's sitting. Dishes are checked before the lock is taken, so
+  a sold-out dish never leaves a free table locked.
+- **Test inbox**: `zeelpansuriya8@gmail.com` (the owner's) gets no OTP mail
+  and no send limits; its code is always `000000` (`lib/guest/otp.ts`).
+
 ## 8c. Settle, bills and reports
 
 - Counter → seat tile → **seat page** (`/counter/seat/{id}`, Settle
@@ -419,6 +430,20 @@ depends on it.
   `whatsapp:message:new`, `whatsapp:message:sent` (`{ conversation, message }`),
   `whatsapp:message:status`, `whatsapp:conversation:updated`. Socket.IO isn't
   used — it can't run on Vercel functions; polling every 5 s is the fallback.
+
+## 8e2. New-order alerts and feedback
+
+- New orders on the kitchen screen (every new ticket) and the counter (guest
+  QR orders only — not what the counter typed itself) play a loud double
+  "ding-ding-ding" chime through a compressor at full page volume (a web page
+  can't raise the device volume), buzz phones, and show a system notification
+  per order (`lib/utils/orderNotification.ts`, via the service worker on
+  Android; tapping it focuses the app). Permission is asked on the first tap.
+- `TopProgress` (root layout) draws the brand line on top while an internal
+  link navigates or a request the user started is running (any non-GET, or a
+  GET within 800 ms of a tap); polling, realtime reloads and prefetches never
+  show it. `(shell)/loading.tsx` and the `Skeleton*` components replace
+  spinners.
 
 ## 8f. Phones
 

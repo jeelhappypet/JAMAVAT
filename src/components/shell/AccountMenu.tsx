@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChangePinDialog } from "@/components/auth/ChangePinDialog";
 import { useI18n } from "@/lib/i18n/I18nProvider";
@@ -39,6 +39,10 @@ const LANGS: { lang: Lang; label: string }[] = [
   { lang: "gu", label: "ગુ" },
 ];
 
+/** Menu width (w-60) plus a little air from the screen edge. */
+const MENU_WIDTH = 240;
+const EDGE_GAP = 8;
+
 const itemClass = "flex h-11 w-full items-center gap-2.5 rounded-xl px-3 text-left text-[15px] font-semibold hover:bg-surface-muted";
 
 export function AccountMenu({ name, role, label, variant = "pill", avatar = "dark", links = [], sound }: AccountMenuProps) {
@@ -46,7 +50,15 @@ export function AccountMenu({ name, role, label, variant = "pill", avatar = "dar
   const [open, setOpen] = useState(false);
   const [changingPin, setChangingPin] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  /** Opens to the left of the chip by default; flips when the chip sits near the left edge (kitchen header on a phone). */
+  const [alignLeft, setAlignLeft] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !rootRef.current) return;
+    const rect = rootRef.current.getBoundingClientRect();
+    setAlignLeft(rect.right - MENU_WIDTH < EDGE_GAP && rect.left + MENU_WIDTH <= window.innerWidth - EDGE_GAP);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -108,7 +120,10 @@ export function AccountMenu({ name, role, label, variant = "pill", avatar = "dar
       )}
 
       {open ? (
-        <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-40 w-60 overflow-hidden rounded-2xl border border-border bg-surface p-1.5 text-foreground shadow-lg">
+        <div
+          role="menu"
+          className={`absolute top-[calc(100%+6px)] z-40 w-60 max-w-[calc(100vw-16px)] overflow-hidden ${alignLeft ? "left-0" : "right-0"} rounded-2xl border border-border bg-surface p-1.5 text-foreground shadow-lg`}
+        >
           <div className="flex items-center justify-between gap-2 px-3 py-2">
             <span className="text-[13px] font-bold text-text-muted">{t("lang.switch")}</span>
             <div role="group" aria-label={t("lang.switch")} className="flex rounded-[10px] bg-stone-200 p-[3px]">

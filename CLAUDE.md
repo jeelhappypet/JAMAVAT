@@ -24,8 +24,11 @@ Never hand-style a button, checkbox, dropdown, text field, date field or dialog 
 | Dialog | `Modal` · confirmation: `ConfirmDialog` |
 | Error / success / info box | `Alert` |
 | Small status pill | `Badge` |
-| Panel | `Card` · empty list: `EmptyState` · loading: `LoadingState` |
+| Panel | `Card` · empty list: `EmptyState` |
+| Loading | `Skeleton` blocks in the screen's shape: `SkeletonCards` (tickets / tables), `SkeletonList`, `SkeletonDishes`, `SkeletonReport` — not a spinner. Taps that fetch or navigate already show `TopProgress` (root layout); don't add per-screen spinners for them |
 | Dish photo | `components/menu/DishPhoto` (6:5 box; upload goes through `DishPhotoField`, see `DISH_PHOTOS.md`) |
+
+Everything clickable gets the hand cursor from `globals.css` — don't add `cursor-pointer` per screen.
 
 `className` on these is for layout only (width, flex, margin). If a screen needs a new look, add a variant to the component — don't override colours from outside. Join classes with `cn()`.
 

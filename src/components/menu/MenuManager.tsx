@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { SkeletonList } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { Checkbox } from "@/components/ui/Checkbox";
+import { withSoldOut } from "@/components/menu/SoldOutList";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
@@ -132,6 +133,17 @@ export function MenuManager({ photosEnabled }: { photosEnabled: boolean }) {
     if (message) setError(message);
   }
 
+  /** Sold out flips on screen at once; a failed save reloads the truth. */
+  async function toggleSoldOut(itemId: string, soldOut: boolean) {
+    setError(null);
+    setMenus((prev) => withSoldOut(prev, itemId, soldOut));
+    const { error: failed } = await request("PATCH", `${ENDPOINT.item}/${itemId}`, { isAvailable: !soldOut });
+    if (failed) {
+      setError(failed);
+      void load();
+    }
+  }
+
   function move<T extends { id: string }>(list: T[], index: number, delta: number, kind: "menu" | "category") {
     const ids = list.map((entry) => entry.id);
     const [moved] = ids.splice(index, 1);
@@ -221,7 +233,7 @@ export function MenuManager({ photosEnabled }: { photosEnabled: boolean }) {
 
       {error ? <Alert>{error}</Alert> : null}
 
-      {loading ? <LoadingState /> : null}
+      {loading ? <SkeletonList rows={8} /> : null}
 
       {menus.map((menu, menuIndex) => (
         <section key={menu.id} className={`overflow-hidden rounded-[18px] border border-border bg-surface ${menu.isActive ? "" : "opacity-75"}`}>
@@ -318,10 +330,11 @@ export function MenuManager({ photosEnabled }: { photosEnabled: boolean }) {
                       </div>
                       <span className="w-20 text-right text-[15px] font-extrabold tabular-nums">₹{item.price}</span>
                       <Checkbox
+                        variant="chip"
+                        size="sm"
                         checked={!item.isAvailable}
-                        onChange={() => act("PATCH", `${ENDPOINT.item}/${item.id}`, { isAvailable: !item.isAvailable })}
-                        className="h-10 items-center rounded-[10px] border border-stone-300 px-3 text-sm font-semibold"
-                        label={<span className={item.isAvailable ? "text-stone-700" : "font-bold text-danger"}>{t("menu.soldOut")}</span>}
+                        onChange={(soldOut) => toggleSoldOut(item.id, soldOut)}
+                        label={t("menu.soldOut")}
                       />
                       <div className="flex gap-2">
                         <IconButton label={t("menu.edit")} onClick={() => setDialog({ kind: "item", mode: "edit", target: item })}>

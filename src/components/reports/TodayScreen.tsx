@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { SkeletonReport } from "@/components/ui/Skeleton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Alert } from "@/components/ui/Alert";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
@@ -71,7 +71,7 @@ export function TodayScreen() {
       {error ? <Alert>{error}</Alert> : null}
 
       {!current ? (
-        <LoadingState />
+        <SkeletonReport />
       ) : (
         <>
           <div className="flex flex-wrap gap-3">
