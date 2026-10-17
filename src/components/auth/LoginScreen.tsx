@@ -8,6 +8,8 @@ import { localName } from "@/lib/i18n/messages";
 import type { StaffLoginOption } from "@/types";
 
 interface LoginScreenProps {
+  /** The restaurant's link — sent with the PIN, since staff ids repeat across restaurants. */
+  slug: string;
   restaurantName: string | null;
   staff: StaffLoginOption[];
   next?: string;
@@ -21,7 +23,7 @@ function safeNext(next: string | undefined): string | undefined {
 
 const cardClass = "flex min-w-0 flex-[1_1_340px] flex-col rounded-3xl border border-border bg-surface p-7";
 
-export function LoginScreen({ restaurantName, staff, next, expired }: LoginScreenProps) {
+export function LoginScreen({ slug, restaurantName, staff, next, expired }: LoginScreenProps) {
   const { t, lang } = useI18n();
   const roleLabel = (option: StaffLoginOption) =>
     option.station ? t("login.station", { name: localName(lang, option.station.name, option.station.nameGu) }) : t(`role.${option.role}`);
@@ -52,7 +54,7 @@ export function LoginScreen({ restaurantName, staff, next, expired }: LoginScree
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ staffId: selectedId, pin: fullPin }),
+        body: JSON.stringify({ slug, staffId: selectedId, pin: fullPin }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? t("err.loginFailed"));

@@ -6,6 +6,8 @@ const pin = z.string().regex(PIN_PATTERN, "PIN must be exactly 4 digits");
 const name = z.string().trim().min(1, "Enter a name").max(40, "Name is too long");
 
 export const loginSchema = z.object({
+  /** Which restaurant's login screen this came from — staff ids are only unique inside one. */
+  slug: z.string().trim().toLowerCase().min(1).max(60),
   staffId: z.string().min(1),
   pin,
 });

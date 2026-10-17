@@ -48,6 +48,7 @@ export default async function LoginPage({ params, searchParams }: PageProps<"/r/
 
   return (
     <LoginScreen
+      slug={found.restaurant.slug}
       restaurantName={found.restaurant.name}
       staff={staff}
       next={typeof query.next === "string" ? query.next : undefined}
