@@ -45,7 +45,81 @@ that shape the code:
 | 4 | QR orders straight to kitchens (no accept, no "served" step); counter seat grid + seat page with settle (discount, payment mode, thank-you email, auto-free); Today + monthly reports; guest verification per sitting + reset after settle; guest Pusher channel; QR stickers; staff app headers/screens per the design; shared UI kit (CLAUDE.md) | ✅ |
 | 4b | Go-live pass: dish photos on Vercel Blob (browser-resized, `DISH_PHOTOS.md`), parcel payment mode in reports, guest Pusher only during a visible sitting, vitest unit tests (`npm test`) | ✅ |
 | 4c | WhatsApp inbox `/whatsapp`: Cloud API webhook (messages + statuses, idempotent), customer/conversation/message models, send API (24-hour window), private Pusher channel, unit + e2e tests | ✅ |
-| 5 | Multi-restaurant (`restaurantId` everywhere, `/r/{slug}`), Jamavat SEO + inquiry site, HQ panel, per-restaurant PWA manifest | ⬜ |
+| 5 | Jamavat as a subscription SaaS — split into 5A–5H below | 🟡 |
+
+## Phase 5: Jamavat as a subscription SaaS (started 2026-10-18)
+
+The owner sells Jamavat to many restaurants **by subscription**. Payments are
+recorded by hand in HQ for now; **Razorpay comes later as its own planned
+step (5E)** — everything before it keeps the fields and the payment ledger
+Razorpay will write to. The owner asked for the SEO website + inquiry form
+first; it can only take `/` once the staff app moves to `/r/{slug}`, so 5A
+(data separation) lands first and 5B right after it, in the same release.
+
+Decisions:
+
+- One deployment, one database, one domain. `/` = Jamavat website (public,
+  indexed). `/r/{slug}/…` = one restaurant's staff app (login, counter,
+  kitchen, admin; noindex). `/t/{token}` = guest QR page — kept at the old
+  path because QRs are already printed and a shorter URL makes a less dense
+  QR; the restaurant comes from the seat. `/hq` = super admin, only the owner.
+- Every tenant document carries `restaurantId`; a Mongoose plugin refuses
+  any query, update, delete or aggregate on a tenant model whose filter
+  lacks it — a forgotten filter fails loudly instead of leaking another
+  restaurant's data.
+- Staff APIs take the restaurant from the session (`requireStaff` returns
+  `restaurantId`), never from the URL or the request body. Guest APIs take
+  it from the seat token. Realtime channels are per restaurant.
+- The live restaurant becomes the first tenant through a one-time, locked,
+  idempotent migration on first DB connect (stamps `restaurantId`, rebuilds
+  the unique indexes per restaurant, carries over today's token and bill
+  counters). Its staff stay logged in; old links (`/counter`, `/login`, an
+  installed app opening `/`) redirect to `/r/{slug}/…`.
+- New restaurants are created in HQ with a plan and a trial; the owner gets
+  an invite link (emailed, and shown in HQ to share on WhatsApp) to set the
+  first admin's name and PIN. `/setup` goes away.
+- Website text lives in code in English and ગુજરાતી (typed, like
+  `messages.ts`); HQ can override contact details, slides, FAQs and SEO
+  fields. Pricing comes from the plans in HQ (only plans marked public).
+
+| Phase | Scope | Status |
+|---|---|---|
+| 5A | **Data separation.** `restaurantId` on Menu, Category, MenuItem, Order, Bill, Staff, Table, Seat, GuestSession, WhatsApp*; per-restaurant unique indexes (staff name, token per day, bill no, legacy keys, wa_id); tenant guard plugin; Restaurant gets `slug`, status, subscription fields; session cookie carries restaurant id + slug; `requireStaff` → `restaurantId`; per-restaurant Pusher channels (`private-staff-{id}`, `private-whatsapp-{id}`) checked in `/api/pusher/auth`; counters `{rid}:{date}` / `{rid}:bill`; Blob paths `restaurants/{id}/…`; WhatsApp number → restaurant; locked one-time migration of the live data; staff app under `/r/[slug]` (+ per-restaurant manifest / installed app), redirects for old paths and old cookies; `/login` finds the restaurant; invite link → first admin | ⬜ |
+| 5B | **Website + SEO + inquiry.** Own root layout (static, no cookies, no service worker); `/` per the Landing artboard + pricing; `/gu` mirror with hreflang; keyword pages (`/restaurant-management-software`, `/qr-code-ordering-system`, `/kitchen-display-system`, `/restaurant-billing-software`), `/pricing`, `/privacy`, `/terms`; title/description/canonical/OG image; JSON-LD (Organization, WebSite, SoftwareApplication + offers, FAQPage, BreadcrumbList); `sitemap.xml`, `robots.txt` (app paths disallowed + noindex); inquiry form → `/api/inquiries` (zod, honeypot, IP rate limit, same-phone de-dupe, UTM/source kept) → `Inquiry` + email to HQ; WhatsApp chat link; content cached and revalidated when HQ saves | ⬜ |
+| 5C | **HQ (`/hq`).** Email-OTP login for HQ admins (first one created with `SETUP_KEY`), own cookie; dashboard (restaurants, new inquiries, orders today across all); restaurants list + create (slug check, plan, trial, owner email → invite) + detail (status, plan, usage, invite again, suspend/resume, change slug with redirect); inquiries (New → Contacted → Converted/Lost, notes, call, create restaurant from it); Website content; SEO settings (Search Console code, titles); Plans | ⬜ |
+| 5D | **Subscriptions (manual billing).** `Plan` (name, monthly/yearly price, seat + staff limits, WhatsApp feature, public on pricing); restaurant subscription (plan, TRIAL/ACTIVE/SUSPENDED/CANCELLED, period end, grace days → computed PAST_DUE/EXPIRED); `SubscriptionPayment` ledger (HQ records UPI/cash/bank → extends the period); limits enforced on adding seats/staff and re-activating them; expired/suspended = no new orders (counter + QR), settle still works, guest sees "not taking QR orders"; admin banner 7 days before expiry; plan card in Settings; HQ "expiring soon" list + reminder email | ⬜ |
+| 5E | **Razorpay** — plan separately with the owner: Subscriptions API or payment links, webhook → same ledger, invoices/GST, self-serve renew in Settings, daily cron for reminders | ⬜ later |
+| 5F | **Growth/SEO ops:** custom domain (`.vercel.app` ranks poorly) + `APP_URL`; Google Search Console + sitemap submit; Google Business Profile; blog/guides edited in HQ; case studies with real restaurants; Vercel Pro (Hobby is non-commercial) | ⬜ |
+| 5G | **Ops & trust:** per-restaurant data export and deletion (DPDP), HQ audit log, HQ "open admin" support login (logged), backups, uptime/error alerts, terms of service | ⬜ |
+| 5H | **Self-serve signup** (optional): restaurant signs up from the website, trial starts without HQ | ⬜ later |
+
+Cases 5A–5D must cover (checklist — tick in tests or by hand):
+
+- Two restaurants with the same staff name, table "4", category, token 1
+  and bill 1 on the same day — none collide, none sees the other's.
+- A staff cookie from restaurant A on `/r/B/…` → sent to A; an A session id
+  with a forged B id in the cookie → rejected (signature + DB check).
+- Pusher: an A staff member can't subscribe to B's channels.
+- Guest QR of A can't read or order B's dishes (menu item ids from B are
+  refused); seat token lookup gives the restaurant.
+- Reports, today, month, bill numbers, counters, kitchen routing and
+  sold-out toggles are per restaurant.
+- WhatsApp webhook for an unknown number id is ignored.
+- Migration: runs once even with parallel cold starts; live tokens keep
+  counting today; old staff cookies keep working and get upgraded; old
+  printed QRs keep working; old installed app (`/`) lands on the staff app.
+- Restaurant suspended → staff see "account paused", guests "not taking
+  orders"; expired → after grace no new orders but settle works.
+- Plan limits: adding the 11th QR on a 10-QR plan is refused with a clear
+  message; downgrading below current usage keeps existing seats but blocks
+  new ones.
+- Inquiry: spam bot (honeypot) silently dropped; same phone twice in a day
+  updates one inquiry; >5 per IP per hour → 429; HQ gets an email.
+- SEO: `/r/*`, `/t/*`, `/hq/*`, `/login` are `noindex` and disallowed in
+  robots; every public page has one H1, a unique title/description,
+  canonical and hreflang; sitemap lists only public pages.
+- HQ: only allow-listed HQ admins; OTP purpose `hq` can't be used as a
+  guest OTP and vice versa; the guest test inbox bypass never applies to HQ.
 
 ## Known non-blocking items
 
