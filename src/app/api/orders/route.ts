@@ -22,7 +22,7 @@ import { freeSeatIfNothingToPay, sittingForCounterOrder } from "@/lib/tables";
  * QR shows "in use" to anyone who scans it until the bill is settled).
  */
 export async function POST(request: NextRequest) {
-  const staff = await requireStaff(ROLES.counter);
+  const staff = await requireStaff(ROLES.counter, { orders: true });
   if (staff instanceof NextResponse) return staff;
   const t = await getTranslator();
 
@@ -30,19 +30,20 @@ export async function POST(request: NextRequest) {
     await connectToDatabase();
     const { customerName, items, clientRequestId, seatId, paymentMode } = createOrderSchema.parse(await request.json());
 
-    const existing = await Order.findOne({ clientRequestId }).lean<OrderLean>();
+    const { restaurantId } = staff;
+    const existing = await Order.findOne({ restaurantId, clientRequestId }).lean<OrderLean>();
     if (existing) return NextResponse.json(serializeOrder(existing), { status: 200 });
 
     if (seatId && !isValidObjectId(seatId)) return jsonError(t("err.notFound"), 404);
 
     // Check the dishes before touching the table, so a sold-out dish never leaves a free QR locked.
-    const built = await buildOrderItems(items, t);
+    const built = await buildOrderItems(restaurantId, items, t);
     if (!built.ok) return jsonError(built.error, built.status);
 
     let sitting: { session: GuestSessionDocument; opened: boolean } | null = null;
     let seatLink: Record<string, unknown> = {};
     if (seatId) {
-      sitting = await sittingForCounterOrder(seatId, staff.id);
+      sitting = await sittingForCounterOrder(restaurantId, seatId, staff.id);
       if (!sitting) return jsonError(t("err.seatNotInUse"), 409);
       const { session } = sitting;
       seatLink = { seatId: session.seatId, seatCode: session.seatCode, guestSessionId: session._id, guestEmail: session.email || undefined };
@@ -52,7 +53,8 @@ export async function POST(request: NextRequest) {
     let created;
     try {
       created = await Order.create({
-        tokenNumber: await nextTokenNumber(businessDate),
+        restaurantId,
+        tokenNumber: await nextTokenNumber(restaurantId, businessDate),
         businessDate,
         source: "COUNTER",
         customerName: customerName || undefined,
@@ -65,20 +67,20 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       if (isDuplicateKeyError(error)) {
-        const raced = await Order.findOne({ clientRequestId }).lean<OrderLean>();
+        const raced = await Order.findOne({ restaurantId, clientRequestId }).lean<OrderLean>();
         if (raced) return NextResponse.json(serializeOrder(raced), { status: 200 });
       }
       // Don't leave a table this request just opened locked with nothing on it.
-      if (sitting?.opened) await freeSeatIfNothingToPay(sitting.session.seatId, sitting.session._id);
+      if (sitting?.opened) await freeSeatIfNothingToPay(restaurantId, sitting.session.seatId, sitting.session._id);
       throw error;
     }
 
     const dto = serializeOrder(created.toObject());
     await Promise.all([
-      emitRealtimeEvent(REALTIME_EVENTS.ORDER_CREATED, { id: dto.id, seatCode: dto.seatCode, tokenNumber: dto.tokenNumber }),
-      seatId ? emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId }) : null,
-      seatId ? notifyGuestSeat(seatId) : null,
-      emitRealtimeEvent(REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:created" }),
+      emitRealtimeEvent(restaurantId, REALTIME_EVENTS.ORDER_CREATED, { id: dto.id, seatCode: dto.seatCode, tokenNumber: dto.tokenNumber }),
+      seatId ? emitRealtimeEvent(restaurantId, REALTIME_EVENTS.SEAT_UPDATED, { seatId }) : null,
+      seatId ? notifyGuestSeat(restaurantId, seatId) : null,
+      emitRealtimeEvent(restaurantId, REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:created" }),
     ]);
     return NextResponse.json(dto, { status: 201 });
   });

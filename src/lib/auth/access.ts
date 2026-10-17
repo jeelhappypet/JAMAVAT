@@ -35,6 +35,27 @@ export function canAccessPage(role: StaffRole, pathname: string): boolean {
 /** Clears a stale session cookie, then shows the login screen with a "signed out" note. */
 export const EXPIRED_SESSION_PATH = "/api/auth/expire";
 
+/**
+ * Every restaurant's app lives under its own link, so one deployment serves
+ * many of them and the Jamavat website can keep `/`. The paths above (and
+ * everything screens link to) stay restaurant-relative; `appPath` adds the
+ * prefix, `appRelativePath` takes it off.
+ */
+export function appPath(slug: string, path = "/"): string {
+  return path === "/" ? `/r/${slug}` : `/r/${slug}${path}`;
+}
+
+/** "/r/kiran/counter/orders" → "/counter/orders"; a path outside /r/ comes back unchanged. */
+export function appRelativePath(pathname: string): string {
+  const match = /^\/r\/[^/]+(\/.*)?$/.exec(pathname);
+  return match ? match[1] || "/" : pathname;
+}
+
+/** "/r/kiran/counter" → "kiran". */
+export function slugOfPath(pathname: string): string | null {
+  return /^\/r\/([^/]+)/.exec(pathname)?.[1] ?? null;
+}
+
 /** Where a staff member lands after login, or when they open a page they can't use. */
 export function homePathFor(role: StaffRole): string {
   if (role === "KITCHEN") return "/kitchen";

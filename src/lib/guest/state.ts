@@ -15,20 +15,21 @@ import type { GuestStateDTO } from "@/types";
 const ENDED_VISIBLE_MS = 15 * 60 * 1000;
 
 /** What a guest's phone needs to render: who holds the QR, and their own orders if it's them. */
-export async function getGuestState({ seat, table, code }: ResolvedSeat, guest: GuestIdentity | null): Promise<GuestStateDTO> {
+export async function getGuestState({ seat, table, code, restaurantId }: ResolvedSeat, guest: GuestIdentity | null): Promise<GuestStateDTO> {
   const [session, siblings] = await Promise.all([
-    seat.currentSessionId ? GuestSession.findOne({ _id: seat.currentSessionId, status: "OPEN" }).lean<GuestSessionDocument>() : null,
-    Seat.find({ tableId: seat.tableId, isActive: true, _id: { $ne: seat._id } }).sort({ label: 1 }).lean<SeatDocument[]>(),
+    seat.currentSessionId ? GuestSession.findOne({ restaurantId, _id: seat.currentSessionId, status: "OPEN" }).lean<GuestSessionDocument>() : null,
+    Seat.find({ restaurantId, tableId: seat.tableId, isActive: true, _id: { $ne: seat._id } }).sort({ label: 1 }).lean<SeatDocument[]>(),
   ]);
   const lock = !session ? "free" : guest && session.deviceId === guest.did ? "mine" : "taken";
   const orders =
     lock === "mine" && session
-      ? (await Order.find({ guestSessionId: session._id }).sort({ createdAt: 1 }).lean<OrderLean[]>()).map(serializeOrder)
+      ? (await Order.find({ restaurantId, guestSessionId: session._id }).sort({ createdAt: 1 }).lean<OrderLean[]>()).map(serializeOrder)
       : [];
 
   let ended: GuestStateDTO["ended"];
   if (lock !== "mine" && guest) {
     const last = await GuestSession.findOne({
+      restaurantId,
       seatId: seat._id,
       deviceId: guest.did,
       status: "CLOSED",
@@ -42,7 +43,7 @@ export async function getGuestState({ seat, table, code }: ResolvedSeat, guest: 
   return {
     seatCode: code,
     area: table.area || undefined,
-    verifiedEmail: await verifiedEmail(guest),
+    verifiedEmail: await verifiedEmail(restaurantId, guest),
     lock,
     orders,
     otherSeats: siblings.map((sibling) => seatCode(table.name, sibling.label)),

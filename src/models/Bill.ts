@@ -1,5 +1,6 @@
 import { Schema, model, models, type InferSchemaType, type Types } from "mongoose";
 import { PAYMENT_MODES } from "@/types";
+import { tenantField, tenantGuard } from "@/lib/db/tenant";
 
 const billLineSchema = new Schema(
   {
@@ -19,6 +20,7 @@ const billLineSchema = new Schema(
  */
 const billSchema = new Schema(
   {
+    restaurantId: tenantField,
     billNo: { type: Number, required: true },
     businessDate: { type: String, required: true },
     seatId: { type: Schema.Types.ObjectId, ref: "Seat", required: true },
@@ -38,8 +40,10 @@ const billSchema = new Schema(
   { timestamps: true }
 );
 
-billSchema.index({ billNo: 1 }, { unique: true });
-billSchema.index({ businessDate: 1 });
+billSchema.plugin(tenantGuard);
+
+billSchema.index({ restaurantId: 1, billNo: 1 }, { unique: true });
+billSchema.index({ restaurantId: 1, businessDate: 1 });
 // One bill per sitting — a double tap on "Settle" can't bill the same guest twice.
 billSchema.index({ guestSessionId: 1 }, { unique: true });
 

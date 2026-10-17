@@ -15,6 +15,7 @@ import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import type { SeatDTO, TableDTO } from "@/types";
+import { useAppPath } from "@/components/shell/RestaurantProvider";
 
 type Pending = { kind: "regenerate"; seat: SeatDTO } | { kind: "deleteSeat"; seat: SeatDTO } | { kind: "deleteTable"; table: TableDTO };
 
@@ -37,6 +38,7 @@ const ICONS = {
 
 /** "Table QR codes" from the Admin artboard: one card per table, one row per side with its QR. */
 export function TablesManager() {
+  const path = useAppPath();
   const { t } = useI18n();
   const [tables, setTables] = useState<TableDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +126,7 @@ export function TablesManager() {
             {t("tables.add")}
           </Button>
           {tables.length > 0 ? (
-            <Button variant="secondary" href="/tables/print">
+            <Button variant="secondary" href={path("/tables/print")}>
               {t("tables.printAll")}
             </Button>
           ) : null}

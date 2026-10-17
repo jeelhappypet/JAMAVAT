@@ -5,6 +5,7 @@ import { createStaffSchema } from "@/lib/validation/staff";
 import { hashPin } from "@/lib/auth/pin";
 import { requireStaff, toStaffDTO } from "@/lib/auth/staff";
 import { ROLES } from "@/lib/auth/access";
+import { staffBudget } from "@/lib/limits";
 import { getTranslator } from "@/lib/i18n/server";
 import { zodErrorMessage } from "@/lib/i18n/zod";
 
@@ -18,7 +19,7 @@ export async function GET() {
   const t = await getTranslator();
 
   try {
-    const staff = await Staff.find().sort({ isActive: -1, name: 1 }).lean<StaffDocument[]>();
+    const staff = await Staff.find({ restaurantId: current.restaurantId }).sort({ isActive: -1, name: 1 }).lean<StaffDocument[]>();
     return NextResponse.json({ staff: staff.map(toStaffDTO) });
   } catch {
     return NextResponse.json({ error: t("err.staffLoad") }, { status: 500 });
@@ -31,8 +32,11 @@ export async function POST(request: Request) {
   const t = await getTranslator();
 
   try {
+    const { restaurantId } = current;
     const { name, role, pin } = createStaffSchema.parse(await request.json());
-    const created = await Staff.create({ name, role, ...(await hashPin(pin)) });
+    const allowed = await staffBudget(restaurantId, 1);
+    if (!allowed.ok) return NextResponse.json({ error: t("err.planStaffLimit", { n: allowed.max }) }, { status: 402 });
+    const created = await Staff.create({ restaurantId, name, role, ...(await hashPin(pin)) });
     return NextResponse.json({ staff: toStaffDTO(created.toObject()) }, { status: 201 });
   } catch (error) {
     if (error instanceof ZodError) {

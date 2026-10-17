@@ -27,6 +27,10 @@ export interface SessionPayload {
   sv: number;
   /** Role at issue time — only used for optimistic redirects in the proxy; APIs re-read it from the DB. */
   role: StaffRole;
+  /** Restaurant id. Missing on cookies issued before Jamavat served many restaurants (they get upgraded). */
+  rid?: string;
+  /** Restaurant slug at issue time — lets the proxy send `/counter` to `/r/{slug}/counter` without a DB read. */
+  slug?: string;
   /** Issued-at, ms */
   iat: number;
 }
@@ -67,6 +71,8 @@ export function readSessionToken(token: string | undefined): SessionPayload | nu
     const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString()) as SessionPayload;
     if (typeof payload.sid !== "string" || typeof payload.sv !== "number") return null;
     if (!STAFF_ROLES.includes(payload.role)) return null;
+    if (payload.rid !== undefined && typeof payload.rid !== "string") return null;
+    if (payload.slug !== undefined && typeof payload.slug !== "string") return null;
     return payload;
   } catch {
     return null;

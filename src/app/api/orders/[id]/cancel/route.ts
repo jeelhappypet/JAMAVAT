@@ -26,21 +26,22 @@ export async function PATCH(_request: Request, { params }: { params: Promise<{ i
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.alreadyProcessed"), 409);
 
+    const { restaurantId } = staff;
     const updated = await Order.findOneAndUpdate(
-      { _id: id, status: { $in: ["PENDING", "READY"] } },
+      { restaurantId, _id: id, status: { $in: ["PENDING", "READY"] } },
       { $set: { status: "CANCELLED", cancelledAt: new Date() } },
       { returnDocument: "after" }
     ).lean<OrderLean & { seatId?: unknown; guestSessionId?: unknown }>();
     if (!updated) return jsonError(t("err.alreadyProcessed"), 409);
 
-    const freed = updated.seatId && updated.guestSessionId ? await freeSeatIfNothingToPay(updated.seatId, updated.guestSessionId) : false;
+    const freed = updated.seatId && updated.guestSessionId ? await freeSeatIfNothingToPay(restaurantId, updated.seatId, updated.guestSessionId) : false;
 
     const dto = serializeOrder(updated);
     await Promise.all([
-      emitRealtimeEvent(REALTIME_EVENTS.ORDER_CANCELLED, { id: dto.id, tokenNumber: dto.tokenNumber, businessDate: dto.businessDate }),
-      updated.seatId ? emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId: String(updated.seatId), freed }) : null,
-      updated.seatId ? notifyGuestSeat(updated.seatId) : null,
-      emitRealtimeEvent(REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:cancelled" }),
+      emitRealtimeEvent(restaurantId, REALTIME_EVENTS.ORDER_CANCELLED, { id: dto.id, tokenNumber: dto.tokenNumber, businessDate: dto.businessDate }),
+      updated.seatId ? emitRealtimeEvent(restaurantId, REALTIME_EVENTS.SEAT_UPDATED, { seatId: String(updated.seatId), freed }) : null,
+      updated.seatId ? notifyGuestSeat(restaurantId, updated.seatId) : null,
+      emitRealtimeEvent(restaurantId, REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:cancelled" }),
     ]);
     return NextResponse.json(dto);
   });

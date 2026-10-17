@@ -1,4 +1,5 @@
 import { Schema, model, models, type InferSchemaType, type Types } from "mongoose";
+import { tenantField, tenantGuard } from "@/lib/db/tenant";
 
 /**
  * Someone who has messaged the restaurant's WhatsApp number. Separate from
@@ -6,6 +7,7 @@ import { Schema, model, models, type InferSchemaType, type Types } from "mongoos
  */
 const whatsAppCustomerSchema = new Schema(
   {
+    restaurantId: tenantField,
     /** WhatsApp profile name; refreshed whenever Meta sends a newer one. */
     name: { type: String, trim: true },
     /** "+919876543210" — for display and search. */
@@ -18,8 +20,10 @@ const whatsAppCustomerSchema = new Schema(
   { timestamps: true }
 );
 
-whatsAppCustomerSchema.index({ whatsappWaId: 1 }, { unique: true });
-whatsAppCustomerSchema.index({ phone: 1 });
+whatsAppCustomerSchema.plugin(tenantGuard);
+
+whatsAppCustomerSchema.index({ restaurantId: 1, whatsappWaId: 1 }, { unique: true });
+whatsAppCustomerSchema.index({ restaurantId: 1, phone: 1 });
 
 export type WhatsAppCustomerDocument = InferSchemaType<typeof whatsAppCustomerSchema> & { _id: Types.ObjectId };
 

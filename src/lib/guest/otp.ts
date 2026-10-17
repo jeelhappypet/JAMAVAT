@@ -1,5 +1,5 @@
 import { createHmac, randomInt, timingSafeEqual } from "crypto";
-import { EmailOtp, type EmailOtpDocument } from "@/models/EmailOtp";
+import { EmailOtp, HQ_OTP_SCOPE, type EmailOtpDocument } from "@/models/EmailOtp";
 import { escapeHtml, isMailConfigured, sendMail } from "@/lib/mail";
 
 const CODE_TTL_MINUTES = 10;
@@ -12,11 +12,12 @@ const MAX_ATTEMPTS = 5;
  * and the code is always 000000 — so the guest flow can be tested again and
  * again without waiting for Gmail. Anyone typing this exact address gets in
  * with that code, which only lets them order at a table under this email.
+ * Guest scopes only — HQ's own login never takes this shortcut.
  */
 const TEST_CODES = new Map<string, string>([["zeelpansuriya8@gmail.com", "000000"]]);
 
-function hashCode(email: string, code: string): string {
-  return createHmac("sha256", `otp:${process.env.ADMIN_SESSION_SECRET}`).update(`${email}:${code}`).digest("hex");
+function hashCode(scope: string, email: string, code: string): string {
+  return createHmac("sha256", `otp:${process.env.ADMIN_SESSION_SECRET}`).update(`${scope}:${email}:${code}`).digest("hex");
 }
 
 export type SendResult =
@@ -25,9 +26,9 @@ export type SendResult =
   | { ok: false; reason: "TOO_MANY" }
   | { ok: false; reason: "MAIL_DOWN" };
 
-export async function sendOtp(email: string, restaurantName: string): Promise<SendResult> {
-  if (TEST_CODES.has(email)) return { ok: true };
-  const recent = await EmailOtp.find({ email, createdAt: { $gt: new Date(Date.now() - 60 * 60 * 1000) } })
+export async function sendOtp(scope: string, email: string, restaurantName: string): Promise<SendResult> {
+  if (scope !== HQ_OTP_SCOPE && TEST_CODES.has(email)) return { ok: true };
+  const recent = await EmailOtp.find({ scope, email, createdAt: { $gt: new Date(Date.now() - 60 * 60 * 1000) } })
     .sort({ createdAt: -1 })
     .lean<EmailOtpDocument[]>();
   if (recent[0]) {
@@ -37,7 +38,7 @@ export async function sendOtp(email: string, restaurantName: string): Promise<Se
   if (recent.length >= MAX_SENDS_PER_HOUR) return { ok: false, reason: "TOO_MANY" };
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  await EmailOtp.create({ email, codeHash: hashCode(email, code), expiresAt: new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000) });
+  await EmailOtp.create({ scope, email, codeHash: hashCode(scope, email, code), expiresAt: new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000) });
 
   if (!isMailConfigured()) {
     // Local development without SMTP: show the code instead of failing. Never in production.
@@ -65,7 +66,7 @@ export async function sendOtp(email: string, restaurantName: string): Promise<Se
     });
   } catch (error) {
     console.error("[otp] email failed", error);
-    await EmailOtp.deleteMany({ email, codeHash: hashCode(email, code) });
+    await EmailOtp.deleteMany({ scope, email, codeHash: hashCode(scope, email, code) });
     return { ok: false, reason: "MAIL_DOWN" };
   }
   return { ok: true };
@@ -73,14 +74,14 @@ export async function sendOtp(email: string, restaurantName: string): Promise<Se
 
 export type VerifyResult = { ok: true } | { ok: false; reason: "WRONG"; left: number } | { ok: false; reason: "EXPIRED" | "TOO_MANY" };
 
-export async function verifyOtp(email: string, code: string): Promise<VerifyResult> {
-  const testCode = TEST_CODES.get(email);
+export async function verifyOtp(scope: string, email: string, code: string): Promise<VerifyResult> {
+  const testCode = scope === HQ_OTP_SCOPE ? undefined : TEST_CODES.get(email);
   if (testCode) return code === testCode ? { ok: true } : { ok: false, reason: "WRONG", left: MAX_ATTEMPTS };
-  const latest = await EmailOtp.findOne({ email }).sort({ createdAt: -1 }).lean<EmailOtpDocument>();
+  const latest = await EmailOtp.findOne({ scope, email }).sort({ createdAt: -1 }).lean<EmailOtpDocument>();
   if (!latest || latest.expiresAt.getTime() < Date.now()) return { ok: false, reason: "EXPIRED" };
   if (latest.attempts >= MAX_ATTEMPTS) return { ok: false, reason: "TOO_MANY" };
 
-  const a = Buffer.from(hashCode(email, code));
+  const a = Buffer.from(hashCode(scope, email, code));
   const b = Buffer.from(latest.codeHash);
   if (a.length !== b.length || !timingSafeEqual(a, b)) {
     const updated = await EmailOtp.findByIdAndUpdate(latest._id, { $inc: { attempts: 1 } }, { returnDocument: "after" }).lean<EmailOtpDocument>();
@@ -88,6 +89,6 @@ export async function verifyOtp(email: string, code: string): Promise<VerifyResu
     return left <= 0 ? { ok: false, reason: "TOO_MANY" } : { ok: false, reason: "WRONG", left };
   }
 
-  await EmailOtp.deleteMany({ email });
+  await EmailOtp.deleteMany({ scope, email });
   return { ok: true };
 }

@@ -22,11 +22,12 @@ export async function PATCH(request: Request, { params }: Params) {
   return respond(t, "err.saveFailed", async () => {
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
+    const { restaurantId } = staff;
     const patch = categoryUpdateSchema.parse(await request.json());
-    if (patch.menuId && !(await Menu.exists({ _id: patch.menuId }))) return jsonError(t("err.notFound"), 404);
-    const updated = await Category.findByIdAndUpdate(id, toMongoUpdate(patch), { returnDocument: "after" }).lean();
+    if (patch.menuId && !(await Menu.exists({ restaurantId, _id: patch.menuId }))) return jsonError(t("err.notFound"), 404);
+    const updated = await Category.findOneAndUpdate({ restaurantId, _id: id }, toMongoUpdate(patch), { returnDocument: "after" }).lean();
     if (!updated) return jsonError(t("err.notFound"), 404);
-    await emitRealtimeEvent(REALTIME_EVENTS.MENU_UPDATED, { reason: "category-updated" });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.MENU_UPDATED, { reason: "category-updated" });
     return NextResponse.json({ ok: true });
   });
 }
@@ -40,11 +41,12 @@ export async function DELETE(_request: Request, { params }: Params) {
   return respond(t, "err.saveFailed", async () => {
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
-    if (await MenuItem.exists({ categoryId: id })) return jsonError(t("err.categoryNotEmpty"), 409);
-    const deleted = await Category.findByIdAndDelete(id).lean();
+    const { restaurantId } = staff;
+    if (await MenuItem.exists({ restaurantId, categoryId: id })) return jsonError(t("err.categoryNotEmpty"), 409);
+    const deleted = await Category.findOneAndDelete({ restaurantId, _id: id }).lean();
     if (!deleted) return jsonError(t("err.notFound"), 404);
-    await Staff.updateMany({ categoryIds: id }, { $pull: { categoryIds: id } });
-    await emitRealtimeEvent(REALTIME_EVENTS.MENU_UPDATED, { reason: "category-deleted" });
+    await Staff.updateMany({ restaurantId, categoryIds: id }, { $pull: { categoryIds: id } });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.MENU_UPDATED, { reason: "category-deleted" });
     return NextResponse.json({ ok: true });
   });
 }

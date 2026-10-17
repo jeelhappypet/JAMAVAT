@@ -17,21 +17,22 @@ export const REALTIME_EVENTS = {
 export type RealtimeEvent = (typeof REALTIME_EVENTS)[keyof typeof REALTIME_EVENTS];
 
 /**
- * Every staff screen listens on one private channel. Private = Pusher only
- * lets a browser subscribe after /api/pusher/auth confirms a staff session.
- * (Becomes one channel per restaurant in the multi-restaurant phase.)
+ * One private channel per restaurant, so a restaurant's orders only ever
+ * reach its own screens. Private = Pusher only lets a browser subscribe
+ * after /api/pusher/auth confirms a staff session of that restaurant.
  */
-export const STAFF_CHANNEL = "private-staff";
+export const staffChannel = (restaurantId: string) => `private-staff-${restaurantId}`;
 
 /** Public per-QR channel the guest page listens on (see notifyGuestSeat). */
 export const guestChannel = (seatToken: string) => `seat-${seatToken}`;
 export const GUEST_UPDATE_EVENT = "guest:update";
 
 /**
- * WhatsApp inbox events go on their own private channel, authorised only for
- * roles that may open /whatsapp — kitchen screens never receive customer chats.
+ * WhatsApp inbox events go on their own private channel per restaurant,
+ * authorised only for roles that may open /whatsapp — kitchen screens never
+ * receive customer chats.
  */
-export const WHATSAPP_CHANNEL = "private-whatsapp";
+export const whatsAppChannel = (restaurantId: string) => `private-whatsapp-${restaurantId}`;
 
 export const WHATSAPP_EVENTS = {
   /** A customer's message was saved. Payload: { conversation, message }. */

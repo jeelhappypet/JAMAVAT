@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
 import { AccountMenu, logoutThisDevice } from "@/components/shell/AccountMenu";
+import { useAppPath } from "@/components/shell/RestaurantProvider";
 import { SoldOutList, withSoldOut } from "@/components/menu/SoldOutList";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
@@ -28,6 +29,7 @@ const LATE_AFTER_MINUTES = 12;
 
 /** The Kitchen artboard: only this login's categories, one ticket per order, sold-out switches on the side. */
 export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
+  const path = useAppPath();
   const { t, lang } = useI18n();
   const [tickets, setTickets] = useState<KitchenTicketDTO[]>([]);
   const [scope, setScope] = useState<KitchenScopeDTO | null>(null);
@@ -195,7 +197,7 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
               disabled={loggingOut}
               onClick={() => {
                 setLoggingOut(true);
-                void logoutThisDevice();
+                void logoutThisDevice(path("/login"));
               }}
             >
               {loggingOut ? t("account.loggingOut") : t("account.logout")}

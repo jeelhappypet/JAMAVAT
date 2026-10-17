@@ -10,6 +10,7 @@ import { SkeletonList } from "@/components/ui/Skeleton";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import type { TableDTO } from "@/types";
+import { useAppPath } from "@/components/shell/RestaurantProvider";
 
 const rupees = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
 
@@ -20,6 +21,7 @@ const rupees = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
  * The tables are fetched only when the dialog opens.
  */
 export function TablePickerDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const path = useAppPath();
   const { t } = useI18n();
   const [tables, setTables] = useState<TableDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +81,7 @@ export function TablePickerDialog({ open, onClose }: { open: boolean; onClose: (
                 {table.seats.map((seat) => (
                   <Link
                     key={seat.id}
-                    href={`/new-order?seat=${seat.id}`}
+                    href={path(`/new-order?seat=${seat.id}`)}
                     onClick={onClose}
                     className={`flex min-h-[84px] flex-col justify-between gap-2 rounded-[14px] border-[1.5px] p-3 text-left transition-colors ${
                       seat.session ? "border-orange-300 bg-orange-100 text-orange-900 hover:bg-orange-200" : "border-stone-300 bg-surface text-foreground hover:border-brand hover:bg-orange-50"

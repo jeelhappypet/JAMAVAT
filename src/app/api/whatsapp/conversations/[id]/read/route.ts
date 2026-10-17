@@ -24,13 +24,14 @@ export async function POST(_request: Request, { params }: Params) {
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
     await connectToDatabase();
     const ownNumber = getOwnPhoneNumberId();
-    const filter = { _id: id, ...(ownNumber ? { whatsappPhoneNumberId: ownNumber } : {}) };
+    const { restaurantId } = staff;
+    const filter = { restaurantId, _id: id, ...(ownNumber ? { whatsappPhoneNumberId: ownNumber } : {}) };
 
     // Only writes (and notifies other screens) when there was something unread.
     const cleared = await WhatsAppConversation.findOneAndUpdate({ ...filter, unreadCount: { $gt: 0 } }, { $set: { unreadCount: 0 } }, { returnDocument: "after" }).lean<WhatsAppConversationDocument>();
     if (cleared) {
       const conversation = toConversationDTO(cleared);
-      await emitWhatsAppEvent(WHATSAPP_EVENTS.CONVERSATION_UPDATED, { conversation });
+      await emitWhatsAppEvent(restaurantId, WHATSAPP_EVENTS.CONVERSATION_UPDATED, { conversation });
       return NextResponse.json({ conversation });
     }
     const current = await WhatsAppConversation.findOne(filter).lean<WhatsAppConversationDocument>();

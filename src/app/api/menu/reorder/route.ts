@@ -16,10 +16,11 @@ export async function POST(request: Request) {
   const t = await getTranslator();
 
   return respond(t, "err.saveFailed", async () => {
+    const { restaurantId } = staff;
     const { kind, ids } = reorderSchema.parse(await request.json());
     const model = kind === "menu" ? Menu : Category;
-    await model.bulkWrite(ids.map((id, index) => ({ updateOne: { filter: { _id: id }, update: { $set: { sortOrder: index } } } })));
-    await emitRealtimeEvent(REALTIME_EVENTS.MENU_UPDATED, { reason: `${kind}-reordered` });
+    await model.bulkWrite(ids.map((id, index) => ({ updateOne: { filter: { restaurantId, _id: id }, update: { $set: { sortOrder: index } } } })));
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.MENU_UPDATED, { reason: `${kind}-reordered` });
     return NextResponse.json({ ok: true });
   });
 }

@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     const { q } = whatsappListSchema.parse(Object.fromEntries(new URL(request.url).searchParams));
     await connectToDatabase();
 
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { restaurantId: staff.restaurantId };
     const ownNumber = getOwnPhoneNumberId();
     if (ownNumber) filter.whatsappPhoneNumberId = ownNumber;
     if (q) {

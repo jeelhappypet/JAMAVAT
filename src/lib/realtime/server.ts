@@ -1,6 +1,7 @@
 import Pusher from "pusher";
 import { Seat } from "@/models/Seat";
-import { GUEST_UPDATE_EVENT, STAFF_CHANNEL, WHATSAPP_CHANNEL, guestChannel, type RealtimeEvent, type WhatsAppEvent } from "./events";
+import type { RestaurantRef } from "@/lib/db/tenant";
+import { GUEST_UPDATE_EVENT, guestChannel, staffChannel, whatsAppChannel, type RealtimeEvent, type WhatsAppEvent } from "./events";
 
 let client: Pusher | null | undefined;
 
@@ -22,22 +23,22 @@ export function getPusher(): Pusher | null {
  * realtime is a notification layer; MongoDB stays the source of truth and
  * every screen still resyncs on its own.
  */
-export async function emitRealtimeEvent(event: RealtimeEvent, payload: unknown): Promise<void> {
+export async function emitRealtimeEvent(restaurantId: RestaurantRef, event: RealtimeEvent, payload: unknown): Promise<void> {
   const pusher = getPusher();
   if (!pusher) return;
   try {
-    await pusher.trigger(STAFF_CHANNEL, event, payload);
+    await pusher.trigger(staffChannel(String(restaurantId)), event, payload);
   } catch (error) {
     console.error(`[realtime] ${event} not delivered`, error);
   }
 }
 
 /** WhatsApp inbox updates (private-whatsapp). Same rules as emitRealtimeEvent: awaited, never throws. */
-export async function emitWhatsAppEvent(event: WhatsAppEvent, payload: unknown): Promise<void> {
+export async function emitWhatsAppEvent(restaurantId: RestaurantRef, event: WhatsAppEvent, payload: unknown): Promise<void> {
   const pusher = getPusher();
   if (!pusher) return;
   try {
-    await pusher.trigger(WHATSAPP_CHANNEL, event, payload);
+    await pusher.trigger(whatsAppChannel(String(restaurantId)), event, payload);
   } catch (error) {
     console.error(`[realtime] ${event} not delivered`, error);
   }
@@ -48,11 +49,11 @@ export async function emitWhatsAppEvent(event: WhatsAppEvent, payload: unknown):
  * the message, so the public channel leaks nothing. The channel name is the
  * QR's secret token, which only people at that table have.
  */
-export async function notifyGuestSeat(seatId: unknown): Promise<void> {
+export async function notifyGuestSeat(restaurantId: RestaurantRef, seatId: unknown): Promise<void> {
   const pusher = getPusher();
   if (!pusher || !seatId) return;
   try {
-    const seat = await Seat.findById(seatId).select({ token: 1 }).lean<{ token?: string }>();
+    const seat = await Seat.findOne({ restaurantId, _id: seatId }).select({ token: 1 }).lean<{ token?: string }>();
     if (seat?.token) await pusher.trigger(guestChannel(seat.token), GUEST_UPDATE_EVENT, {});
   } catch (error) {
     console.error("[realtime] guest update not delivered", error);

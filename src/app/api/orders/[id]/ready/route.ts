@@ -18,7 +18,7 @@ import { jsonError, respond } from "@/lib/api";
  * "served" step. Kitchens have no cancel action — that stays with the counter.
  */
 export async function PATCH(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const staff = await requireStaff(ROLES.kitchen);
+  const staff = await requireStaff(ROLES.kitchen, { orders: true });
   if (staff instanceof NextResponse) return staff;
   const t = await getTranslator();
 
@@ -26,8 +26,9 @@ export async function PATCH(_request: Request, { params }: { params: Promise<{ i
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.alreadyProcessed"), 409);
 
+    const { restaurantId } = staff;
     const scope = await getKitchenScope(staff);
-    const order = await Order.findOne({ _id: id, status: "PENDING" }).lean<OrderLean>();
+    const order = await Order.findOne({ restaurantId, _id: id, status: "PENDING" }).lean<OrderLean>();
     if (!order) return jsonError(t("err.alreadyProcessed"), 409);
 
     const mine = order.items
@@ -40,7 +41,7 @@ export async function PATCH(_request: Request, { params }: { params: Promise<{ i
     // Conditioned on exactly these items still being pending, so a double
     // tap (or two devices on the same kitchen) can't both "win".
     const marked = await Order.findOneAndUpdate(
-      { _id: id, status: "PENDING", ...Object.fromEntries(mine.map((i) => [`items.${i}.status`, { $ne: "READY" }])) },
+      { restaurantId, _id: id, status: "PENDING", ...Object.fromEntries(mine.map((i) => [`items.${i}.status`, { $ne: "READY" }])) },
       { $set: Object.fromEntries(mine.flatMap((i) => [[`items.${i}.status`, "READY"], [`items.${i}.readyAt`, now]])) },
       { returnDocument: "after" }
     ).lean<OrderLean>();
@@ -50,15 +51,15 @@ export async function PATCH(_request: Request, { params }: { params: Promise<{ i
     // in case two kitchens finish at the same moment.
     const isParcel = !(order as OrderLean & { guestSessionId?: unknown }).guestSessionId;
     const finished = await Order.findOneAndUpdate(
-      { _id: id, status: "PENDING", items: { $not: { $elemMatch: { status: { $ne: "READY" } } } } },
+      { restaurantId, _id: id, status: "PENDING", items: { $not: { $elemMatch: { status: { $ne: "READY" } } } } },
       { $set: isParcel ? { status: "COMPLETED", readyAt: now, completedAt: now } : { status: "READY", readyAt: now } },
       { returnDocument: "after" }
     ).lean<OrderLean>();
 
     const dto = serializeOrder(finished ?? marked);
-    await emitRealtimeEvent(REALTIME_EVENTS.ORDER_ITEMS_READY, { id: dto.id, items: dto.items.map((i) => i.status) });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.ORDER_ITEMS_READY, { id: dto.id, items: dto.items.map((i) => i.status) });
     if (finished) {
-      await emitRealtimeEvent(REALTIME_EVENTS.ORDER_READY, { id: dto.id, tokenNumber: dto.tokenNumber, businessDate: dto.businessDate });
+      await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.ORDER_READY, { id: dto.id, tokenNumber: dto.tokenNumber, businessDate: dto.businessDate });
     }
     return NextResponse.json(dto);
   });

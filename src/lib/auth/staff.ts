@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { Staff, type StaffDocument } from "@/models/Staff";
+import { getRestaurantInfo } from "@/lib/restaurant";
+import { canStaffSignIn, canTakeOrders, subscriptionState } from "@/lib/subscription";
 import { getTranslator } from "@/lib/i18n/server";
 import {
   SESSION_COOKIE_OPTIONS,
@@ -24,14 +26,33 @@ export const getCurrentStaff = cache(async (): Promise<StaffSession | null> => {
   if (!session) return null;
 
   await connectToDatabase();
-  const staff = await Staff.findById(session.sid).lean<StaffDocument>();
+  // A cookie from before Jamavat served many restaurants has no restaurant
+  // id; its staff id alone (globally unique) finds the person, and the proxy
+  // upgrades the cookie on the next page load.
+  const staff = session.rid
+    ? await Staff.findOne({ _id: session.sid, restaurantId: session.rid }).lean<StaffDocument>()
+    : await Staff.findOne({ _id: session.sid }).setOptions({ crossTenant: true }).lean<StaffDocument>();
   if (!staff || !staff.isActive || staff.sessionVersion !== session.sv) return null;
 
-  return { id: String(staff._id), name: staff.name, role: staff.role as StaffRole };
+  const restaurant = await getRestaurantInfo(staff.restaurantId);
+  if (!restaurant) return null;
+
+  return {
+    id: String(staff._id),
+    name: staff.name,
+    role: staff.role as StaffRole,
+    restaurantId: restaurant.id,
+    restaurantSlug: restaurant.slug,
+  };
 });
 
-/** Returns the staff member, or a 401/403 response the route should return as-is. */
-export async function requireStaff(roles: readonly StaffRole[]): Promise<StaffSession | NextResponse> {
+/**
+ * Returns the staff member, or a 401/403/402 response the route should
+ * return as-is. `orders: true` additionally refuses the call when the
+ * restaurant's subscription has run out — settling bills and reading data
+ * stay open so nobody is locked out of money already taken.
+ */
+export async function requireStaff(roles: readonly StaffRole[], { orders = false } = {}): Promise<StaffSession | NextResponse> {
   const t = await getTranslator();
   let staff: StaffSession | null;
   try {
@@ -45,17 +66,33 @@ export async function requireStaff(roles: readonly StaffRole[]): Promise<StaffSe
   if (!roles.includes(staff.role)) {
     return NextResponse.json({ error: t("err.noAccess") }, { status: 403 });
   }
+
+  const restaurant = await getRestaurantInfo(staff.restaurantId);
+  const state = restaurant ? subscriptionState(restaurant) : "cancelled";
+  if (!canStaffSignIn(state)) {
+    return NextResponse.json({ error: t("err.restaurantPaused") }, { status: 403 });
+  }
+  if (orders && !canTakeOrders(state)) {
+    return NextResponse.json({ error: t("err.subscriptionEnded") }, { status: 402 });
+  }
   return staff;
 }
 
-export async function startSession(staff: Pick<StaffDocument, "_id" | "role" | "sessionVersion">) {
+export async function startSession(staff: Pick<StaffDocument, "_id" | "role" | "sessionVersion" | "restaurantId">) {
+  const restaurant = await getRestaurantInfo(staff.restaurantId);
   const cookieStore = await cookies();
-  const token = createSessionToken({
+  cookieStore.set(STAFF_SESSION_COOKIE, sessionTokenFor(staff, restaurant?.slug), SESSION_COOKIE_OPTIONS);
+}
+
+/** The cookie value for a staff member, used by startSession and when a pre-tenancy cookie is upgraded. */
+export function sessionTokenFor(staff: Pick<StaffDocument, "_id" | "role" | "sessionVersion" | "restaurantId">, slug: string | undefined): string {
+  return createSessionToken({
     sid: String(staff._id),
     sv: staff.sessionVersion,
     role: staff.role as StaffRole,
+    rid: String(staff.restaurantId),
+    slug,
   });
-  cookieStore.set(STAFF_SESSION_COOKIE, token, SESSION_COOKIE_OPTIONS);
 }
 
 export async function endSession() {

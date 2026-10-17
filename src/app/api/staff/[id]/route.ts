@@ -6,6 +6,7 @@ import { updateStaffSchema } from "@/lib/validation/staff";
 import { hashPin } from "@/lib/auth/pin";
 import { requireStaff, startSession, toStaffDTO } from "@/lib/auth/staff";
 import { ROLES } from "@/lib/auth/access";
+import { staffBudget } from "@/lib/limits";
 import { getTranslator } from "@/lib/i18n/server";
 import { zodErrorMessage } from "@/lib/i18n/zod";
 import { emitRealtimeEvent } from "@/lib/realtime/server";
@@ -25,9 +26,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!isValidObjectId(id)) {
       return NextResponse.json({ error: t("err.staffNotFound") }, { status: 404 });
     }
+    const { restaurantId } = current;
     const { name, role, isActive, pin, logoutEverywhere, categoryIds } = updateStaffSchema.parse(await request.json());
 
-    const target = await Staff.findById(id).lean<StaffDocument>();
+    const target = await Staff.findOne({ restaurantId, _id: id }).lean<StaffDocument>();
     if (!target) {
       return NextResponse.json({ error: t("err.staffNotFound") }, { status: 404 });
     }
@@ -36,8 +38,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       target.role === "ADMIN" &&
       target.isActive &&
       ((role !== undefined && role !== "ADMIN") || isActive === false);
-    if (losesAdmin && (await Staff.countDocuments({ role: "ADMIN", isActive: true })) <= 1) {
+    if (losesAdmin && (await Staff.countDocuments({ restaurantId, role: "ADMIN", isActive: true })) <= 1) {
       return NextResponse.json({ error: t("err.keepOneAdmin") }, { status: 409 });
+    }
+
+    if (isActive === true && !target.isActive) {
+      const allowed = await staffBudget(restaurantId, 1);
+      if (!allowed.ok) return NextResponse.json({ error: t("err.planStaffLimit", { n: allowed.max }) }, { status: 402 });
     }
 
     const set: Record<string, unknown> = {};
@@ -56,8 +63,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       pin !== undefined ||
       logoutEverywhere === true;
 
-    const updated = await Staff.findByIdAndUpdate(
-      id,
+    const updated = await Staff.findOneAndUpdate(
+      { restaurantId, _id: id },
       {
         ...(Object.keys(set).length > 0 ? { $set: set } : {}),
         ...(signOut ? { $inc: { sessionVersion: 1 } } : {}),
@@ -75,7 +82,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     if (categoryIds !== undefined) {
-      await emitRealtimeEvent(REALTIME_EVENTS.ROUTING_UPDATED, { staffId: String(updated._id) });
+      await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.ROUTING_UPDATED, { staffId: String(updated._id) });
     }
 
     return NextResponse.json({ staff: toStaffDTO(updated) });

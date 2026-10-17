@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Pusher, { type Channel } from "pusher-js";
 import type { RealtimeConnectionState } from "@/components/realtime/RealtimeStatus";
-import { STAFF_CHANNEL } from "./events";
+import { useRestaurant } from "@/components/shell/RestaurantProvider";
+import { staffChannel } from "./events";
 
 type EventHandlers = Record<string, (payload: unknown) => void>;
 
@@ -41,7 +42,10 @@ function toState(pusherState: string, subscribed: boolean): RealtimeConnectionSt
  * truth. Without NEXT_PUBLIC_PUSHER_* it reports "disconnected" and callers
  * keep polling.
  */
-export function useRealtime(handlers: EventHandlers, onReconnect?: () => void, channelName: string = STAFF_CHANNEL) {
+export function useRealtime(handlers: EventHandlers, onReconnect?: () => void, channelOf?: (restaurantId: string) => string) {
+  // Channels are keyed by the restaurant's id, which never changes (a slug can be renamed).
+  const { id: restaurantId } = useRestaurant();
+  const channelName = (channelOf ?? staffChannel)(restaurantId);
   const [state, setState] = useState<RealtimeConnectionState>(() =>
     PUSHER_KEY && PUSHER_CLUSTER ? "connecting" : "disconnected"
   );

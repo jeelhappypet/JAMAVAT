@@ -13,6 +13,6 @@ export async function GET(request: NextRequest) {
 
   return respond(t, "err.menuLoad", async () => {
     const activeOnly = request.nextUrl.searchParams.get("activeOnly") === "1";
-    return NextResponse.json({ menus: await loadMenuTree({ activeOnly }) });
+    return NextResponse.json({ menus: await loadMenuTree(staff.restaurantId, { activeOnly }) });
   });
 }

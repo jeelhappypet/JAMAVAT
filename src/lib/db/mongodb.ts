@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { migrateToTenancy } from "@/lib/db/migrate";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -22,9 +23,17 @@ export async function connectToDatabase() {
   if (cache.conn) return cache.conn;
 
   if (!cache.promise) {
-    cache.promise = mongoose.connect(MONGODB_URI, {
-      bufferCommands: false,
-    });
+    // One-time data migrations run before anything reads, on every cold start (a no-op once done).
+    cache.promise = mongoose
+      .connect(MONGODB_URI, { bufferCommands: false })
+      .then(async (connected) => {
+        await migrateToTenancy(connected.connection.db!);
+        return connected;
+      })
+      .catch((error) => {
+        cache.promise = null;
+        throw error;
+      });
   }
 
   cache.conn = await cache.promise;

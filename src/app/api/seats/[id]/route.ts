@@ -9,6 +9,7 @@ import { emitRealtimeEvent } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { getTranslator } from "@/lib/i18n/server";
 import { jsonError, respond } from "@/lib/api";
+import { seatBudget } from "@/lib/limits";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -21,7 +22,7 @@ export async function GET(_request: Request, { params }: Params) {
   return respond(t, "err.ordersLoad", async () => {
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
-    const detail = await loadSeatDetail(id);
+    const detail = await loadSeatDetail(staff.restaurantId, id);
     if (!detail) return jsonError(t("err.notFound"), 404);
     return NextResponse.json(detail);
   });
@@ -36,13 +37,18 @@ export async function PATCH(request: Request, { params }: Params) {
   return respond(t, "err.saveFailed", async () => {
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
+    const { restaurantId } = staff;
     const { isActive, regenerate } = seatUpdateSchema.parse(await request.json());
+    if (isActive === true) {
+      const allowed = await seatBudget(restaurantId, 1);
+      if (!allowed.ok) return jsonError(t("err.planSeatLimit", { n: allowed.max }), 402);
+    }
     const set: Record<string, unknown> = {};
     if (isActive !== undefined) set.isActive = isActive;
     if (regenerate) set.token = newSeatToken();
-    const updated = await Seat.findByIdAndUpdate(id, { $set: set }, { returnDocument: "after" }).lean();
+    const updated = await Seat.findOneAndUpdate({ restaurantId, _id: id }, { $set: set }, { returnDocument: "after" }).lean();
     if (!updated) return jsonError(t("err.notFound"), 404);
-    await emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId: id });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.SEAT_UPDATED, { seatId: id });
     return NextResponse.json({ ok: true });
   });
 }
@@ -55,12 +61,13 @@ export async function DELETE(_request: Request, { params }: Params) {
   return respond(t, "err.saveFailed", async () => {
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
-    const seat = await Seat.findById(id).lean<SeatDocument>();
+    const { restaurantId } = staff;
+    const seat = await Seat.findOne({ restaurantId, _id: id }).lean<SeatDocument>();
     if (!seat) return jsonError(t("err.notFound"), 404);
     if (seat.currentSessionId) return jsonError(t("err.seatInUse"), 409);
-    if ((await Seat.countDocuments({ tableId: seat.tableId })) <= 1) return jsonError(t("err.lastSeat"), 409);
-    await Seat.deleteOne({ _id: id });
-    await emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId: id });
+    if ((await Seat.countDocuments({ restaurantId, tableId: seat.tableId })) <= 1) return jsonError(t("err.lastSeat"), 409);
+    await Seat.deleteOne({ restaurantId, _id: id });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.SEAT_UPDATED, { seatId: id });
     return NextResponse.json({ ok: true });
   });
 }

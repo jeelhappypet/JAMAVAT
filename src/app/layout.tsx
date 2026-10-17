@@ -22,12 +22,15 @@ const notoSansGujarati = Noto_Sans_Gujarati({
   display: "swap",
 });
 
-const appName = process.env.NEXT_PUBLIC_APP_NAME || "જમાવટ";
+const appName = "Jamavat";
 
+/**
+ * The root layout serves three different things: Jamavat's own website,
+ * every restaurant's app under `/r/{slug}` and the guest QR pages. Titles,
+ * manifests and robots rules therefore belong to those pages, not here.
+ */
 export const metadata: Metadata = {
-  title: appName,
-  description: "જમાવટ — રેસ્ટોરન્ટ ઓર્ડર મેનેજમેન્ટ",
-  manifest: "/manifest.webmanifest",
+  title: { default: appName, template: `%s · ${appName}` },
   icons: {
     icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
@@ -35,7 +38,6 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: appName,
   },
 };
 

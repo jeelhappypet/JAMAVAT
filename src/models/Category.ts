@@ -1,4 +1,5 @@
 import { Schema, model, models, type InferSchemaType, type Types } from "mongoose";
+import { tenantField, tenantGuard } from "@/lib/db/tenant";
 
 /**
  * A category inside a menu ("Thali", "Paneer"…). Kitchen routing is by
@@ -7,6 +8,7 @@ import { Schema, model, models, type InferSchemaType, type Types } from "mongoos
  */
 const categorySchema = new Schema(
   {
+    restaurantId: tenantField,
     menuId: { type: Schema.Types.ObjectId, ref: "Menu", required: true },
     name: { type: String, required: true, trim: true },
     nameGu: { type: String, trim: true },
@@ -18,8 +20,10 @@ const categorySchema = new Schema(
   { timestamps: true }
 );
 
-categorySchema.index({ menuId: 1, sortOrder: 1 });
-categorySchema.index({ legacyKey: 1 }, { unique: true, sparse: true });
+categorySchema.plugin(tenantGuard);
+
+categorySchema.index({ restaurantId: 1, menuId: 1, sortOrder: 1 });
+categorySchema.index({ restaurantId: 1, legacyKey: 1 }, { unique: true, partialFilterExpression: { legacyKey: { $type: "string" } } });
 
 export type CategoryDocument = InferSchemaType<typeof categorySchema> & { _id: Types.ObjectId };
 

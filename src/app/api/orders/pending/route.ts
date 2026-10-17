@@ -13,7 +13,7 @@ export async function GET() {
 
   return respond(t, "err.ordersLoad", async () => {
     const scope = await getKitchenScope(staff);
-    const [tickets, scopeInfo] = await Promise.all([getKitchenTickets(scope), describeKitchenScope(scope)]);
+    const [tickets, scopeInfo] = await Promise.all([getKitchenTickets(staff.restaurantId, scope), describeKitchenScope(staff.restaurantId, scope)]);
     return NextResponse.json({ tickets, scope: scopeInfo });
   });
 }

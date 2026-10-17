@@ -19,6 +19,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { localName, type MessageKey } from "@/lib/i18n/messages";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { PAYMENT_MODES, type MenuDTO, type MenuItemDTO, type PaymentMode, type SeatDetailDTO } from "@/types";
+import { useAppPath } from "@/components/shell/RestaurantProvider";
 
 const POLL_MS = 30000;
 const PAY_LABEL: Record<PaymentMode, MessageKey> = { CASH: "seatBill.cash", UPI: "seatBill.upi", CARD: "seatBill.card" };
@@ -36,6 +37,7 @@ interface SuccessInfo {
  * the counter (no email/OTP; the QR shows "in use" until it's settled).
  */
 export function NewOrderScreen({ seatId }: { seatId?: string }) {
+  const path = useAppPath();
   const router = useRouter();
   const { lang, t } = useI18n();
   const [menus, setMenus] = useState<MenuDTO[]>([]);
@@ -131,12 +133,12 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
       setSummaryExpanded(false);
       clientRequestIdRef.current = crypto.randomUUID();
       if (seatId) {
-        router.push(`/counter/seat/${seatId}`);
+        router.push(path(`/counter/seat/${seatId}`));
         return;
       }
       setSuccess({ customerName: data.customerName, tokenNumber: data.tokenNumber, totalAmount: data.totalAmount, paymentMode });
       void loadNextToken();
-      setTimeout(() => router.push("/counter/orders"), 2200);
+      setTimeout(() => router.push(path("/counter/orders")), 2200);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("err.orderFailed"));
       throw err;
@@ -154,7 +156,7 @@ export function NewOrderScreen({ seatId }: { seatId?: string }) {
       <div className="flex flex-1 flex-col gap-5">
         <div className="flex flex-wrap items-center gap-3">
           {seatId ? (
-            <Link href={newTable ? "/counter" : `/counter/seat/${seatId}`} aria-label={t("seatBill.back")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface">
+            <Link href={path(newTable ? "/counter" : `/counter/seat/${seatId}`)} aria-label={t("seatBill.back")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M19 12H5" />
                 <path d="m11 6-6 6 6 6" />

@@ -1,4 +1,5 @@
 import { del, put } from "@vercel/blob";
+import type { RestaurantRef } from "@/lib/db/tenant";
 
 /**
  * Dish photos live in a public Vercel Blob store. The browser already
@@ -21,9 +22,12 @@ const EXTENSIONS: Record<(typeof PHOTO_TYPES)[number], string> = {
   "image/png": "png",
 };
 
-/** Stores a new photo under a fresh URL, so browsers and the CDN can cache it for a year. */
-export async function storeDishPhoto(itemId: string, file: Blob, type: (typeof PHOTO_TYPES)[number]): Promise<string> {
-  const blob = await put(`dishes/${itemId}.${EXTENSIONS[type]}`, file, {
+/**
+ * Stores a new photo under a fresh URL, so browsers and the CDN can cache it
+ * for a year. Each restaurant's photos live under their own folder.
+ */
+export async function storeDishPhoto(restaurantId: RestaurantRef, itemId: string, file: Blob, type: (typeof PHOTO_TYPES)[number]): Promise<string> {
+  const blob = await put(`restaurants/${String(restaurantId)}/dishes/${itemId}.${EXTENSIONS[type]}`, file, {
     access: "public",
     addRandomSuffix: true,
     contentType: type,

@@ -84,7 +84,7 @@ Decisions:
 
 | Phase | Scope | Status |
 |---|---|---|
-| 5A | **Data separation.** `restaurantId` on Menu, Category, MenuItem, Order, Bill, Staff, Table, Seat, GuestSession, WhatsApp*; per-restaurant unique indexes (staff name, token per day, bill no, legacy keys, wa_id); tenant guard plugin; Restaurant gets `slug`, status, subscription fields; session cookie carries restaurant id + slug; `requireStaff` → `restaurantId`; per-restaurant Pusher channels (`private-staff-{id}`, `private-whatsapp-{id}`) checked in `/api/pusher/auth`; counters `{rid}:{date}` / `{rid}:bill`; Blob paths `restaurants/{id}/…`; WhatsApp number → restaurant; locked one-time migration of the live data; staff app under `/r/[slug]` (+ per-restaurant manifest / installed app), redirects for old paths and old cookies; `/login` finds the restaurant; invite link → first admin | ⬜ |
+| 5A | ✅ **Data separation.** `restaurantId` on Menu, Category, MenuItem, Order, Bill, Staff, Table, Seat, GuestSession, WhatsApp*; per-restaurant unique indexes (staff name, token per day, bill no, legacy keys, wa_id); tenant guard plugin; Restaurant gets `slug`, status, subscription fields; session cookie carries restaurant id + slug; `requireStaff` → `restaurantId`; per-restaurant Pusher channels (`private-staff-{id}`, `private-whatsapp-{id}`) checked in `/api/pusher/auth`; counters `{rid}:{date}` / `{rid}:bill`; Blob paths `restaurants/{id}/…`; WhatsApp number → restaurant; locked one-time migration of the live data; staff app under `/r/[slug]` (+ per-restaurant manifest / installed app), redirects for old paths and old cookies; `/login` finds the restaurant; invite link → first admin | ✅ |
 | 5B | **Website + SEO + inquiry.** Own root layout (static, no cookies, no service worker); `/` per the Landing artboard + pricing; `/gu` mirror with hreflang; keyword pages (`/restaurant-management-software`, `/qr-code-ordering-system`, `/kitchen-display-system`, `/restaurant-billing-software`), `/pricing`, `/privacy`, `/terms`; title/description/canonical/OG image; JSON-LD (Organization, WebSite, SoftwareApplication + offers, FAQPage, BreadcrumbList); `sitemap.xml`, `robots.txt` (app paths disallowed + noindex); inquiry form → `/api/inquiries` (zod, honeypot, IP rate limit, same-phone de-dupe, UTM/source kept) → `Inquiry` + email to HQ; WhatsApp chat link; content cached and revalidated when HQ saves | ⬜ |
 | 5C | **HQ (`/hq`).** Email-OTP login for HQ admins (first one created with `SETUP_KEY`), own cookie; dashboard (restaurants, new inquiries, orders today across all); restaurants list + create (slug check, plan, trial, owner email → invite) + detail (status, plan, usage, invite again, suspend/resume, change slug with redirect); inquiries (New → Contacted → Converted/Lost, notes, call, create restaurant from it); Website content; SEO settings (Search Console code, titles); Plans | ⬜ |
 | 5D | **Subscriptions (manual billing).** `Plan` (name, monthly/yearly price, seat + staff limits, WhatsApp feature, public on pricing); restaurant subscription (plan, TRIAL/ACTIVE/SUSPENDED/CANCELLED, period end, grace days → computed PAST_DUE/EXPIRED); `SubscriptionPayment` ledger (HQ records UPI/cash/bank → extends the period); limits enforced on adding seats/staff and re-activating them; expired/suspended = no new orders (counter + QR), settle still works, guest sees "not taking QR orders"; admin banner 7 days before expiry; plan card in Settings; HQ "expiring soon" list + reminder email | ⬜ |
@@ -92,6 +92,39 @@ Decisions:
 | 5F | **Growth/SEO ops:** custom domain (`.vercel.app` ranks poorly) + `APP_URL`; Google Search Console + sitemap submit; Google Business Profile; blog/guides edited in HQ; case studies with real restaurants; Vercel Pro (Hobby is non-commercial) | ⬜ |
 | 5G | **Ops & trust:** per-restaurant data export and deletion (DPDP), HQ audit log, HQ "open admin" support login (logged), backups, uptime/error alerts, terms of service | ⬜ |
 | 5H | **Self-serve signup** (optional): restaurant signs up from the website, trial starts without HQ | ⬜ later |
+
+**5A as built (2026-10-18):**
+
+- `lib/db/tenant.ts` — `tenantField` + `tenantGuard` on every tenant model.
+  A query, update, delete, count, distinct, aggregate or bulkWrite without
+  `restaurantId` throws `TenantScopeError`. The only ways past it are the
+  explicit `{ crossTenant: true }` option (the seat-token lookup in
+  `resolveSeat`, and a pre-tenancy cookie in `getCurrentStaff`) and the
+  Restaurant/Plan/EmailOtp/Counter collections, which aren't per restaurant.
+- Session cookie carries `rid` + `slug`; `requireStaff(roles, { orders })`
+  returns `restaurantId`/`restaurantSlug` and refuses order-taking when the
+  subscription has run out (402) or HQ paused the restaurant (403).
+- Screens stay restaurant-relative: `RestaurantProvider` gives `path()`
+  (`"/counter"` → `/r/kiran/counter`) and the restaurant's id for its Pusher
+  channels (`private-staff-{id}`, `private-whatsapp-{id}`), which
+  `/api/pusher/auth` only signs for that restaurant's own staff.
+- Guests keep the short `/t/{token}` link (QRs are already printed); the
+  token says which restaurant it is.
+- `/setup` is gone: HQ creates a restaurant and emails an invite link
+  (`/r/{slug}/welcome?invite=…`, hashed + 14 days, dead once any staff
+  exists, `lib/auth/invite.ts`).
+- Old links keep working: the proxy sends `/`, `/counter`, `/login`… to
+  `/r/{slug}/…` using the cookie's slug, and a cookie from before tenancy
+  through `/go`, which reads the restaurant once and re-issues the cookie.
+  Each restaurant installs its own PWA (`/r/{slug}/manifest.webmanifest`,
+  `start_url` its own login), so staff never see the Jamavat website.
+- Plan limits are enforced where things are created: `lib/limits.ts`
+  (`seatBudget`, `staffBudget`) → 402 with a translated message.
+- `lib/db/migrate.ts` runs once on first DB connect behind a lock: stamps
+  `restaurantId`, gives the existing restaurant a slug + ACTIVE with no end
+  date, drops the old global unique indexes and carries today's token and
+  bill counters over. Covered by `tests/migrate.int.test.ts` (skipped unless
+  `MONGODB_TEST_URI` names a throwaway database).
 
 Cases 5A–5D must cover (checklist — tick in tests or by hand):
 

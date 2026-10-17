@@ -12,9 +12,10 @@ export const loginSchema = z.object({
 
 const restaurantName = z.string().trim().min(1, "Enter the restaurant name").max(60);
 
-export const setupSchema = z.object({
-  setupKey: z.string().min(1, "Enter the setup key"),
-  restaurantName,
+/** The owner accepting HQ's invite link: their name and the PIN they'll use. */
+export const inviteAcceptSchema = z.object({
+  slug: z.string().trim().min(1).max(60),
+  invite: z.string().trim().min(10).max(200),
   name,
   pin,
 });

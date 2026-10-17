@@ -1,8 +1,10 @@
 import { Schema, model, models, type InferSchemaType, type Types } from "mongoose";
 import { WHATSAPP_MESSAGE_STATUSES } from "@/types";
+import { tenantField, tenantGuard } from "@/lib/db/tenant";
 
 const whatsAppMessageSchema = new Schema(
   {
+    restaurantId: tenantField,
     conversationId: { type: Schema.Types.ObjectId, ref: "WhatsAppConversation", required: true },
     customerId: { type: Schema.Types.ObjectId, ref: "WhatsAppCustomer", required: true },
     direction: { type: String, enum: ["inbound", "outbound"], required: true },
@@ -30,8 +32,10 @@ const whatsAppMessageSchema = new Schema(
   { timestamps: true }
 );
 
+whatsAppMessageSchema.plugin(tenantGuard);
+
 whatsAppMessageSchema.index({ whatsappMessageId: 1 }, { unique: true });
-whatsAppMessageSchema.index({ conversationId: 1, timestamp: -1 });
+whatsAppMessageSchema.index({ restaurantId: 1, conversationId: 1, timestamp: -1 });
 
 export type WhatsAppMessageDocument = InferSchemaType<typeof whatsAppMessageSchema> & { _id: Types.ObjectId };
 

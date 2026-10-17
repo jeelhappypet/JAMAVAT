@@ -1,9 +1,11 @@
 import { Schema, model, models, type InferSchemaType, type Types } from "mongoose";
+import { tenantField, tenantGuard } from "@/lib/db/tenant";
 
 export const WHATSAPP_CONVERSATION_STATUSES = ["open", "closed"] as const;
 
 const whatsAppConversationSchema = new Schema(
   {
+    restaurantId: tenantField,
     customerId: { type: Schema.Types.ObjectId, ref: "WhatsAppCustomer", required: true },
     /** Copies of the customer's name and wa_id, so the inbox list and its search need no join. */
     customerName: { type: String, trim: true },
@@ -23,7 +25,9 @@ const whatsAppConversationSchema = new Schema(
   { timestamps: true }
 );
 
-whatsAppConversationSchema.index({ lastMessageAt: -1 });
+whatsAppConversationSchema.plugin(tenantGuard);
+
+whatsAppConversationSchema.index({ restaurantId: 1, lastMessageAt: -1 });
 // One open chat per customer per number; two webhooks racing on a new customer can't make two.
 whatsAppConversationSchema.index(
   { customerId: 1, channel: 1, whatsappPhoneNumberId: 1 },

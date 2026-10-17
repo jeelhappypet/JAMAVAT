@@ -10,6 +10,7 @@ import { minutesSince, useCounterData } from "@/components/counter/useCounterDat
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { localName } from "@/lib/i18n/messages";
 import type { OrderDTO, SeatDTO, TableDTO } from "@/types";
+import { useAppPath } from "@/components/shell/RestaurantProvider";
 
 /** A seat shows up under "New QR orders" for this long after it was placed. */
 const NEW_FOR_MINUTES = 5;
@@ -28,6 +29,7 @@ const rupees = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
  * is settled on the seat page.
  */
 export function SeatsScreen() {
+  const path = useAppPath();
   const { t, lang } = useI18n();
   const { orders, tables, loading, error, now, kitchenByCategory } = useCounterData({ tables: true, menus: true });
 
@@ -111,7 +113,7 @@ export function SeatsScreen() {
         ) : (
           fresh.map((order, index) => {
             const seatId = seatIdByCode.get(order.seatCode!);
-            const href = seatId ? `/counter/seat/${seatId}` : "/counter/orders";
+            const href = path(seatId ? `/counter/seat/${seatId}` : "/counter/orders");
             const age = minutesSince(order.createdAt, now);
             const ago = age === 0 ? t("counter.justNow") : t("counter.minutesAgo", { n: age });
             if (index > 0) {
@@ -178,20 +180,21 @@ export function SeatsScreen() {
 }
 
 function SeatTile({ seat, now }: { seat: SeatDTO; now: number }) {
+  const path = useAppPath();
   const { t } = useI18n();
   const session = seat.session;
   const base = "flex min-h-[104px] flex-col justify-between gap-3 rounded-[14px] border-[1.5px] p-3";
   if (!session) {
     // A free table: tap to order for it from the counter (no email/OTP; its QR then shows "in use").
     return (
-      <Link href={`/new-order?seat=${seat.id}`} aria-label={t("counter.startOrder", { code: seat.code })} className={`${base} ${TILE.free} transition-colors hover:border-brand hover:bg-orange-50`}>
+      <Link href={path(`/new-order?seat=${seat.id}`)} aria-label={t("counter.startOrder", { code: seat.code })} className={`${base} ${TILE.free} transition-colors hover:border-brand hover:bg-orange-50`}>
         <span className="text-2xl font-extrabold tracking-tight">{seat.code}</span>
         <span className="text-[13px] font-semibold">{t("counter.free")}</span>
       </Link>
     );
   }
   return (
-    <Link href={`/counter/seat/${seat.id}`} aria-label={t("counter.openSeat", { code: seat.code })} className={`${base} ${TILE[session.state]}`}>
+    <Link href={path(`/counter/seat/${seat.id}`)} aria-label={t("counter.openSeat", { code: seat.code })} className={`${base} ${TILE[session.state]}`}>
       <span className="flex items-start justify-between gap-1">
         <span className="text-2xl font-extrabold tracking-tight">{seat.code}</span>
         {session.state === "new" ? <span className="text-[11px] font-extrabold tracking-wide">{t("counter.tagNew")}</span> : null}

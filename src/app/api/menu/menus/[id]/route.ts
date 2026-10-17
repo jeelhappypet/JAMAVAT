@@ -20,10 +20,11 @@ export async function PATCH(request: Request, { params }: Params) {
   return respond(t, "err.saveFailed", async () => {
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
+    const { restaurantId } = staff;
     const patch = menuUpdateSchema.parse(await request.json());
-    const updated = await Menu.findByIdAndUpdate(id, toMongoUpdate(patch), { returnDocument: "after" }).lean();
+    const updated = await Menu.findOneAndUpdate({ restaurantId, _id: id }, toMongoUpdate(patch), { returnDocument: "after" }).lean();
     if (!updated) return jsonError(t("err.notFound"), 404);
-    await emitRealtimeEvent(REALTIME_EVENTS.MENU_UPDATED, { reason: "menu-updated" });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.MENU_UPDATED, { reason: "menu-updated" });
     return NextResponse.json({ ok: true });
   });
 }
@@ -37,10 +38,11 @@ export async function DELETE(_request: Request, { params }: Params) {
   return respond(t, "err.saveFailed", async () => {
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
-    if (await Category.exists({ menuId: id })) return jsonError(t("err.menuNotEmpty"), 409);
-    const deleted = await Menu.findByIdAndDelete(id).lean();
+    const { restaurantId } = staff;
+    if (await Category.exists({ restaurantId, menuId: id })) return jsonError(t("err.menuNotEmpty"), 409);
+    const deleted = await Menu.findOneAndDelete({ restaurantId, _id: id }).lean();
     if (!deleted) return jsonError(t("err.notFound"), 404);
-    await emitRealtimeEvent(REALTIME_EVENTS.MENU_UPDATED, { reason: "menu-deleted" });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.MENU_UPDATED, { reason: "menu-deleted" });
     return NextResponse.json({ ok: true });
   });
 }

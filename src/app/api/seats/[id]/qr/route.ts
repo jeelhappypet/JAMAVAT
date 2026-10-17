@@ -18,8 +18,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   if (!isValidObjectId(id)) return new NextResponse("Not found", { status: 404 });
   await connectToDatabase();
-  const seat = await Seat.findById(id).lean<SeatDocument>();
-  const table = seat ? await Table.findById(seat.tableId).lean<TableDocument>() : null;
+  const { restaurantId } = staff;
+  const seat = await Seat.findOne({ restaurantId, _id: id }).lean<SeatDocument>();
+  const table = seat ? await Table.findOne({ restaurantId, _id: seat.tableId }).lean<TableDocument>() : null;
   if (!seat || !table) return new NextResponse("Not found", { status: 404 });
 
   const code = seatCode(table.name, seat.label);
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const plain = await QRCode.toString(url, { type: "svg", margin: 1, errorCorrectionLevel: "M", color: { dark: "#1c1917", light: "#ffffff" } });
     return new NextResponse(plain, { headers: { "Content-Type": "image/svg+xml", "Cache-Control": "private, max-age=300" } });
   }
-  const svg = renderQrSticker({ url, code, area: table.area || undefined, restaurantName: (await getRestaurantName()) ?? "Jamavat" });
+  const svg = renderQrSticker({ url, code, area: table.area || undefined, restaurantName: (await getRestaurantName(restaurantId)) ?? "Jamavat" });
   return new NextResponse(svg, {
     headers: {
       "Content-Type": "image/svg+xml",

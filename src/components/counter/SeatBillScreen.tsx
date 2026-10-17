@@ -20,6 +20,7 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 import { formatClock } from "@/lib/utils/time";
 import { localName, type MessageKey } from "@/lib/i18n/messages";
 import { PAYMENT_MODES, type BillDTO, type OrderDTO, type PaymentMode, type SeatDetailDTO } from "@/types";
+import { useAppPath } from "@/components/shell/RestaurantProvider";
 
 const STATUS: Record<OrderDTO["status"], { label: MessageKey; tone: "orange" | "green" | "red" }> = {
   PENDING: { label: "seatBill.statusCooking", tone: "orange" },
@@ -34,6 +35,7 @@ const rupees = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
 
 /** "Counter · settle seat bill" artboard: one guest's orders, then discount → paid by → settle & free. */
 export function SeatBillScreen({ seatId }: { seatId: string }) {
+  const path = useAppPath();
   const { t, lang } = useI18n();
   const router = useRouter();
   const [detail, setDetail] = useState<SeatDetailDTO | null>(null);
@@ -124,7 +126,7 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
       if (!res.ok) throw new Error(data?.error ?? t("err.settleFailed"));
       settledRef.current = true;
       setSettled(data);
-      setTimeout(() => router.push("/counter"), 3500);
+      setTimeout(() => router.push(path("/counter")), 3500);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("err.settleFailed"));
       void load();
@@ -137,7 +139,7 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
     setConfirmFree(false);
     const res = await fetch(`/api/seats/${seatId}/free`, { method: "POST" });
     if (redirectToLoginIfUnauthorized(res)) return;
-    if (res.ok) router.push("/counter");
+    if (res.ok) router.push(path("/counter"));
     else setError((await res.json().catch(() => null))?.error ?? t("err.saveFailed"));
   }
 
@@ -159,7 +161,7 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
     <div className="flex min-h-full flex-1 flex-col bg-surface-muted">
       <header className="border-b border-border bg-surface print:hidden">
         <div className="mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-4 gap-y-3 px-[clamp(16px,3vw,32px)] py-3">
-          <IconButton href="/counter" label={t("seatBill.back")} size="md">
+          <IconButton href={path("/counter")} label={t("seatBill.back")} size="md">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M19 12H5" />
               <path d="m11 6-6 6 6 6" />
@@ -209,7 +211,7 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
                   ? t("seatBill.emailFailed")
                   : t("seatBill.emailSkipped")}
             </p>
-            <Button href="/counter" size="lg" className="mt-2">
+            <Button href={path("/counter")} size="lg" className="mt-2">
               {t("seatBill.backToSeats")}
             </Button>
           </section>
@@ -217,7 +219,7 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
           <section className="mx-auto flex w-full max-w-[480px] flex-col items-center gap-3 rounded-[20px] border border-border bg-surface p-8 text-center">
             <h1 className="text-xl font-extrabold">{t("seatBill.freeTitle", { code: seat?.code ?? "" })}</h1>
             <p className="text-[15px] text-text-muted">{error ?? t("seatBill.freeBody")}</p>
-            <Button href="/counter" variant="secondary" size="lg" className="mt-2">
+            <Button href={path("/counter")} variant="secondary" size="lg" className="mt-2">
               {t("seatBill.backToSeats")}
             </Button>
           </section>
@@ -227,7 +229,7 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
               <div className="flex flex-wrap items-center justify-between gap-2.5">
                 <h2 className="text-lg font-extrabold">{t("seatBill.ordersTitle")}</h2>
                 <Button
-                  href={`/new-order?seat=${seatId}`}
+                  href={path(`/new-order?seat=${seatId}`)}
                   variant="secondary"
                   icon={
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

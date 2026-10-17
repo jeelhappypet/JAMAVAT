@@ -15,6 +15,6 @@ export async function GET(request: NextRequest) {
   return respond(t, "err.reportLoad", async () => {
     const asked = request.nextUrl.searchParams.get("month") ?? "";
     const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(asked) ? asked : getBusinessDate().slice(0, 7);
-    return NextResponse.json(await getMonthReport(month));
+    return NextResponse.json(await getMonthReport(staff.restaurantId, month));
   });
 }

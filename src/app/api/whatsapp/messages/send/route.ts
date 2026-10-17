@@ -44,7 +44,8 @@ export async function POST(request: Request) {
     const { conversationId, to, message } = whatsappSendSchema.parse(await request.json());
     await connectToDatabase();
 
-    const conversation = await WhatsAppConversation.findById(conversationId).lean<WhatsAppConversationDocument>();
+    const { restaurantId } = staff;
+    const conversation = await WhatsAppConversation.findOne({ restaurantId, _id: conversationId }).lean<WhatsAppConversationDocument>();
     // A chat on another number (or none) is not ours to reply from.
     if (!conversation || conversation.whatsappPhoneNumberId !== config.phoneNumberId) return jsonError(t("err.notFound"), 404);
 
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
     }
 
     const saved = await saveOutboundMessage({
+      restaurantId,
       conversation,
       whatsappMessageId: sent.whatsappMessageId,
       text: message,
@@ -69,7 +71,7 @@ export async function POST(request: Request) {
     });
     const payload = { conversation: toConversationDTO(saved.conversation), message: toMessageDTO(saved.message) };
     console.info(JSON.stringify({ scope: "whatsapp.send", result: "accepted", messageId: sent.whatsappMessageId, to: recipient }));
-    await emitWhatsAppEvent(WHATSAPP_EVENTS.MESSAGE_SENT, payload);
+    await emitWhatsAppEvent(restaurantId, WHATSAPP_EVENTS.MESSAGE_SENT, payload);
     return NextResponse.json(payload, { status: 201 });
   });
 }

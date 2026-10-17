@@ -20,13 +20,13 @@ export async function POST(request: Request) {
   try {
     const { currentPin, newPin } = changePinSchema.parse(await request.json());
 
-    const staff = await Staff.findById(current.id).lean<StaffDocument>();
+    const staff = await Staff.findOne({ restaurantId: current.restaurantId, _id: current.id }).lean<StaffDocument>();
     if (!staff || !(await verifyPin(currentPin, staff.pinHash, staff.pinSalt))) {
       return NextResponse.json({ error: t("err.currentPinWrong") }, { status: 400 });
     }
 
-    const updated = await Staff.findByIdAndUpdate(
-      staff._id,
+    const updated = await Staff.findOneAndUpdate(
+      { restaurantId: current.restaurantId, _id: staff._id },
       { $set: await hashPin(newPin), $inc: { sessionVersion: 1 } },
       { returnDocument: "after" }
     ).lean<StaffDocument>();

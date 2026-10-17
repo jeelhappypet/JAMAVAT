@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { Counter } from "@/models/Counter";
 import { getBusinessDate } from "@/lib/utils/businessDate";
+import { counterId } from "@/lib/orders/build";
 import { requireStaff } from "@/lib/auth/staff";
 import { ROLES } from "@/lib/auth/access";
 import { getTranslator } from "@/lib/i18n/server";
@@ -13,7 +14,7 @@ export async function GET() {
   try {
     await connectToDatabase();
     const businessDate = getBusinessDate();
-    const counter = await Counter.findById(businessDate).lean<{ seq: number }>();
+    const counter = await Counter.findById(counterId(staff.restaurantId, businessDate)).lean<{ seq: number }>();
 
     return NextResponse.json({
       businessDate,

@@ -14,7 +14,7 @@ export async function PATCH(request: Request) {
 
   return respond(t, "err.saveFailed", async () => {
     const { restaurantName, address, phone, reviewUrl } = restaurantSchema.parse(await request.json());
-    const saved = await saveRestaurantSettings({ name: restaurantName, address, phone, reviewUrl });
+    const saved = await saveRestaurantSettings(current.restaurantId, { name: restaurantName, address, phone, reviewUrl });
     return NextResponse.json({ restaurantName: saved.name, ...saved });
   });
 }

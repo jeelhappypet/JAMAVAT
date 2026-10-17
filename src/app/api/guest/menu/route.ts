@@ -8,9 +8,10 @@ import { respond } from "@/lib/api";
 export async function GET(request: NextRequest) {
   const t = await getTranslator();
   return respond(t, "err.menuLoad", async () => {
-    if (!(await resolveSeat(request.nextUrl.searchParams.get("token") ?? ""))) {
+    const resolved = await resolveSeat(request.nextUrl.searchParams.get("token") ?? "");
+    if (!resolved) {
       return NextResponse.json({ error: t("err.qrInvalid"), code: "QR_INVALID" }, { status: 404 });
     }
-    return NextResponse.json({ menus: await loadMenuTree({ activeOnly: true }) });
+    return NextResponse.json({ menus: await loadMenuTree(resolved.restaurantId, { activeOnly: true }) });
   });
 }

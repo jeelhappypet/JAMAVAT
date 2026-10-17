@@ -15,6 +15,6 @@ export async function GET(request: NextRequest) {
   return respond(t, "err.reportLoad", async () => {
     const asked = request.nextUrl.searchParams.get("range");
     const range: ReportRange = REPORT_RANGES.includes(asked as ReportRange) ? (asked as ReportRange) : "today";
-    return NextResponse.json(await getTodayReport(range));
+    return NextResponse.json(await getTodayReport(staff.restaurantId, range));
   });
 }

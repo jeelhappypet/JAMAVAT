@@ -1,4 +1,5 @@
 import { Schema, model, models, type InferSchemaType, type Types } from "mongoose";
+import { tenantField, tenantGuard } from "@/lib/db/tenant";
 
 /**
  * One sitting at one QR: opens with the first order, closes when settled or
@@ -8,6 +9,7 @@ import { Schema, model, models, type InferSchemaType, type Types } from "mongoos
  */
 const guestSessionSchema = new Schema(
   {
+    restaurantId: tenantField,
     seatId: { type: Schema.Types.ObjectId, ref: "Seat", required: true },
     seatCode: { type: String, required: true },
     /** The guest's verified email; absent when the counter opened the sitting. */
@@ -22,9 +24,11 @@ const guestSessionSchema = new Schema(
   { timestamps: true }
 );
 
-guestSessionSchema.index({ seatId: 1, status: 1 });
+guestSessionSchema.plugin(tenantGuard);
+
+guestSessionSchema.index({ restaurantId: 1, seatId: 1, status: 1 });
 // Per-sitting email verification and the guest's "thank you" screen look sessions up by phone.
-guestSessionSchema.index({ deviceId: 1, status: 1, closedAt: -1 });
+guestSessionSchema.index({ restaurantId: 1, deviceId: 1, status: 1, closedAt: -1 });
 
 export type GuestSessionDocument = InferSchemaType<typeof guestSessionSchema> & { _id: Types.ObjectId; createdAt: Date };
 

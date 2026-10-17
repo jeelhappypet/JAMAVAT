@@ -21,6 +21,32 @@ export interface StaffSession {
   id: string;
   name: string;
   role: StaffRole;
+  /** The restaurant this login belongs to — every query a route makes is scoped to it. */
+  restaurantId: string;
+  /** `/r/{slug}` of that restaurant. */
+  restaurantSlug: string;
+}
+
+// ---- Restaurants & subscriptions (Phase 5)
+
+/** What HQ set. Whether orders are allowed right now also depends on the paid period (lib/subscription.ts). */
+export const RESTAURANT_STATUSES = ["TRIAL", "ACTIVE", "SUSPENDED", "CANCELLED"] as const;
+export type RestaurantStatus = (typeof RESTAURANT_STATUSES)[number];
+
+export const BILLING_CYCLES = ["MONTHLY", "YEARLY"] as const;
+export type BillingCycle = (typeof BILLING_CYCLES)[number];
+
+/**
+ * ok: within the trial / paid period (or no end date) · due: period ended,
+ * still inside the grace days · expired: past grace, no new orders ·
+ * suspended / cancelled: switched off by HQ.
+ */
+export type SubscriptionState = "ok" | "due" | "expired" | "suspended" | "cancelled";
+
+/** Text in both website languages; Gujarati falls back to English when empty. */
+export interface Localized {
+  en: string;
+  gu: string;
 }
 
 export interface StaffDTO {

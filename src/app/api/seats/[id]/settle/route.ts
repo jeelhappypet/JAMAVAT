@@ -14,6 +14,7 @@ import { isMailConfigured, sendMail } from "@/lib/mail";
 import { renderBillEmail } from "@/lib/billEmail";
 import type { OrderLean } from "@/lib/orders/serialize";
 import { getBusinessDate } from "@/lib/utils/businessDate";
+import { counterId } from "@/lib/orders/build";
 import { emitRealtimeEvent, notifyGuestSeat } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { getTranslator } from "@/lib/i18n/server";
@@ -21,8 +22,8 @@ import { jsonError, respond } from "@/lib/api";
 import type { BillDTO, BillLineDTO } from "@/types";
 
 /** Bill numbers run on across days ("0142"), unlike token numbers which restart daily. */
-async function nextBillNumber(): Promise<number> {
-  const counter = await Counter.findOneAndUpdate({ _id: "bill" }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: "after" });
+async function nextBillNumber(restaurantId: string): Promise<number> {
+  const counter = await Counter.findOneAndUpdate({ _id: counterId(restaurantId, "bill") }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: "after" });
   return counter.seq;
 }
 
@@ -56,31 +57,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
     const { sessionId, discount, paymentMode, sendEmail } = settleSchema.parse(await request.json());
 
-    const seat = await Seat.findById(id).lean<SeatDocument>();
+    const { restaurantId } = staff;
+    const seat = await Seat.findOne({ restaurantId, _id: id }).lean<SeatDocument>();
     if (!seat) return jsonError(t("err.notFound"), 404);
     if (!seat.currentSessionId || String(seat.currentSessionId) !== sessionId) return jsonError(t("err.alreadySettled"), 409);
-    const session = await GuestSession.findOne({ _id: sessionId, status: "OPEN" }).lean<GuestSessionDocument>();
+    const session = await GuestSession.findOne({ restaurantId, _id: sessionId, status: "OPEN" }).lean<GuestSessionDocument>();
     if (!session) return jsonError(t("err.alreadySettled"), 409);
 
-    const orders = await Order.find({ guestSessionId: session._id, status: { $ne: "CANCELLED" } })
+    const orders = await Order.find({ restaurantId, guestSessionId: session._id, status: { $ne: "CANCELLED" } })
       .sort({ createdAt: 1 })
       .lean<OrderLean[]>();
     const itemsTotal = orders.reduce((sum, order) => sum + order.totalAmount, 0);
     if (discount > itemsTotal) return jsonError(t("err.discountTooHigh"), 400);
 
     // The atomic step: only one settle can close this sitting, so a double tap can't bill twice.
-    if (!(await closeSeatSession(seat._id, session._id, "SETTLED"))) return jsonError(t("err.alreadySettled"), 409);
+    if (!(await closeSeatSession(restaurantId, seat._id, session._id, "SETTLED"))) return jsonError(t("err.alreadySettled"), 409);
 
     const settledAt = new Date();
     await Order.updateMany(
-      { guestSessionId: session._id, status: { $in: ["PENDING", "READY"] } },
+      { restaurantId, guestSessionId: session._id, status: { $in: ["PENDING", "READY"] } },
       { $set: { status: "COMPLETED", completedAt: settledAt } }
     );
 
     const lines = billLines(orders);
     const total = itemsTotal - discount;
     const bill = await Bill.create({
-      billNo: await nextBillNumber(),
+      restaurantId,
+      billNo: await nextBillNumber(restaurantId),
       businessDate: getBusinessDate(settledAt),
       seatId: seat._id,
       seatCode: session.seatCode,
@@ -99,7 +102,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     let emailStatus: BillDTO["emailStatus"] = "SKIPPED";
     if (sendEmail && session.email && isMailConfigured()) {
       try {
-        const restaurant = await getRestaurantSettings();
+        const restaurant = await getRestaurantSettings(restaurantId);
         await sendMail({
           to: session.email,
           ...renderBillEmail({ restaurant, billNo: bill.billNo, seatCode: session.seatCode, settledAt, lines, itemsTotal, discount, total, paymentMode }),
@@ -110,14 +113,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         console.error("Thank-you email failed", error);
         emailStatus = "FAILED";
       }
-      await Bill.updateOne({ _id: bill._id }, { $set: { emailStatus } });
+      await Bill.updateOne({ restaurantId, _id: bill._id }, { $set: { emailStatus } });
     }
 
     await Promise.all([
-      emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId: id, settled: true }),
-      notifyGuestSeat(seat._id),
-      emitRealtimeEvent(REALTIME_EVENTS.ORDER_COMPLETED, { seatId: id }),
-      emitRealtimeEvent(REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "seat:settled" }),
+      emitRealtimeEvent(restaurantId, REALTIME_EVENTS.SEAT_UPDATED, { seatId: id, settled: true }),
+      notifyGuestSeat(restaurantId, seat._id),
+      emitRealtimeEvent(restaurantId, REALTIME_EVENTS.ORDER_COMPLETED, { seatId: id }),
+      emitRealtimeEvent(restaurantId, REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "seat:settled" }),
     ]);
 
     const dto: BillDTO = {

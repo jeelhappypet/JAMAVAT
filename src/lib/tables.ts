@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/db/mongodb";
+import { toObjectId, type RestaurantRef } from "@/lib/db/tenant";
 import { Table, type TableDocument } from "@/models/Table";
 import { Seat, type SeatDocument } from "@/models/Seat";
 import { GuestSession, type GuestSessionDocument } from "@/models/GuestSession";
@@ -39,18 +40,18 @@ export function guestUrl(baseUrl: string, token: string): string {
 }
 
 /** Every table with its QRs and who (if anyone) holds each QR right now. */
-export async function loadTables({ activeOnly = false } = {}): Promise<TableDTO[]> {
+export async function loadTables(restaurantId: RestaurantRef, { activeOnly = false } = {}): Promise<TableDTO[]> {
   await connectToDatabase();
-  const active = activeOnly ? { isActive: true } : {};
+  const active = activeOnly ? { restaurantId, isActive: true } : { restaurantId };
   const [tables, seats] = await Promise.all([
     Table.find(active).sort({ sortOrder: 1, createdAt: 1 }).lean<TableDocument[]>(),
     Seat.find(active).sort({ label: 1 }).lean<SeatDocument[]>(),
   ]);
   const sessionIds = seats.map((seat) => seat.currentSessionId).filter(Boolean);
   const [sessions, orderCounts] = await Promise.all([
-    GuestSession.find({ _id: { $in: sessionIds } }).lean<GuestSessionDocument[]>(),
+    GuestSession.find({ restaurantId, _id: { $in: sessionIds } }).lean<GuestSessionDocument[]>(),
     Order.aggregate<{ _id: unknown; count: number; total: number; lastPending: Date | null }>([
-      { $match: { guestSessionId: { $in: sessionIds }, status: { $ne: "CANCELLED" } } },
+      { $match: { restaurantId: toObjectId(restaurantId), guestSessionId: { $in: sessionIds }, status: { $ne: "CANCELLED" } } },
       {
         $group: {
           _id: "$guestSessionId",
@@ -105,17 +106,21 @@ export interface ResolvedSeat {
   seat: SeatDocument;
   table: TableDocument;
   code: string;
+  /** The QR token is unique across Jamavat, so scanning one also says which restaurant it belongs to. */
+  restaurantId: string;
 }
 
 /** A guest's QR token → its seat and table, or null if the QR is unknown, switched off or regenerated. */
 export async function resolveSeat(token: string): Promise<ResolvedSeat | null> {
   if (!/^[\w-]{8,64}$/.test(token)) return null;
   await connectToDatabase();
-  const seat = await Seat.findOne({ token, isActive: true }).lean<SeatDocument>();
+  // The only lookup that may cross restaurants: nobody has told us which one yet.
+  const seat = await Seat.findOne({ token, isActive: true }).setOptions({ crossTenant: true }).lean<SeatDocument>();
   if (!seat) return null;
-  const table = await Table.findOne({ _id: seat.tableId, isActive: true }).lean<TableDocument>();
+  const restaurantId = String(seat.restaurantId);
+  const table = await Table.findOne({ restaurantId, _id: seat.tableId, isActive: true }).lean<TableDocument>();
   if (!table) return null;
-  return { seat, table, code: seatCode(table.name, seat.label) };
+  return { seat, table, code: seatCode(table.name, seat.label), restaurantId };
 }
 
 /**
@@ -123,12 +128,12 @@ export async function resolveSeat(token: string): Promise<ResolvedSeat | null> {
  * can't free a newer guest. Returns true only for the call that actually
  * closed the session — settle uses that so a double tap bills once.
  */
-export async function closeSeatSession(seatId: unknown, sessionId: unknown, reason: "FREED" | "SETTLED"): Promise<boolean> {
+export async function closeSeatSession(restaurantId: RestaurantRef, seatId: unknown, sessionId: unknown, reason: "FREED" | "SETTLED"): Promise<boolean> {
   const closed = await GuestSession.updateOne(
-    { _id: sessionId, status: "OPEN" },
+    { restaurantId, _id: sessionId, status: "OPEN" },
     { $set: { status: "CLOSED", closedAt: new Date(), closedReason: reason } }
   );
-  await Seat.updateOne({ _id: seatId, currentSessionId: sessionId }, { $set: { currentSessionId: null } });
+  await Seat.updateOne({ restaurantId, _id: seatId, currentSessionId: sessionId }, { $set: { currentSessionId: null } });
   return closed.modifiedCount === 1;
 }
 
@@ -142,65 +147,67 @@ export async function closeSeatSession(seatId: unknown, sessionId: unknown, reas
  * dishes simply join the guest's sitting.
  */
 export async function sittingForCounterOrder(
+  restaurantId: RestaurantRef,
   seatId: string,
   staffId: string
 ): Promise<{ session: GuestSessionDocument; opened: boolean } | null> {
   await connectToDatabase();
-  const seat = await Seat.findById(seatId).lean<SeatDocument>();
+  const seat = await Seat.findOne({ restaurantId, _id: seatId }).lean<SeatDocument>();
   if (!seat) return null;
-  const openSession = (id: unknown) => GuestSession.findOne({ _id: id, status: "OPEN" }).lean<GuestSessionDocument>();
+  const openSession = (id: unknown) => GuestSession.findOne({ restaurantId, _id: id, status: "OPEN" }).lean<GuestSessionDocument>();
 
   const current = seat.currentSessionId ? await openSession(seat.currentSessionId) : null;
   if (current) return { session: current, opened: false };
 
   if (seat.isActive === false) return null;
-  const table = await Table.findOne({ _id: seat.tableId, isActive: true }).lean<TableDocument>();
+  const table = await Table.findOne({ restaurantId, _id: seat.tableId, isActive: true }).lean<TableDocument>();
   if (!table) return null;
 
   const created = await GuestSession.create({
+    restaurantId,
     seatId: seat._id,
     seatCode: seatCode(table.name, seat.label),
     deviceId: `counter:${staffId}`,
     openedBy: "COUNTER",
   });
   const claimed = await Seat.findOneAndUpdate(
-    { _id: seat._id, $or: [{ currentSessionId: null }, { currentSessionId: seat.currentSessionId ?? null }] },
+    { restaurantId, _id: seat._id, $or: [{ currentSessionId: null }, { currentSessionId: seat.currentSessionId ?? null }] },
     { $set: { currentSessionId: created._id } },
     { returnDocument: "after" }
   ).lean();
   if (claimed) return { session: created.toObject() as GuestSessionDocument, opened: true };
 
-  await GuestSession.deleteOne({ _id: created._id });
-  const winner = await Seat.findById(seat._id).select({ currentSessionId: 1 }).lean<Pick<SeatDocument, "currentSessionId">>();
+  await GuestSession.deleteOne({ restaurantId, _id: created._id });
+  const winner = await Seat.findOne({ restaurantId, _id: seat._id }).select({ currentSessionId: 1 }).lean<Pick<SeatDocument, "currentSessionId">>();
   const session = winner?.currentSessionId ? await openSession(winner.currentSessionId) : null;
   return session ? { session, opened: false } : null;
 }
 
 /** Frees the QR once a sitting has nothing left to pay for (its last order was cancelled). */
-export async function freeSeatIfNothingToPay(seatId: unknown, sessionId: unknown): Promise<boolean> {
-  const remaining = await Order.countDocuments({ guestSessionId: sessionId, status: { $ne: "CANCELLED" } });
+export async function freeSeatIfNothingToPay(restaurantId: RestaurantRef, seatId: unknown, sessionId: unknown): Promise<boolean> {
+  const remaining = await Order.countDocuments({ restaurantId, guestSessionId: sessionId, status: { $ne: "CANCELLED" } });
   if (remaining > 0) return false;
-  return closeSeatSession(seatId, sessionId, "FREED");
+  return closeSeatSession(restaurantId, seatId, sessionId, "FREED");
 }
 
 /** The counter's seat page: who holds the QR and every order of their sitting. */
-export async function loadSeatDetail(seatId: string): Promise<SeatDetailDTO | null> {
+export async function loadSeatDetail(restaurantId: RestaurantRef, seatId: string): Promise<SeatDetailDTO | null> {
   await connectToDatabase();
-  const seat = await Seat.findById(seatId).lean<SeatDocument>();
+  const seat = await Seat.findOne({ restaurantId, _id: seatId }).lean<SeatDocument>();
   if (!seat) return null;
-  const table = await Table.findById(seat.tableId).lean<TableDocument>();
+  const table = await Table.findOne({ restaurantId, _id: seat.tableId }).lean<TableDocument>();
   if (!table) return null;
   const session = seat.currentSessionId
-    ? await GuestSession.findOne({ _id: seat.currentSessionId, status: "OPEN" }).lean<GuestSessionDocument>()
+    ? await GuestSession.findOne({ restaurantId, _id: seat.currentSessionId, status: "OPEN" }).lean<GuestSessionDocument>()
     : null;
   const orders = session
-    ? (await Order.find({ guestSessionId: session._id }).sort({ createdAt: 1 }).lean<OrderLean[]>()).map(serializeOrder)
+    ? (await Order.find({ restaurantId, guestSessionId: session._id }).sort({ createdAt: 1 }).lean<OrderLean[]>()).map(serializeOrder)
     : [];
   // Name each item's kitchen here, so the page doesn't need the whole menu for one column.
   const categoryIds = [...new Set(orders.flatMap((order) => order.items.map((item) => item.categoryId).filter(Boolean)))];
-  const categories = categoryIds.length ? await Category.find({ _id: { $in: categoryIds } }).select({ menuId: 1 }).lean<Pick<CategoryDocument, "_id" | "menuId">[]>() : [];
+  const categories = categoryIds.length ? await Category.find({ restaurantId, _id: { $in: categoryIds } }).select({ menuId: 1 }).lean<Pick<CategoryDocument, "_id" | "menuId">[]>() : [];
   const menus = categories.length
-    ? await Menu.find({ _id: { $in: categories.map((c) => c.menuId) } }).select({ name: 1, nameGu: 1 }).lean<Pick<MenuDocument, "_id" | "name" | "nameGu">[]>()
+    ? await Menu.find({ restaurantId, _id: { $in: categories.map((c) => c.menuId) } }).select({ name: 1, nameGu: 1 }).lean<Pick<MenuDocument, "_id" | "name" | "nameGu">[]>()
     : [];
   const menuById = new Map(menus.map((menu) => [String(menu._id), menu]));
   const kitchens: SeatDetailDTO["kitchens"] = {};

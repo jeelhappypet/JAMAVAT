@@ -1,7 +1,9 @@
 import { Schema, model, models, type InferSchemaType, type Types } from "mongoose";
+import { tenantField, tenantGuard } from "@/lib/db/tenant";
 
 const menuItemSchema = new Schema(
   {
+    restaurantId: tenantField,
     // Required for everything created in v2; v1 items get it from the
     // migration in lib/menu/structure.ts.
     categoryId: { type: Schema.Types.ObjectId, ref: "Category" },
@@ -24,7 +26,9 @@ const menuItemSchema = new Schema(
   { timestamps: true }
 );
 
-menuItemSchema.index({ categoryId: 1, isActive: 1 });
+menuItemSchema.plugin(tenantGuard);
+
+menuItemSchema.index({ restaurantId: 1, categoryId: 1, isActive: 1 });
 
 export type MenuItemDocument = InferSchemaType<typeof menuItemSchema> & { _id: Types.ObjectId };
 

@@ -18,10 +18,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   return respond(t, "err.saveFailed", async () => {
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
-    const seat = await Seat.findById(id).lean<SeatDocument>();
+    const { restaurantId } = staff;
+    const seat = await Seat.findOne({ restaurantId, _id: id }).lean<SeatDocument>();
     if (!seat) return jsonError(t("err.notFound"), 404);
-    if (seat.currentSessionId) await closeSeatSession(seat._id, seat.currentSessionId, "FREED");
-    await Promise.all([emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { seatId: id }), notifyGuestSeat(seat._id)]);
+    if (seat.currentSessionId) await closeSeatSession(restaurantId, seat._id, seat.currentSessionId, "FREED");
+    await Promise.all([emitRealtimeEvent(restaurantId, REALTIME_EVENTS.SEAT_UPDATED, { seatId: id }), notifyGuestSeat(restaurantId, seat._id)]);
     return NextResponse.json({ ok: true });
   });
 }

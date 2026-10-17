@@ -11,7 +11,7 @@ export async function GET() {
 
   try {
     await connectToDatabase();
-    const orders = await getCounterOrders();
+    const orders = await getCounterOrders(staff.restaurantId);
     return NextResponse.json({ orders });
   } catch {
     return NextResponse.json({ error: (await getTranslator())("err.ordersLoad") }, { status: 500 });

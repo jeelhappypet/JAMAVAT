@@ -1,4 +1,5 @@
 import { isDuplicateKeyError } from "@/lib/api";
+import type { RestaurantRef } from "@/lib/db/tenant";
 import { WhatsAppCustomer, type WhatsAppCustomerDocument } from "@/models/WhatsAppCustomer";
 import { WhatsAppConversation, type WhatsAppConversationDocument } from "@/models/WhatsAppConversation";
 import { WhatsAppMessage, type WhatsAppMessageDocument } from "@/models/WhatsAppMessage";
@@ -42,23 +43,24 @@ export function toMessageDTO(doc: WhatsAppMessageDocument): WhatsAppMessageDTO {
 }
 
 /** Finds the customer by wa_id, or creates them. Keeps their WhatsApp profile name current. */
-async function upsertCustomer(waId: string, profileName?: string): Promise<WhatsAppCustomerDocument> {
+async function upsertCustomer(restaurantId: RestaurantRef, waId: string, profileName?: string): Promise<WhatsAppCustomerDocument> {
+  const filter = { restaurantId, whatsappWaId: waId };
   const update = {
-    $setOnInsert: { whatsappWaId: waId, whatsappNumber: waId, phone: `+${waId}` },
+    $setOnInsert: { ...filter, whatsappNumber: waId, phone: `+${waId}` },
     ...(profileName ? { $set: { name: profileName } } : {}),
   };
   try {
-    return (await WhatsAppCustomer.findOneAndUpdate({ whatsappWaId: waId }, update, { upsert: true, returnDocument: "after" }).lean<WhatsAppCustomerDocument>())!;
+    return (await WhatsAppCustomer.findOneAndUpdate(filter, update, { upsert: true, returnDocument: "after" }).lean<WhatsAppCustomerDocument>())!;
   } catch (error) {
     // Two webhooks raced to create the same customer — the other one won.
     if (!isDuplicateKeyError(error)) throw error;
-    return (await WhatsAppCustomer.findOneAndUpdate({ whatsappWaId: waId }, profileName ? { $set: { name: profileName } } : {}, { returnDocument: "after" }).lean<WhatsAppCustomerDocument>())!;
+    return (await WhatsAppCustomer.findOneAndUpdate(filter, profileName ? { $set: { name: profileName } } : {}, { returnDocument: "after" }).lean<WhatsAppCustomerDocument>())!;
   }
 }
 
 /** The customer's open chat on this number, created on first contact (or after the last one was closed). */
-async function openConversation(customer: WhatsAppCustomerDocument, phoneNumberId: string): Promise<WhatsAppConversationDocument> {
-  const filter = { customerId: customer._id, channel: "whatsapp", whatsappPhoneNumberId: phoneNumberId, status: "open" };
+async function openConversation(restaurantId: RestaurantRef, customer: WhatsAppCustomerDocument, phoneNumberId: string): Promise<WhatsAppConversationDocument> {
+  const filter = { restaurantId, customerId: customer._id, channel: "whatsapp", whatsappPhoneNumberId: phoneNumberId, status: "open" };
   const update = {
     $setOnInsert: { ...filter, customerWaId: customer.whatsappWaId, unreadCount: 0, lastMessage: "" },
     ...(customer.name ? { $set: { customerName: customer.name } } : {}),
@@ -73,20 +75,21 @@ async function openConversation(customer: WhatsAppCustomerDocument, phoneNumberI
 
 /** Moves the inbox preview forward — never back to an older message that arrived late. */
 async function touchConversation(
+  restaurantId: RestaurantRef,
   conversationId: unknown,
   at: Date,
   preview: { text: string; direction: "inbound" | "outbound" },
   extra: Record<string, unknown> = {}
 ): Promise<WhatsAppConversationDocument | null> {
   const bumped = await WhatsAppConversation.findOneAndUpdate(
-    { _id: conversationId },
+    { restaurantId, _id: conversationId },
     { $max: { lastMessageAt: at, ...(preview.direction === "inbound" ? { lastInboundAt: at } : {}) }, ...extra },
     { returnDocument: "after" }
   ).lean<WhatsAppConversationDocument>();
   if (!bumped) return null;
   if (bumped.lastMessageAt?.getTime() !== at.getTime()) return bumped;
   return WhatsAppConversation.findOneAndUpdate(
-    { _id: conversationId, lastMessageAt: at },
+    { restaurantId, _id: conversationId, lastMessageAt: at },
     { $set: { lastMessage: preview.text.slice(0, 200), lastMessageDirection: preview.direction } },
     { returnDocument: "after" }
   ).lean<WhatsAppConversationDocument>();
@@ -101,15 +104,16 @@ export type InboundResult =
  * unread +1 and preview. A webhook retry hits the unique index and stops
  * before touching the conversation, so nothing is counted twice.
  */
-export async function saveInboundMessage(inbound: InboundMessage): Promise<InboundResult> {
-  if (await WhatsAppMessage.exists({ whatsappMessageId: inbound.whatsappMessageId })) return { kind: "duplicate" };
+export async function saveInboundMessage(restaurantId: RestaurantRef, inbound: InboundMessage): Promise<InboundResult> {
+  if (await WhatsAppMessage.exists({ restaurantId, whatsappMessageId: inbound.whatsappMessageId })) return { kind: "duplicate" };
 
-  const customer = await upsertCustomer(inbound.waId, inbound.profileName);
-  const conversation = await openConversation(customer, inbound.phoneNumberId);
+  const customer = await upsertCustomer(restaurantId, inbound.waId, inbound.profileName);
+  const conversation = await openConversation(restaurantId, customer, inbound.phoneNumberId);
 
   let message: WhatsAppMessageDocument;
   try {
     const created = await WhatsAppMessage.create({
+      restaurantId,
       conversationId: conversation._id,
       customerId: customer._id,
       direction: "inbound",
@@ -129,12 +133,13 @@ export async function saveInboundMessage(inbound: InboundMessage): Promise<Inbou
     throw error;
   }
 
-  const updated = await touchConversation(conversation._id, inbound.timestamp, { text: inbound.text, direction: "inbound" }, { $inc: { unreadCount: 1 } });
+  const updated = await touchConversation(restaurantId, conversation._id, inbound.timestamp, { text: inbound.text, direction: "inbound" }, { $inc: { unreadCount: 1 } });
   return { kind: "saved", conversation: updated ?? conversation, message };
 }
 
 /** Saves a message Meta has accepted. Upsert on the wamid, in case its "sent" status raced ahead of us. */
 export async function saveOutboundMessage(input: {
+  restaurantId: RestaurantRef;
   conversation: WhatsAppConversationDocument;
   whatsappMessageId: string;
   text: string;
@@ -143,9 +148,10 @@ export async function saveOutboundMessage(input: {
 }): Promise<{ conversation: WhatsAppConversationDocument; message: WhatsAppMessageDocument }> {
   const now = new Date();
   const message = (await WhatsAppMessage.findOneAndUpdate(
-    { whatsappMessageId: input.whatsappMessageId },
+    { restaurantId: input.restaurantId, whatsappMessageId: input.whatsappMessageId },
     {
       $set: {
+        restaurantId: input.restaurantId,
         conversationId: input.conversation._id,
         customerId: input.conversation.customerId,
         direction: "outbound",
@@ -160,7 +166,7 @@ export async function saveOutboundMessage(input: {
     },
     { upsert: true, returnDocument: "after" }
   ).lean<WhatsAppMessageDocument>())!;
-  const conversation = await touchConversation(input.conversation._id, now, { text: input.text, direction: "outbound" });
+  const conversation = await touchConversation(input.restaurantId, input.conversation._id, now, { text: input.text, direction: "outbound" });
   return { conversation: conversation ?? input.conversation, message };
 }
 
@@ -173,13 +179,13 @@ export type StatusResult =
  * sent → delivered → read only moves forward; "failed" always wins and keeps
  * Meta's error (code/title/details — no secrets in there).
  */
-export async function applyStatus(update: StatusUpdate): Promise<StatusResult> {
+export async function applyStatus(restaurantId: RestaurantRef, update: StatusUpdate): Promise<StatusResult> {
   const lowerRanks = (Object.keys(STATUS_RANK) as WhatsAppMessageStatus[]).filter((status) => STATUS_RANK[status] < STATUS_RANK[update.status]);
   const updated = await WhatsAppMessage.findOneAndUpdate(
-    { whatsappMessageId: update.whatsappMessageId, direction: "outbound", status: { $in: lowerRanks } },
+    { restaurantId, whatsappMessageId: update.whatsappMessageId, direction: "outbound", status: { $in: lowerRanks } },
     { $set: { status: update.status, statusAt: update.timestamp, ...(update.error ? { error: update.error } : {}) } },
     { returnDocument: "after" }
   ).lean<WhatsAppMessageDocument>();
   if (updated) return { kind: "updated", message: updated };
-  return (await WhatsAppMessage.exists({ whatsappMessageId: update.whatsappMessageId })) ? { kind: "stale" } : { kind: "unknown" };
+  return (await WhatsAppMessage.exists({ restaurantId, whatsappMessageId: update.whatsappMessageId })) ? { kind: "stale" } : { kind: "unknown" };
 }

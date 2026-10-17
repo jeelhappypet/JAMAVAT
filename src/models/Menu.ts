@@ -1,8 +1,10 @@
 import { Schema, model, models, type InferSchemaType, type Types } from "mongoose";
+import { tenantField, tenantGuard } from "@/lib/db/tenant";
 
 /** A top-level menu such as "Gujarati" or "Punjabi". With a single menu, guests never see menu tabs. */
 const menuSchema = new Schema(
   {
+    restaurantId: tenantField,
     name: { type: String, required: true, trim: true },
     nameGu: { type: String, trim: true },
     sortOrder: { type: Number, default: 0 },
@@ -13,8 +15,10 @@ const menuSchema = new Schema(
   { timestamps: true }
 );
 
-menuSchema.index({ legacyKey: 1 }, { unique: true, sparse: true });
-menuSchema.index({ sortOrder: 1 });
+menuSchema.plugin(tenantGuard);
+
+menuSchema.index({ restaurantId: 1, legacyKey: 1 }, { unique: true, partialFilterExpression: { legacyKey: { $type: "string" } } });
+menuSchema.index({ restaurantId: 1, sortOrder: 1 });
 
 export type MenuDocument = InferSchemaType<typeof menuSchema> & { _id: Types.ObjectId };
 

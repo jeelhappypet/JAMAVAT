@@ -15,11 +15,12 @@ export async function POST(request: Request) {
   const t = await getTranslator();
 
   return respond(t, "err.saveFailed", async () => {
+    const { restaurantId } = staff;
     const { menuId, name, nameGu } = categoryCreateSchema.parse(await request.json());
-    if (!(await Menu.exists({ _id: menuId }))) return jsonError(t("err.notFound"), 404);
-    const last = await Category.findOne({ menuId }).sort({ sortOrder: -1 }).select({ sortOrder: 1 }).lean<{ sortOrder?: number }>();
-    const category = await Category.create({ menuId, name, nameGu: nameGu || undefined, sortOrder: (last?.sortOrder ?? -1) + 1 });
-    await emitRealtimeEvent(REALTIME_EVENTS.MENU_UPDATED, { reason: "category-created" });
+    if (!(await Menu.exists({ restaurantId, _id: menuId }))) return jsonError(t("err.notFound"), 404);
+    const last = await Category.findOne({ restaurantId, menuId }).sort({ sortOrder: -1 }).select({ sortOrder: 1 }).lean<{ sortOrder?: number }>();
+    const category = await Category.create({ restaurantId, menuId, name, nameGu: nameGu || undefined, sortOrder: (last?.sortOrder ?? -1) + 1 });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.MENU_UPDATED, { reason: "category-created" });
     return NextResponse.json({ id: String(category._id) }, { status: 201 });
   });
 }

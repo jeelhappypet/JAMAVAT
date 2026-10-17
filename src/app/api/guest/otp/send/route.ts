@@ -3,6 +3,7 @@ import { otpSendSchema } from "@/lib/validation/guest";
 import { resolveSeat } from "@/lib/tables";
 import { sendOtp } from "@/lib/guest/otp";
 import { getRestaurantName } from "@/lib/restaurant";
+import { guestOtpScope } from "@/models/EmailOtp";
 import { getTranslator } from "@/lib/i18n/server";
 import { jsonError, respond } from "@/lib/api";
 
@@ -11,9 +12,10 @@ export async function POST(request: Request) {
   const t = await getTranslator();
   return respond(t, "err.otpSendFailed", async () => {
     const { token, email } = otpSendSchema.parse(await request.json());
-    if (!(await resolveSeat(token))) return NextResponse.json({ error: t("err.qrInvalid"), code: "QR_INVALID" }, { status: 404 });
+    const resolved = await resolveSeat(token);
+    if (!resolved) return NextResponse.json({ error: t("err.qrInvalid"), code: "QR_INVALID" }, { status: 404 });
 
-    const result = await sendOtp(email, (await getRestaurantName()) ?? "Jamavat");
+    const result = await sendOtp(guestOtpScope(resolved.restaurantId), email, (await getRestaurantName(resolved.restaurantId)) ?? "Jamavat");
     if (!result.ok) {
       if (result.reason === "WAIT") return jsonError(t("err.otpWait", { s: result.seconds }), 429);
       if (result.reason === "TOO_MANY") return jsonError(t("err.otpTooMany"), 429);

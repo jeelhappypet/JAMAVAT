@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAccessPage, homePathFor } from "@/lib/auth/access";
+import { appPath, appRelativePath, canAccessPage, homePathFor, slugOfPath } from "@/lib/auth/access";
 
 describe("page access", () => {
   it("sends each role to its own home", () => {
@@ -25,5 +25,31 @@ describe("page access", () => {
   it("matches whole path segments only", () => {
     expect(canAccessPage("COUNTER", "/menus-public")).toBe(true);
     expect(canAccessPage("ADMIN", "/kitchen")).toBe(true);
+  });
+});
+
+describe("restaurant app paths", () => {
+  it("puts a screen's own path under the restaurant's link", () => {
+    expect(appPath("kirans-thali", "/counter")).toBe("/r/kirans-thali/counter");
+    expect(appPath("kirans-thali")).toBe("/r/kirans-thali");
+    expect(appPath("kirans-thali", "/")).toBe("/r/kirans-thali");
+  });
+
+  it("takes the prefix off again, so tabs can compare plain paths", () => {
+    expect(appRelativePath("/r/kirans-thali/counter/orders")).toBe("/counter/orders");
+    expect(appRelativePath("/r/kirans-thali")).toBe("/");
+    expect(appRelativePath("/r/kirans-thali/")).toBe("/");
+  });
+
+  it("leaves Jamavat's own pages alone", () => {
+    expect(appRelativePath("/")).toBe("/");
+    expect(appRelativePath("/pricing")).toBe("/pricing");
+    expect(appRelativePath("/t/abc123")).toBe("/t/abc123");
+    expect(slugOfPath("/pricing")).toBeNull();
+  });
+
+  it("reads the slug out of a path", () => {
+    expect(slugOfPath("/r/kirans-thali/counter")).toBe("kirans-thali");
+    expect(slugOfPath("/r/kirans-thali")).toBe("kirans-thali");
   });
 });

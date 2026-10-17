@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChangePinDialog } from "@/components/auth/ChangePinDialog";
+import { useRestaurant } from "@/components/shell/RestaurantProvider";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import type { Lang, MessageKey } from "@/lib/i18n/messages";
 import type { StaffRole } from "@/types";
@@ -21,7 +22,7 @@ interface AccountMenuProps {
 }
 
 /** Ends this device's session: clears offline caches too, so the next person on a shared tablet starts clean. */
-export async function logoutThisDevice() {
+export async function logoutThisDevice(loginPath: string) {
   await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
   if ("caches" in window) {
     await caches
@@ -30,8 +31,7 @@ export async function logoutThisDevice() {
       .catch(() => null);
   }
   // Full reload on purpose: drops every in-memory screen, socket and poller from the old session.
-  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-  window.location.assign("/login");
+  window.location.assign(loginPath);
 }
 
 const LANGS: { lang: Lang; label: string }[] = [
@@ -47,6 +47,7 @@ const itemClass = "flex h-11 w-full items-center gap-2.5 rounded-xl px-3 text-le
 
 export function AccountMenu({ name, role, label, variant = "pill", avatar = "dark", links = [], sound }: AccountMenuProps) {
   const { t, lang, setLang } = useI18n();
+  const { path } = useRestaurant();
   const [open, setOpen] = useState(false);
   const [changingPin, setChangingPin] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -78,7 +79,7 @@ export function AccountMenu({ name, role, label, variant = "pill", avatar = "dar
 
   async function logout() {
     setLoggingOut(true);
-    await logoutThisDevice();
+    await logoutThisDevice(path("/login"));
   }
 
   const chipText = label ?? `${name} · ${t(`role.${role}`)}`;
@@ -150,7 +151,7 @@ export function AccountMenu({ name, role, label, variant = "pill", avatar = "dar
             </button>
           ) : null}
           {links.map((link) => (
-            <Link key={link.href} href={link.href} role="menuitem" onClick={() => setOpen(false)} className={itemClass}>
+            <Link key={link.href} href={path(link.href)} role="menuitem" onClick={() => setOpen(false)} className={itemClass}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M7 17 17 7M9 7h8v8" />
               </svg>

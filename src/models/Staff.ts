@@ -1,8 +1,10 @@
 import { Schema, model, models, type InferSchemaType, type Types } from "mongoose";
 import { STAFF_ROLES } from "@/types";
+import { tenantField, tenantGuard } from "@/lib/db/tenant";
 
 const staffSchema = new Schema(
   {
+    restaurantId: tenantField,
     name: { type: String, required: true, trim: true },
     role: { type: String, required: true, enum: STAFF_ROLES },
     pinHash: { type: String, required: true },
@@ -23,8 +25,10 @@ const staffSchema = new Schema(
 );
 
 // Names are what staff pick on the login screen, so they must be unambiguous.
-staffSchema.index({ name: 1 }, { unique: true, collation: { locale: "en", strength: 2 } });
-staffSchema.index({ isActive: 1, name: 1 });
+staffSchema.plugin(tenantGuard);
+
+staffSchema.index({ restaurantId: 1, name: 1 }, { unique: true, collation: { locale: "en", strength: 2 } });
+staffSchema.index({ restaurantId: 1, isActive: 1, name: 1 });
 
 export type StaffDocument = InferSchemaType<typeof staffSchema> & { _id: Types.ObjectId };
 

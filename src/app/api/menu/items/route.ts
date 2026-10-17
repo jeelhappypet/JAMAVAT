@@ -16,8 +16,10 @@ export async function POST(request: Request) {
 
   return respond(t, "err.saveFailed", async () => {
     const { categoryId, name, nameGu, description, descriptionGu, isBestseller, price, isVeg } = itemCreateSchema.parse(await request.json());
-    if (!(await Category.exists({ _id: categoryId }))) return jsonError(t("err.notFound"), 404);
+    const { restaurantId } = staff;
+    if (!(await Category.exists({ restaurantId, _id: categoryId }))) return jsonError(t("err.notFound"), 404);
     const item = await MenuItem.create({
+      restaurantId,
       categoryId,
       name,
       nameGu: nameGu || undefined,
@@ -27,7 +29,7 @@ export async function POST(request: Request) {
       price,
       isVeg: isVeg ?? true,
     });
-    await emitRealtimeEvent(REALTIME_EVENTS.MENU_UPDATED, { reason: "item-created" });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.MENU_UPDATED, { reason: "item-created" });
     return NextResponse.json({ id: String(item._id) }, { status: 201 });
   });
 }

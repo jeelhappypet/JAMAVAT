@@ -1,4 +1,5 @@
 import { connectToDatabase } from "@/lib/db/mongodb";
+import type { RestaurantRef } from "@/lib/db/tenant";
 import { Order } from "@/models/Order";
 import { Bill, type BillDocument } from "@/models/Bill";
 import { Category, type CategoryDocument } from "@/models/Category";
@@ -61,10 +62,10 @@ const ORDER_FIELDS = {
 };
 
 /** One round trip for a whole date span; callers slice it per period in memory. */
-async function loadPeriod(from: string, to: string) {
+async function loadPeriod(restaurantId: RestaurantRef, from: string, to: string) {
   const [orders, bills] = await Promise.all([
-    Order.find({ businessDate: { $gte: from, $lte: to } }).select(ORDER_FIELDS).lean<ReportOrder[]>(),
-    Bill.find({ businessDate: { $gte: from, $lte: to } }).select({ businessDate: 1, total: 1, paymentMode: 1, orderIds: 1 }).lean<ReportBill[]>(),
+    Order.find({ restaurantId, businessDate: { $gte: from, $lte: to } }).select(ORDER_FIELDS).lean<ReportOrder[]>(),
+    Bill.find({ restaurantId, businessDate: { $gte: from, $lte: to } }).select({ businessDate: 1, total: 1, paymentMode: 1, orderIds: 1 }).lean<ReportBill[]>(),
   ]);
   return { orders, bills };
 }
@@ -107,7 +108,7 @@ function perDay(days: string[], orders: ReportOrder[], bills: ReportBill[]) {
   });
 }
 
-export async function getTodayReport(range: ReportRange): Promise<TodayReportDTO> {
+export async function getTodayReport(restaurantId: RestaurantRef, range: ReportRange): Promise<TodayReportDTO> {
   await connectToDatabase();
   const today = getBusinessDate();
   const { from, to, prevFrom, prevTo } = rangeDates(range, today);
@@ -116,9 +117,9 @@ export async function getTodayReport(range: ReportRange): Promise<TodayReportDTO
   // The period, the one before it and the last 7 days overlap — fetch their union once.
   const spanFrom = [from, prevFrom, lastFrom].sort()[0];
   const [span, categories, menus] = await Promise.all([
-    loadPeriod(spanFrom, today),
-    Category.find().select({ menuId: 1 }).lean<Pick<CategoryDocument, "_id" | "menuId">[]>(),
-    Menu.find().select({ name: 1, nameGu: 1, sortOrder: 1 }).sort({ sortOrder: 1 }).lean<Pick<MenuDocument, "_id" | "name" | "nameGu">[]>(),
+    loadPeriod(restaurantId, spanFrom, today),
+    Category.find({ restaurantId }).select({ menuId: 1 }).lean<Pick<CategoryDocument, "_id" | "menuId">[]>(),
+    Menu.find({ restaurantId }).select({ name: 1, nameGu: 1, sortOrder: 1 }).sort({ sortOrder: 1 }).lean<Pick<MenuDocument, "_id" | "name" | "nameGu">[]>(),
   ]);
   const current = slice(span, from, to);
   const previous = slice(span, prevFrom, prevTo);
@@ -191,7 +192,7 @@ export async function getTodayReport(range: ReportRange): Promise<TodayReportDTO
 }
 
 /** One calendar month, day by day (up to today for the current month). */
-export async function getMonthReport(month: string): Promise<MonthReportDTO> {
+export async function getMonthReport(restaurantId: RestaurantRef, month: string): Promise<MonthReportDTO> {
   await connectToDatabase();
   const today = getBusinessDate();
   const from = `${month}-01`;
@@ -199,7 +200,7 @@ export async function getMonthReport(month: string): Promise<MonthReportDTO> {
   const to = monthEnd < today ? monthEnd : today;
   if (from > today) return { month, sales: 0, orders: 0, dineIn: 0, parcel: 0, cancelled: 0, bills: 0, days: [] };
 
-  const { orders, bills } = await loadPeriod(from, to);
+  const { orders, bills } = await loadPeriod(restaurantId, from, to);
   const total = summarize(orders, bills);
   return {
     month,

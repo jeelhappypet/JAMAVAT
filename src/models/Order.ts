@@ -1,5 +1,6 @@
 import { Schema, model, models } from "mongoose";
 import { ORDER_ITEM_STATUSES, ORDER_SOURCES, ORDER_STATUSES, PAYMENT_MODES } from "@/types";
+import { tenantField, tenantGuard } from "@/lib/db/tenant";
 
 const orderItemSchema = new Schema(
   {
@@ -21,6 +22,7 @@ const orderItemSchema = new Schema(
 
 const orderSchema = new Schema(
   {
+    restaurantId: tenantField,
     tokenNumber: { type: Number, required: true },
     businessDate: { type: String, required: true },
     customerName: { type: String, trim: true },
@@ -43,10 +45,12 @@ const orderSchema = new Schema(
   { timestamps: true }
 );
 
-orderSchema.index({ businessDate: 1, status: 1 });
-orderSchema.index({ businessDate: 1, tokenNumber: 1 }, { unique: true });
-orderSchema.index({ createdAt: 1 });
+orderSchema.plugin(tenantGuard);
+
+orderSchema.index({ restaurantId: 1, businessDate: 1, status: 1 });
+orderSchema.index({ restaurantId: 1, businessDate: 1, tokenNumber: 1 }, { unique: true });
+orderSchema.index({ restaurantId: 1, createdAt: 1 });
 orderSchema.index({ clientRequestId: 1 }, { unique: true, sparse: true });
-orderSchema.index({ guestSessionId: 1 });
+orderSchema.index({ restaurantId: 1, guestSessionId: 1 });
 
 export const Order = models.Order || model("Order", orderSchema);

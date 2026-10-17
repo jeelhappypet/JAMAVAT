@@ -1,5 +1,6 @@
 import type { Model } from "mongoose";
 import { connectToDatabase } from "@/lib/db/mongodb";
+import type { RestaurantRef } from "@/lib/db/tenant";
 import { isDuplicateKeyError } from "@/lib/api";
 import { Menu, type MenuDocument } from "@/models/Menu";
 import { Category, type CategoryDocument } from "@/models/Category";
@@ -13,19 +14,21 @@ const LEGACY_LABELS: Record<string, { name: string; nameGu: string }> = {
   અન્ય: { name: "Other", nameGu: "અન્ય" },
 };
 
-async function upsertByLegacyKey<T>(model: Model<T>, legacyKey: string, insert: Record<string, unknown>) {
+async function upsertByLegacyKey<T>(model: Model<T>, restaurantId: RestaurantRef, legacyKey: string, insert: Record<string, unknown>) {
+  const filter = { restaurantId, legacyKey };
   try {
     return await model
-      .findOneAndUpdate({ legacyKey }, { $setOnInsert: insert }, { upsert: true, returnDocument: "after" })
+      .findOneAndUpdate(filter, { $setOnInsert: { ...insert, restaurantId } }, { upsert: true, returnDocument: "after" })
       .lean<{ _id: unknown }>();
   } catch (error) {
     // Two first requests raced on the unique legacyKey — the other one won.
-    if (isDuplicateKeyError(error)) return model.findOne({ legacyKey }).lean<{ _id: unknown }>();
+    if (isDuplicateKeyError(error)) return model.findOne(filter).lean<{ _id: unknown }>();
     throw error;
   }
 }
 
-let structureReady = false;
+/** Only the restaurants whose v1 items have already been migrated, so a second call is free. */
+const structureReady = new Set<string>();
 
 /**
  * v1 → v2 menu migration. Idempotent and purely additive, so v1 code still
@@ -35,31 +38,32 @@ let structureReady = false;
  *   string under the default menu; the old string field is left untouched.
  * Runs once per server instance, a cheap no-op afterwards.
  */
-export async function ensureMenuStructure() {
-  if (structureReady) return;
+export async function ensureMenuStructure(restaurantId: RestaurantRef) {
+  const key = String(restaurantId);
+  if (structureReady.has(key)) return;
   await connectToDatabase();
 
-  const hasMenu = await Menu.exists({});
-  const legacyKeys = ((await MenuItem.distinct("category", { categoryId: { $exists: false } })) as unknown[])
+  const hasMenu = await Menu.exists({ restaurantId });
+  const legacyKeys = ((await MenuItem.distinct("category", { restaurantId, categoryId: { $exists: false } })) as unknown[])
     .filter((key): key is string => typeof key === "string" && key.length > 0)
     .sort((a, b) => rank(a) - rank(b));
 
   if (!hasMenu || legacyKeys.length > 0) {
-    const menu = await upsertByLegacyKey(Menu, "default", { name: "Menu", nameGu: "મેનુ", sortOrder: 0, isActive: true });
-    for (const [index, key] of legacyKeys.entries()) {
-      const label = LEGACY_LABELS[key] ?? { name: key, nameGu: key };
-      const category = await upsertByLegacyKey(Category, key, {
+    const menu = await upsertByLegacyKey(Menu, restaurantId, "default", { name: "Menu", nameGu: "મેનુ", sortOrder: 0, isActive: true });
+    for (const [index, legacy] of legacyKeys.entries()) {
+      const label = LEGACY_LABELS[legacy] ?? { name: legacy, nameGu: legacy };
+      const category = await upsertByLegacyKey(Category, restaurantId, legacy, {
         menuId: menu?._id,
         name: label.name,
         nameGu: label.nameGu,
         sortOrder: index,
         isActive: true,
       });
-      await MenuItem.updateMany({ category: key, categoryId: { $exists: false } }, { $set: { categoryId: category?._id } });
+      await MenuItem.updateMany({ restaurantId, category: legacy, categoryId: { $exists: false } }, { $set: { categoryId: category?._id } });
     }
   }
 
-  structureReady = true;
+  structureReady.add(key);
 }
 
 function rank(key: string): number {
@@ -85,9 +89,9 @@ export function toMenuItemDTO(item: MenuItemDocument): MenuItemDTO {
 }
 
 /** Menus → categories → items, in display order. `activeOnly` hides anything the admin switched off. */
-export async function loadMenuTree({ activeOnly = false } = {}): Promise<MenuDTO[]> {
-  await ensureMenuStructure();
-  const active = activeOnly ? { isActive: true } : {};
+export async function loadMenuTree(restaurantId: RestaurantRef, { activeOnly = false } = {}): Promise<MenuDTO[]> {
+  await ensureMenuStructure(restaurantId);
+  const active = activeOnly ? { restaurantId, isActive: true } : { restaurantId };
 
   const [menus, categories, items] = await Promise.all([
     Menu.find(active).sort({ sortOrder: 1, createdAt: 1 }).lean<MenuDocument[]>(),

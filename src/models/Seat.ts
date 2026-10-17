@@ -1,4 +1,5 @@
 import { Schema, model, models, type InferSchemaType, type Types } from "mongoose";
+import { tenantField, tenantGuard } from "@/lib/db/tenant";
 
 /**
  * One QR code: a side of a table ("4A"). The QR encodes `token`, a random
@@ -10,6 +11,7 @@ import { Schema, model, models, type InferSchemaType, type Types } from "mongoos
  */
 const seatSchema = new Schema(
   {
+    restaurantId: tenantField,
     tableId: { type: Schema.Types.ObjectId, ref: "Table", required: true },
     label: { type: String, required: true, trim: true },
     token: { type: String, required: true },
@@ -19,8 +21,11 @@ const seatSchema = new Schema(
   { timestamps: true }
 );
 
+seatSchema.plugin(tenantGuard);
+
 seatSchema.index({ token: 1 }, { unique: true });
 seatSchema.index({ tableId: 1, label: 1 }, { unique: true });
+seatSchema.index({ restaurantId: 1, tableId: 1 });
 
 export type SeatDocument = InferSchemaType<typeof seatSchema> & { _id: Types.ObjectId };
 

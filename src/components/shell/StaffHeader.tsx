@@ -7,24 +7,27 @@ import { AccountMenu } from "@/components/shell/AccountMenu";
 import { IconButton } from "@/components/ui/IconButton";
 import { RealtimeStatus } from "@/components/realtime/RealtimeStatus";
 import { ADMIN_NAV, COUNTER_NAV, activeHref, isCounterPath } from "@/components/shell/navItems";
+import { useRestaurant } from "@/components/shell/RestaurantProvider";
+import { appRelativePath } from "@/lib/auth/access";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { COUNTER_SOUND, useSoundPref } from "@/lib/utils/soundPref";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import type { StaffRole } from "@/types";
 
 interface StaffHeaderProps {
-  restaurantName: string | null;
   staffName: string;
   role: StaffRole;
 }
 
 /** Counter pages get the Counter artboard's one-row header; every other shell page the Admin artboard's. */
 export function StaffHeader(props: StaffHeaderProps) {
-  const pathname = usePathname() ?? "/";
+  // Tabs compare restaurant-relative paths, so one header serves every restaurant's link.
+  const pathname = appRelativePath(usePathname() ?? "/");
   return isCounterPath(pathname) ? <CounterHeader {...props} pathname={pathname} /> : <AdminHeader {...props} pathname={pathname} />;
 }
 
-function Restaurant({ name, caption }: { name: string | null; caption: string }) {
+function Restaurant({ caption }: { caption: string }) {
+  const { name } = useRestaurant();
   if (!name) return <BrandMark size={38} withName />;
   return (
     <div className="flex min-w-0 items-center gap-2.5">
@@ -37,15 +40,16 @@ function Restaurant({ name, caption }: { name: string | null; caption: string })
   );
 }
 
-function AdminHeader({ restaurantName, staffName, role, pathname }: StaffHeaderProps & { pathname: string }) {
+function AdminHeader({ staffName, role, pathname }: StaffHeaderProps & { pathname: string }) {
   const { t } = useI18n();
+  const { path } = useRestaurant();
   const current = activeHref(ADMIN_NAV, pathname);
 
   return (
     <header className="border-b border-border bg-surface print:hidden">
       <div className="mx-auto flex max-w-[1360px] flex-col gap-2.5 px-[clamp(16px,3vw,32px)] pt-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Restaurant name={restaurantName} caption={`${t(`role.${role}`)} · ${t("common.onJamavat")}`} />
+          <Restaurant caption={`${t(`role.${role}`)} · ${t("common.onJamavat")}`} />
           <AccountMenu
             name={staffName}
             role={role}
@@ -65,7 +69,7 @@ function AdminHeader({ restaurantName, staffName, role, pathname }: StaffHeaderP
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={path(item.href)}
                 aria-current={active ? "page" : undefined}
                 className={`whitespace-nowrap border-b-2 px-2 py-3 text-center text-sm sm:px-3.5 sm:text-left ${active ? "border-brand font-extrabold text-brand-dark" : "border-transparent font-semibold text-stone-700"}`}
               >
@@ -80,8 +84,9 @@ function AdminHeader({ restaurantName, staffName, role, pathname }: StaffHeaderP
   );
 }
 
-function CounterHeader({ restaurantName, staffName, role, pathname }: StaffHeaderProps & { pathname: string }) {
+function CounterHeader({ staffName, role, pathname }: StaffHeaderProps & { pathname: string }) {
   const { t } = useI18n();
+  const { path } = useRestaurant();
   const current = activeHref(COUNTER_NAV, pathname);
   const { state } = useRealtime({});
   const [soundOn, toggleSound] = useSoundPref(COUNTER_SOUND);
@@ -89,14 +94,14 @@ function CounterHeader({ restaurantName, staffName, role, pathname }: StaffHeade
   return (
     <header className="border-b border-border bg-surface print:hidden">
       <div className="mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-5 gap-y-3 px-[clamp(16px,3vw,32px)] py-3">
-        <Restaurant name={restaurantName} caption={t("common.onJamavat")} />
+        <Restaurant caption={t("common.onJamavat")} />
         <nav aria-label={t("nav.counter")} className="flex flex-grow flex-wrap gap-1">
           {COUNTER_NAV.map((item) => {
             const active = item.href === current;
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={path(item.href)}
                 aria-current={active ? "page" : undefined}
                 className={`rounded-[10px] px-3.5 py-2.5 text-sm ${active ? "bg-stone-900 font-bold text-white" : "font-semibold text-stone-700 hover:bg-surface-muted"}`}
               >

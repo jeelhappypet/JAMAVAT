@@ -27,11 +27,12 @@ export async function GET(request: Request, { params }: Params) {
     const { before } = whatsappMessagesSchema.parse(Object.fromEntries(new URL(request.url).searchParams));
     await connectToDatabase();
 
-    const conversation = await WhatsAppConversation.findById(id).lean<WhatsAppConversationDocument>();
+    const { restaurantId } = staff;
+    const conversation = await WhatsAppConversation.findOne({ restaurantId, _id: id }).lean<WhatsAppConversationDocument>();
     const ownNumber = getOwnPhoneNumberId();
     if (!conversation || (ownNumber && conversation.whatsappPhoneNumberId !== ownNumber)) return jsonError(t("err.notFound"), 404);
 
-    const page = await WhatsAppMessage.find({ conversationId: conversation._id, ...(before ? { timestamp: { $lt: new Date(before) } } : {}) })
+    const page = await WhatsAppMessage.find({ restaurantId, conversationId: conversation._id, ...(before ? { timestamp: { $lt: new Date(before) } } : {}) })
       .sort({ timestamp: -1 })
       .limit(PAGE + 1)
       .select({ rawPayload: 0, media: 0, sender: 0, recipient: 0 })

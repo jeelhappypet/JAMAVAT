@@ -30,18 +30,19 @@ export async function POST(request: Request, { params }: Params) {
     if (!type) return jsonError(t("err.photoType"), 400);
     if (file.size > PHOTO_MAX_BYTES) return jsonError(t("err.photoTooBig"), 413);
 
-    const before = await MenuItem.findById(id).select({ imageUrl: 1 }).lean<Pick<MenuItemDocument, "imageUrl">>();
+    const { restaurantId } = staff;
+    const before = await MenuItem.findOne({ restaurantId, _id: id }).select({ imageUrl: 1 }).lean<Pick<MenuItemDocument, "imageUrl">>();
     if (!before) return jsonError(t("err.notFound"), 404);
 
-    const imageUrl = await storeDishPhoto(id, file, type);
-    const updated = await MenuItem.findByIdAndUpdate(id, { $set: { imageUrl } }, { returnDocument: "after" }).lean<MenuItemDocument>();
+    const imageUrl = await storeDishPhoto(restaurantId, id, file, type);
+    const updated = await MenuItem.findOneAndUpdate({ restaurantId, _id: id }, { $set: { imageUrl } }, { returnDocument: "after" }).lean<MenuItemDocument>();
     if (!updated) {
       // Deleted while uploading — don't keep an orphan.
       await deleteDishPhoto(imageUrl);
       return jsonError(t("err.notFound"), 404);
     }
     await deleteDishPhoto(before.imageUrl);
-    await emitRealtimeEvent(REALTIME_EVENTS.MENU_UPDATED, { reason: "item-updated" });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.MENU_UPDATED, { reason: "item-updated" });
     return NextResponse.json({ item: toMenuItemDTO(updated) });
   });
 }
@@ -55,10 +56,11 @@ export async function DELETE(_request: Request, { params }: Params) {
   return respond(t, "err.saveFailed", async () => {
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
-    const before = await MenuItem.findByIdAndUpdate(id, { $unset: { imageUrl: 1 } }).lean<MenuItemDocument>();
+    const { restaurantId } = staff;
+    const before = await MenuItem.findOneAndUpdate({ restaurantId, _id: id }, { $unset: { imageUrl: 1 } }).lean<MenuItemDocument>();
     if (!before) return jsonError(t("err.notFound"), 404);
     await deleteDishPhoto(before.imageUrl);
-    await emitRealtimeEvent(REALTIME_EVENTS.MENU_UPDATED, { reason: "item-updated" });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.MENU_UPDATED, { reason: "item-updated" });
     return NextResponse.json({ ok: true });
   });
 }

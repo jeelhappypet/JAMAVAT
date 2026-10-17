@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
-import { WHATSAPP_CHANNEL, WHATSAPP_EVENTS } from "@/lib/realtime/events";
+import { WHATSAPP_EVENTS, whatsAppChannel } from "@/lib/realtime/events";
 import { POLL_MS, SAFETY_RESYNC_MS } from "@/lib/realtime/polling";
 import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
 import { cn } from "@/components/ui/cn";
@@ -194,7 +194,7 @@ export function WhatsAppInbox({ canSend, homeHref }: { canSend: boolean; homeHre
       [WHATSAPP_EVENTS.CONVERSATION_UPDATED]: onConversation,
     },
     resync,
-    WHATSAPP_CHANNEL
+    whatsAppChannel
   );
 
   // First load, and the search box (debounced).

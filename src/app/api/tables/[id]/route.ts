@@ -21,13 +21,14 @@ export async function PATCH(request: Request, { params }: Params) {
   return respond(t, "err.saveFailed", async () => {
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
+    const { restaurantId } = staff;
     const { area, ...rest } = tableUpdateSchema.parse(await request.json());
     const patch = toMongoUpdate({ ...rest, ...(area !== undefined ? { area } : {}) });
     if (area === "") Object.assign(patch, { $unset: { area: 1 } });
     if (area === "" && "$set" in patch) delete (patch.$set as Record<string, unknown>).area;
-    const updated = await Table.findByIdAndUpdate(id, patch, { returnDocument: "after" }).lean();
+    const updated = await Table.findOneAndUpdate({ restaurantId, _id: id }, patch, { returnDocument: "after" }).lean();
     if (!updated) return jsonError(t("err.notFound"), 404);
-    await emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { tableId: id });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.SEAT_UPDATED, { tableId: id });
     return NextResponse.json({ ok: true });
   });
 }
@@ -41,11 +42,12 @@ export async function DELETE(_request: Request, { params }: Params) {
   return respond(t, "err.saveFailed", async () => {
     const { id } = await params;
     if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
-    if (await Seat.exists({ tableId: id, currentSessionId: { $ne: null } })) return jsonError(t("err.seatInUse"), 409);
-    const deleted = await Table.findByIdAndDelete(id).lean();
+    const { restaurantId } = staff;
+    if (await Seat.exists({ restaurantId, tableId: id, currentSessionId: { $ne: null } })) return jsonError(t("err.seatInUse"), 409);
+    const deleted = await Table.findOneAndDelete({ restaurantId, _id: id }).lean();
     if (!deleted) return jsonError(t("err.notFound"), 404);
-    await Seat.deleteMany({ tableId: id });
-    await emitRealtimeEvent(REALTIME_EVENTS.SEAT_UPDATED, { tableId: id });
+    await Seat.deleteMany({ restaurantId, tableId: id });
+    await emitRealtimeEvent(restaurantId, REALTIME_EVENTS.SEAT_UPDATED, { tableId: id });
     return NextResponse.json({ ok: true });
   });
 }
