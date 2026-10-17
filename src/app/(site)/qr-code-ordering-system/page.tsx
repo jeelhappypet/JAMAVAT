@@ -1,0 +1,10 @@
+import type { Metadata } from "next";
+import { KeywordRoute, keywordMetadata } from "@/lib/site/keywordRoute";
+
+const SLUG = "qr-code-ordering-system";
+
+export const metadata: Metadata = keywordMetadata(SLUG, "en");
+
+export default function QrCodeOrderingSystemPage() {
+  return <KeywordRoute slug={SLUG} lang="en" />;
+}

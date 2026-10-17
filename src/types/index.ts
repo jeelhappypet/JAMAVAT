@@ -49,6 +49,29 @@ export interface Localized {
   gu: string;
 }
 
+/** A demo request from the Jamavat website, as HQ works through it. */
+export const INQUIRY_STATUSES = ["NEW", "CONTACTED", "CONVERTED", "LOST"] as const;
+export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
+
+export interface InquiryDTO {
+  id: string;
+  name: string;
+  phone: string;
+  restaurantName?: string;
+  city?: string;
+  email?: string;
+  tables?: string;
+  kitchens?: string;
+  message?: string;
+  status: InquiryStatus;
+  notes?: string;
+  restaurantId?: string;
+  source?: string;
+  lang: "en" | "gu";
+  createdAt: string;
+  contactedAt?: string;
+}
+
 export interface StaffDTO {
   id: string;
   name: string;

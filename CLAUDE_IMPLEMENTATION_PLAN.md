@@ -85,7 +85,7 @@ Decisions:
 | Phase | Scope | Status |
 |---|---|---|
 | 5A | ✅ **Data separation.** `restaurantId` on Menu, Category, MenuItem, Order, Bill, Staff, Table, Seat, GuestSession, WhatsApp*; per-restaurant unique indexes (staff name, token per day, bill no, legacy keys, wa_id); tenant guard plugin; Restaurant gets `slug`, status, subscription fields; session cookie carries restaurant id + slug; `requireStaff` → `restaurantId`; per-restaurant Pusher channels (`private-staff-{id}`, `private-whatsapp-{id}`) checked in `/api/pusher/auth`; counters `{rid}:{date}` / `{rid}:bill`; Blob paths `restaurants/{id}/…`; WhatsApp number → restaurant; locked one-time migration of the live data; staff app under `/r/[slug]` (+ per-restaurant manifest / installed app), redirects for old paths and old cookies; `/login` finds the restaurant; invite link → first admin | ✅ |
-| 5B | **Website + SEO + inquiry.** Own root layout (static, no cookies, no service worker); `/` per the Landing artboard + pricing; `/gu` mirror with hreflang; keyword pages (`/restaurant-management-software`, `/qr-code-ordering-system`, `/kitchen-display-system`, `/restaurant-billing-software`), `/pricing`, `/privacy`, `/terms`; title/description/canonical/OG image; JSON-LD (Organization, WebSite, SoftwareApplication + offers, FAQPage, BreadcrumbList); `sitemap.xml`, `robots.txt` (app paths disallowed + noindex); inquiry form → `/api/inquiries` (zod, honeypot, IP rate limit, same-phone de-dupe, UTM/source kept) → `Inquiry` + email to HQ; WhatsApp chat link; content cached and revalidated when HQ saves | ⬜ |
+| 5B | ✅ **Website + SEO + inquiry.** Own root layout (static, no cookies, no service worker); `/` per the Landing artboard + pricing; `/gu` mirror with hreflang; keyword pages (`/restaurant-management-software`, `/qr-code-ordering-system`, `/kitchen-display-system`, `/restaurant-billing-software`), `/pricing`, `/privacy`, `/terms`; title/description/canonical/OG image; JSON-LD (Organization, WebSite, SoftwareApplication + offers, FAQPage, BreadcrumbList); `sitemap.xml`, `robots.txt` (app paths disallowed + noindex); inquiry form → `/api/inquiries` (zod, honeypot, IP rate limit, same-phone de-dupe, UTM/source kept) → `Inquiry` + email to HQ; WhatsApp chat link; content cached and revalidated when HQ saves | ✅ (HQ-edited content and the OG image are 5C/5F) |
 | 5C | **HQ (`/hq`).** Email-OTP login for HQ admins (first one created with `SETUP_KEY`), own cookie; dashboard (restaurants, new inquiries, orders today across all); restaurants list + create (slug check, plan, trial, owner email → invite) + detail (status, plan, usage, invite again, suspend/resume, change slug with redirect); inquiries (New → Contacted → Converted/Lost, notes, call, create restaurant from it); Website content; SEO settings (Search Console code, titles); Plans | ⬜ |
 | 5D | **Subscriptions (manual billing).** `Plan` (name, monthly/yearly price, seat + staff limits, WhatsApp feature, public on pricing); restaurant subscription (plan, TRIAL/ACTIVE/SUSPENDED/CANCELLED, period end, grace days → computed PAST_DUE/EXPIRED); `SubscriptionPayment` ledger (HQ records UPI/cash/bank → extends the period); limits enforced on adding seats/staff and re-activating them; expired/suspended = no new orders (counter + QR), settle still works, guest sees "not taking QR orders"; admin banner 7 days before expiry; plan card in Settings; HQ "expiring soon" list + reminder email | ⬜ |
 | 5E | **Razorpay** — plan separately with the owner: Subscriptions API or payment links, webhook → same ledger, invoices/GST, self-serve renew in Settings, daily cron for reminders | ⬜ later |
@@ -125,6 +125,35 @@ Decisions:
   date, drops the old global unique indexes and carries today's token and
   bill counters over. Covered by `tests/migrate.int.test.ts` (skipped unless
   `MONGODB_TEST_URI` names a throwaway database).
+
+**5B as built (2026-10-18):**
+
+- `(site)` route group with its own layout: no service worker, no staff
+  session, nothing that needs JavaScript to read. `/` and `/gu` are the home
+  page; `/pricing`, `/terms` and four keyword pages
+  (`/restaurant-management-software`, `/qr-code-ordering-system`,
+  `/kitchen-display-system`, `/restaurant-billing-software`) each exist in
+  both languages at their own address, with canonical + hreflang and a
+  language switch that links to the other address (never a cookie).
+- Copy lives in `lib/site/content.ts` as `Localized` pairs — long-form
+  marketing text HQ will edit later, kept out of the app's `messages.ts`.
+  Each keyword page has its own title, description and body; `tests/
+  siteUrls.test.ts` checks both languages are filled in and the titles and
+  descriptions are the length a search result shows.
+- JSON-LD (`lib/site/jsonLd.ts`): Organization, SoftwareApplication,
+  FAQPage, BreadcrumbList — facts only, no invented ratings. `sitemap.xml`
+  lists both languages per page; `robots.ts` disallows `/r/`, `/t/`, `/hq`,
+  `/go` and `/api/`.
+- Inquiry: `POST /api/inquiries` → `Inquiry` + an email to `HQ_EMAIL` (falls
+  back to `SMTP_USER`). Guarded by a honeypot field, a per-address hourly
+  limit and a same-phone de-dupe inside 24 h, so HQ's list stays readable.
+  Verified end to end in the browser.
+- Pricing shows only the plans HQ marked public; with none set up it says
+  so and points at the demo form rather than inventing a price.
+- The hero carousel keeps every slide's text in the HTML (only the display
+  changes), and its frames are labelled placeholders until there are real
+  screenshots — an invented screenshot would show a restaurant that doesn't
+  exist.
 
 Cases 5A–5D must cover (checklist — tick in tests or by hand):
 

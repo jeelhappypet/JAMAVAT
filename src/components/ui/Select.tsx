@@ -3,7 +3,8 @@ import { cn } from "./cn";
 
 interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "size" | "className" | "onChange"> {
   options: { value: string; label: string }[];
-  onChange: (value: string) => void;
+  /** Left out when the value is read from the form on submit instead of being held in state. */
+  onChange?: (value: string) => void;
   size?: "sm" | "md";
   label?: string;
   className?: string;
@@ -13,7 +14,7 @@ interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "siz
 export function Select({ options, onChange, size = "md", label, className, ...rest }: SelectProps) {
   const select = (
     <select
-      onChange={(e) => onChange(e.target.value)}
+      onChange={onChange ? (e) => onChange(e.target.value) : undefined}
       className={cn(
         "w-full appearance-none border border-stone-300 bg-surface bg-[length:16px] bg-[right_12px_center] bg-no-repeat pr-10 font-semibold text-foreground disabled:opacity-60",
         "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2357534e' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")]",
