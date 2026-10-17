@@ -1,8 +1,18 @@
-# જમાવટ — Project Architecture
+# જમાવટ / Jamavat — Project Architecture
 
-Restaurant order management PWA: counter (parcel/token) orders plus QR
-dine-in — guests scan the QR on their side of the table, order from their
-phone and pay at the counter after the meal. English + ગુજરાતી (EN/ગુ
+**Jamavat is the software, not a restaurant.** One deployment serves three
+different things:
+
+- `/` — Jamavat's own website (English and ગુજરાતી), the pages Google
+  indexes and the "Book a free demo" form (§16).
+- `/r/{slug}/…` — one restaurant's staff app, and `/t/{token}` its guests'
+  QR pages. Private, never indexed (§15).
+- `/hq` — the owner's panel: customers, subscriptions, plans and the leads
+  from the website (§17).
+
+What a restaurant gets is the order management PWA below: counter
+(parcel/token) orders plus QR dine-in — guests scan the QR on their side of
+the table, order from their phone and pay at the counter after the meal. English + ગુજરાતી (EN/ગુ
 toggle; screens not yet redesigned still carry hardcoded Gujarati), staff
 PIN login, single Next.js project for frontend + backend, MongoDB Atlas
 persistence, Pusher realtime, Gmail SMTP for guest email.
@@ -139,8 +149,13 @@ Snapshots mean a menu price change today never rewrites yesterday's orders.
 `sessionVersion`, `failedPinAttempts`, `lockedUntil`, `categoryIds` (kitchen
 routing — which categories' items this login's kitchen screen receives).
 
-**Restaurant** — `name`. A single document for now (shown on login and in
-every staff header); it becomes one-per-tenant in the multi-restaurant phase.
+**Restaurant** — one per customer: `name`, `slug` (its `/r/{slug}` link),
+`previousSlugs` (so a renamed link keeps redirecting), `status`, `planId`,
+`billingCycle`, `paidUntil`, `graceDays`, the owner's details, the hashed
+one-time `invite`, and `whatsappPhoneNumberId`. Everything else points at it
+with `restaurantId` (§15). **Plan** — what a subscription costs and allows.
+**SubscriptionPayment** — money received, and the period it bought.
+**Inquiry** — a demo request from the website (§16).
 
 **Table** — `name` ("4", "Garden"), `area?`, `sortOrder`, `isActive`.
 **Seat** — one per table side: `tableId`, `label` (A–F), `token` (the
@@ -533,6 +548,12 @@ Everything is used on a phone — the guest's, and often the owner's — so:
 
 ```
 MONGODB_URI=              # MongoDB Atlas connection string (production)
+HQ_EMAILS=                 # comma-separated addresses allowed into /hq — with none, HQ is closed
+HQ_EMAIL=                  # where website inquiries are emailed (defaults to SMTP_USER)
+LEGACY_RESTAURANT_SLUG=    # one-time: the link the existing restaurant gets at /r/{slug}
+NEXT_PUBLIC_SITE_PHONE=    # shown on the website
+NEXT_PUBLIC_SITE_EMAIL=
+NEXT_PUBLIC_SITE_WHATSAPP= # digits only (919876543210) — the "Chat on WhatsApp" link
 ADMIN_SESSION_SECRET=      # signs staff session cookies — `openssl rand -hex 32`
 SETUP_KEY=                 # one-time key for /setup (falls back to ADMIN_PASSWORD)
 NEXT_PUBLIC_APP_NAME=જમાવટ
@@ -655,7 +676,120 @@ surface area the brief explicitly excludes for v1.
 - Rotate `ADMIN_SESSION_SECRET` and `MONGODB_URI` if they were ever
   exposed outside a private environment.
 
-## 15. Missing Information Checklist
+## 15. Multi-restaurant (tenancy)
+
+Every collection that belongs to one restaurant carries `restaurantId`, and
+`lib/db/tenant.ts` makes that impossible to forget: `tenantGuard` throws on
+any find, update, delete, count, distinct, aggregate or bulkWrite whose
+filter doesn't name a restaurant. A missing filter fails loudly in
+development instead of quietly reading or changing another restaurant's
+data. The two deliberate ways past it:
+
+- `{ crossTenant: true }` on a query (`resolveSeat`, which turns a QR token
+  into its restaurant; `getCurrentStaff` for a cookie issued before
+  tenancy; HQ's totals in `lib/hq/restaurants.ts`).
+- Collections that belong to nobody in particular: Restaurant, Plan,
+  Inquiry, SubscriptionPayment, EmailOtp (scoped by a `scope` string
+  instead) and Counter (keyed `"{restaurantId}:{businessDate}"` and
+  `"{restaurantId}:bill"`).
+
+Where the restaurant comes from, per request:
+
+| Caller | Source |
+|---|---|
+| Staff page | `requirePageStaff(slug, path)` — the session, and it must match the link |
+| Staff API | `requireStaff(roles)` → `staff.restaurantId`, never the URL or body |
+| Guest API | the seat token (`resolveSeat`) |
+| WhatsApp webhook | `phone_number_id` → `Restaurant.whatsappPhoneNumberId` |
+| HQ | not a restaurant at all — its own cookie (§17) |
+
+Other per-restaurant things: Pusher channels (`private-staff-{id}`,
+`private-whatsapp-{id}`, signed by `/api/pusher/auth` only for that
+restaurant's own staff), dish photos (`restaurants/{id}/dishes/…` in Blob),
+the PWA manifest (`/r/{slug}/manifest.webmanifest`, `start_url` its own
+login) and unique indexes (staff name, daily token number, bill number,
+wa_id — all now `{restaurantId, …}`).
+
+Old links keep working: `proxy.ts` sends `/`, `/counter`, `/login` and the
+rest to `/r/{slug}/…` using the slug in the session cookie, and a cookie
+from before tenancy through `/go`, which reads the restaurant once and
+re-issues the cookie. A renamed link redirects from `previousSlugs`.
+
+`lib/db/migrate.ts` runs once on the first database connect, behind a lock
+in a `migrations` document: it stamps `restaurantId` everywhere, gives the
+existing restaurant a slug and ACTIVE with no end date, drops the old global
+unique indexes and carries today's token and bill counters across. Covered
+by `tests/migrate.int.test.ts` (skipped unless `MONGODB_TEST_URI` names a
+throwaway database — never point it at `JAMAVATDATA`).
+
+`/setup` is gone. HQ creates a restaurant and emails a one-time invite link
+(`/r/{slug}/welcome?invite=…`, hashed, 14 days, dead once that restaurant
+has any staff) that makes the first admin login.
+
+## 16. The Jamavat website (`/`)
+
+A `(site)` route group with its own layout: server-rendered, no service
+worker, no staff session, readable without JavaScript. English lives at
+`/…` and ગુજરાતી at `/gu/…` — two real addresses with canonical and
+hreflang, because a cookie-switched single URL can't be indexed in both.
+
+- Pages: home, `/pricing`, `/terms`, and one page per thing owners search
+  for (`/restaurant-management-software`, `/qr-code-ordering-system`,
+  `/kitchen-display-system`, `/restaurant-billing-software`), each with its
+  own title, description and body.
+- Copy: `lib/site/content.ts` as `{en, gu}` pairs (long-form marketing text,
+  kept out of the app's `messages.ts`). `tests/siteUrls.test.ts` checks both
+  languages are filled in and that titles and descriptions are the length a
+  search result actually shows.
+- JSON-LD in `lib/site/jsonLd.ts`: Organization, SoftwareApplication,
+  FAQPage, BreadcrumbList — only facts the page states, never invented
+  ratings. `sitemap.ts` lists both languages per page; `robots.ts` disallows
+  `/r/`, `/t/`, `/hq`, `/go` and `/api/`.
+- Pricing shows only the plans HQ marked public; with none it says so and
+  points at the form rather than inventing a price.
+- `POST /api/inquiries` → an `Inquiry` plus an email to `HQ_EMAIL`. Guarded
+  by a hidden honeypot field (a bot gets the same "thanks" answer), an
+  hourly per-address limit, and a de-dupe on the phone number inside a day
+  so one owner submitting twice stays one lead.
+
+## 17. HQ (`/hq`) and subscriptions
+
+HQ is the owner's own panel, with its own cookie (`jamavat_hq_session`,
+30 days) and its own sign-in: a 6-digit code emailed to an address on the
+server's `HQ_EMAILS` allowlist. The allowlist is re-read on every request,
+so removing an address locks that device out at once, and the "send code"
+step answers the same whatever address is typed. The guest test-inbox
+shortcut does not apply to the `hq` OTP scope.
+
+Screens: restaurants (add one with a trial and an invite link; open one to
+run its subscription), inquiries, plans. The sign-in page sits outside the
+guarded route group so it can't redirect to itself.
+
+**Subscription** (`lib/subscription.ts`): `Restaurant.status` is what HQ
+set (TRIAL / ACTIVE / SUSPENDED / CANCELLED); `paidUntil` is when the trial
+or paid period ends (empty = no end date). Together with `graceDays` that
+gives the state the app acts on:
+
+| State | What happens |
+|---|---|
+| `ok` | everything works; the admin sees a line in the last 7 days |
+| `due` | past `paidUntil`, inside the grace days — everything still works, louder line |
+| `expired` | **no new orders**, counter or QR; settling open tables and reports keep working |
+| `suspended` / `cancelled` | HQ switched it off: staff can't use the app, guests see "not taking orders" |
+
+`requireStaff(roles, { orders: true })` is what enforces it on the routes
+that create orders (402); `/api/guest/orders` checks the same thing (503).
+Plan limits (`lib/limits.ts`) are checked where things are created — the
+11th QR on a 10-QR plan is refused with a translated message, while the QRs
+that already exist keep working.
+
+HQ's "Record a payment" writes a `SubscriptionPayment` and moves
+`paidUntil` forward (from the current end if it hasn't passed, else from
+today), turning a trial into ACTIVE. That model already carries `provider`,
+a unique `providerRef` and `rawPayload`, so Razorpay's webhook writes the
+same rows later without changing what anything else reads.
+
+## 18. Missing Information Checklist
 
 - [ ] Production domain
 - [ ] MongoDB Atlas production connection string
