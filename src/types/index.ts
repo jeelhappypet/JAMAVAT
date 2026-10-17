@@ -49,6 +49,65 @@ export interface Localized {
   gu: string;
 }
 
+/** How a restaurant paid Jamavat. Razorpay (phase 5E) adds its own rows with method "ONLINE". */
+export const SUBSCRIPTION_PAYMENT_METHODS = ["UPI", "CASH", "BANK", "CARD", "ONLINE", "FREE"] as const;
+export type SubscriptionPaymentMethod = (typeof SUBSCRIPTION_PAYMENT_METHODS)[number];
+
+export interface SubscriptionPaymentDTO {
+  id: string;
+  amount: number;
+  method: SubscriptionPaymentMethod;
+  cycle: BillingCycle;
+  months: number;
+  paidAt: string;
+  paidUntil: string;
+  note?: string;
+  recordedBy?: string;
+}
+
+/** A restaurant as HQ lists it. */
+export interface HqRestaurantDTO {
+  id: string;
+  name: string;
+  slug: string;
+  status: RestaurantStatus;
+  state: SubscriptionState;
+  planId?: string;
+  planName?: string;
+  billingCycle: BillingCycle;
+  paidUntil?: string;
+  graceDays: number;
+  daysLeft?: number;
+  ownerName?: string;
+  ownerEmail?: string;
+  ownerPhone?: string;
+  city?: string;
+  notes?: string;
+  /** Whether an unused invite link is still outstanding. */
+  inviteePending: boolean;
+  hasStaff: boolean;
+  counts: { seats: number; staff: number; ordersToday: number };
+  createdAt: string;
+}
+
+export interface PlanDTO {
+  id: string;
+  name: Localized;
+  description: Localized;
+  priceMonthly: number;
+  priceYearly: number;
+  maxSeats?: number;
+  maxStaff?: number;
+  whatsapp: boolean;
+  highlights: Localized[];
+  isPublic: boolean;
+  isPopular: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  /** How many restaurants are on this plan — HQ sees it before archiving one. */
+  restaurantCount: number;
+}
+
 /** A demo request from the Jamavat website, as HQ works through it. */
 export const INQUIRY_STATUSES = ["NEW", "CONTACTED", "CONVERTED", "LOST"] as const;
 export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
