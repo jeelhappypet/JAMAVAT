@@ -3,7 +3,7 @@ import { JsonLd } from "@/components/site/SiteChrome";
 import { SiteHome } from "@/components/site/SiteHome";
 import { SitePage } from "@/components/site/SitePage";
 import { HERO, pick } from "@/lib/site/content";
-import { faqJsonLd, organizationJsonLd, softwareJsonLd, websiteJsonLd } from "@/lib/site/jsonLd";
+import { organizationJsonLd, softwareJsonLd, websiteJsonLd } from "@/lib/site/jsonLd";
 import { getPublicPlans } from "@/lib/site/plans";
 import { siteMetadata } from "@/lib/site/metadata";
 
@@ -23,7 +23,7 @@ export default async function GujaratiHomePage() {
   const plans = await getPublicPlans();
   return (
     <SitePage lang="gu">
-      <JsonLd data={[websiteJsonLd("gu"), organizationJsonLd("gu"), softwareJsonLd("gu"), faqJsonLd("gu")]} />
+      <JsonLd data={[websiteJsonLd("gu"), organizationJsonLd("gu"), softwareJsonLd("gu")]} />
       <SiteHome lang="gu" plans={plans} />
     </SitePage>
   );

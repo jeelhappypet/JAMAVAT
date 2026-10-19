@@ -3,7 +3,7 @@ import { JsonLd } from "@/components/site/SiteChrome";
 import { SiteHome } from "@/components/site/SiteHome";
 import { SitePage } from "@/components/site/SitePage";
 import { HERO, pick } from "@/lib/site/content";
-import { faqJsonLd, organizationJsonLd, softwareJsonLd, websiteJsonLd } from "@/lib/site/jsonLd";
+import { organizationJsonLd, softwareJsonLd, websiteJsonLd } from "@/lib/site/jsonLd";
 import { getPublicPlans } from "@/lib/site/plans";
 import { siteMetadata } from "@/lib/site/metadata";
 
@@ -22,7 +22,7 @@ export default async function HomePage() {
   const plans = await getPublicPlans();
   return (
     <SitePage lang="en">
-      <JsonLd data={[websiteJsonLd("en"), organizationJsonLd("en"), softwareJsonLd("en"), faqJsonLd("en")]} />
+      <JsonLd data={[websiteJsonLd("en"), organizationJsonLd("en"), softwareJsonLd("en")]} />
       <SiteHome lang="en" plans={plans} />
     </SitePage>
   );

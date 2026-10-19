@@ -1,12 +1,15 @@
-import { CONTACT, FAQS, HERO, SITE_NAME, internationalPhone, pick } from "@/lib/site/content";
+import { CONTACT, HERO, SITE_NAME, internationalPhone, pick } from "@/lib/site/content";
 import { siteOrigin, siteUrl } from "@/lib/site/urls";
 import type { Lang } from "@/lib/i18n/messages";
 
 /**
  * What Google reads about Jamavat. Only facts that are true on the page:
  * no invented ratings or review counts — those earn a manual penalty and
- * they'd be a lie besides.
+ * they'd be a lie besides. No FAQPage either: since 2023 Google shows FAQ
+ * results only for government and health sites, and the markup would carry
+ * every answer a second time (twice, with the RSC payload) for nothing.
  */
+
 /**
  * The site's name as Google should show it above the result — with the
  * ગુજરાતી spelling as an alternate, so a search for either finds us.
@@ -54,18 +57,6 @@ export function softwareJsonLd(lang: Lang) {
     image: `${siteOrigin()}/site/og.png`,
     inLanguage: ["en-IN", "gu-IN"],
     audience: { "@type": "Audience", audienceType: "Restaurants" },
-  };
-}
-
-export function faqJsonLd(lang: Lang) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: FAQS.map((faq) => ({
-      "@type": "Question",
-      name: pick(faq.q, lang),
-      acceptedAnswer: { "@type": "Answer", text: pick(faq.a, lang) },
-    })),
   };
 }
 
