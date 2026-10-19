@@ -47,6 +47,32 @@ const restaurantSchema = new Schema(
       expiresAt: { type: Date },
     },
 
+    /**
+     * The "find my restaurant" login on Jamavat's own site — separate from
+     * staff PIN login. It only locates this restaurant and its `/login` PIN
+     * screen; it never itself starts a staff session. Optional: HQ sets a
+     * username and/or password (scrypt-hashed, same scheme as a staff PIN)
+     * when it's ready, and only ever succeeds once the restaurant has a
+     * staff account (see lib/auth/account.ts).
+     */
+    ownerUsername: { type: String, trim: true, lowercase: true },
+    ownerPasswordHash: { type: String },
+    ownerPasswordSalt: { type: String },
+    ownerLoginAttempts: { type: Number, default: 0 },
+    ownerLoginLockedUntil: { type: Date },
+    /** One-time, hashed, short-lived — set by "forgot password", cleared the moment it's used. */
+    passwordReset: {
+      tokenHash: { type: String },
+      expiresAt: { type: Date },
+    },
+
+    /**
+     * `paidUntil` before any `SubscriptionPayment` existed — set once at
+     * creation and never touched again. The anchor a payment's edit/delete
+     * replays the whole chain from (lib/subscription.ts#recomputePaidUntil).
+     */
+    trialEndsAt: { type: Date },
+
     /** The WhatsApp Cloud API number whose webhook events belong to this restaurant. */
     whatsappPhoneNumberId: { type: String, trim: true },
     /** The restaurant that existed before Jamavat served many (data migrated in place). */
@@ -59,6 +85,9 @@ restaurantSchema.index({ slug: 1 }, { unique: true });
 restaurantSchema.index({ previousSlugs: 1 });
 restaurantSchema.index({ whatsappPhoneNumberId: 1 }, { sparse: true });
 restaurantSchema.index({ "invite.tokenHash": 1 }, { sparse: true });
+restaurantSchema.index({ ownerUsername: 1 }, { unique: true, sparse: true });
+restaurantSchema.index({ ownerEmail: 1 }, { sparse: true });
+restaurantSchema.index({ "passwordReset.tokenHash": 1 }, { sparse: true });
 
 export type RestaurantDocument = InferSchemaType<typeof restaurantSchema> & { _id: Types.ObjectId; createdAt: Date };
 

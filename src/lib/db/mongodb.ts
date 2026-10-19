@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { migrateToTenancy } from "@/lib/db/migrate";
+import { backfillTrialEndsAt, migrateToTenancy } from "@/lib/db/migrate";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -28,6 +28,7 @@ export async function connectToDatabase() {
       .connect(MONGODB_URI, { bufferCommands: false })
       .then(async (connected) => {
         await migrateToTenancy(connected.connection.db!);
+        await backfillTrialEndsAt(connected.connection.db!);
         return connected;
       })
       .catch((error) => {

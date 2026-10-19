@@ -9,7 +9,7 @@ import { Order } from "@/models/Order";
 import { Category, type CategoryDocument } from "@/models/Category";
 import { Menu, type MenuDocument } from "@/models/Menu";
 import { serializeOrder, type OrderLean } from "@/lib/orders/serialize";
-import type { SeatDTO, SeatDetailDTO, SeatState, TableDTO } from "@/types";
+import type { OrderDTO, SeatDTO, SeatDetailDTO, SeatState, TableDTO } from "@/types";
 
 /** A seat shows "New order" on the counter for this long after its latest order. */
 const NEW_ORDER_MS = 5 * 60 * 1000;
@@ -125,16 +125,40 @@ export async function resolveSeat(token: string): Promise<ResolvedSeat | null> {
 
 /**
  * Releases a QR's lock. Conditional on it still being that session, so it
- * can't free a newer guest. Returns true only for the call that actually
+ * can't free a newer guest. `closed` is true only for the call that actually
  * closed the session — settle uses that so a double tap bills once.
+ *
+ * Freeing (not settling) abandons the table rather than billing it, so any
+ * order still PENDING/READY on that sitting is cancelled here too — nobody
+ * will ever serve or pay for it, and it would otherwise keep showing on the
+ * counter's "recently ready" list for a table that's now empty.
+ * `freeSeatIfNothingToPay` also passes "FREED" but only once nothing is left
+ * open, so this cancels nothing extra in that path.
  */
-export async function closeSeatSession(restaurantId: RestaurantRef, seatId: unknown, sessionId: unknown, reason: "FREED" | "SETTLED"): Promise<boolean> {
+export async function closeSeatSession(
+  restaurantId: RestaurantRef,
+  seatId: unknown,
+  sessionId: unknown,
+  reason: "FREED" | "SETTLED"
+): Promise<{ closed: boolean; cancelledOrders: OrderDTO[] }> {
   const closed = await GuestSession.updateOne(
     { restaurantId, _id: sessionId, status: "OPEN" },
     { $set: { status: "CLOSED", closedAt: new Date(), closedReason: reason } }
   );
   await Seat.updateOne({ restaurantId, _id: seatId, currentSessionId: sessionId }, { $set: { currentSessionId: null } });
-  return closed.modifiedCount === 1;
+
+  let cancelledOrders: OrderDTO[] = [];
+  if (closed.modifiedCount === 1 && reason === "FREED") {
+    const dangling = await Order.find({ restaurantId, guestSessionId: sessionId, status: { $in: ["PENDING", "READY"] } }).lean<OrderLean[]>();
+    if (dangling.length) {
+      await Order.updateMany(
+        { restaurantId, guestSessionId: sessionId, status: { $in: ["PENDING", "READY"] } },
+        { $set: { status: "CANCELLED", cancelledAt: new Date() } }
+      );
+      cancelledOrders = dangling.map(serializeOrder);
+    }
+  }
+  return { closed: closed.modifiedCount === 1, cancelledOrders };
 }
 
 /**
@@ -187,7 +211,8 @@ export async function sittingForCounterOrder(
 export async function freeSeatIfNothingToPay(restaurantId: RestaurantRef, seatId: unknown, sessionId: unknown): Promise<boolean> {
   const remaining = await Order.countDocuments({ restaurantId, guestSessionId: sessionId, status: { $ne: "CANCELLED" } });
   if (remaining > 0) return false;
-  return closeSeatSession(restaurantId, seatId, sessionId, "FREED");
+  const { closed } = await closeSeatSession(restaurantId, seatId, sessionId, "FREED");
+  return closed;
 }
 
 /** The counter's seat page: who holds the QR and every order of their sitting. */

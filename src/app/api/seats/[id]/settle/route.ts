@@ -71,7 +71,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (discount > itemsTotal) return jsonError(t("err.discountTooHigh"), 400);
 
     // The atomic step: only one settle can close this sitting, so a double tap can't bill twice.
-    if (!(await closeSeatSession(restaurantId, seat._id, session._id, "SETTLED"))) return jsonError(t("err.alreadySettled"), 409);
+    const { closed } = await closeSeatSession(restaurantId, seat._id, session._id, "SETTLED");
+    if (!closed) return jsonError(t("err.alreadySettled"), 409);
 
     const settledAt = new Date();
     await Order.updateMany(

@@ -21,8 +21,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const { restaurantId } = staff;
     const seat = await Seat.findOne({ restaurantId, _id: id }).lean<SeatDocument>();
     if (!seat) return jsonError(t("err.notFound"), 404);
-    if (seat.currentSessionId) await closeSeatSession(restaurantId, seat._id, seat.currentSessionId, "FREED");
-    await Promise.all([emitRealtimeEvent(restaurantId, REALTIME_EVENTS.SEAT_UPDATED, { seatId: id }), notifyGuestSeat(restaurantId, seat._id)]);
+
+    const cancelledOrders = seat.currentSessionId ? (await closeSeatSession(restaurantId, seat._id, seat.currentSessionId, "FREED")).cancelledOrders : [];
+
+    await Promise.all([
+      emitRealtimeEvent(restaurantId, REALTIME_EVENTS.SEAT_UPDATED, { seatId: id }),
+      notifyGuestSeat(restaurantId, seat._id),
+      ...cancelledOrders.map((order) => emitRealtimeEvent(restaurantId, REALTIME_EVENTS.ORDER_CANCELLED, { id: order.id, tokenNumber: order.tokenNumber, businessDate: order.businessDate })),
+      cancelledOrders.length ? emitRealtimeEvent(restaurantId, REALTIME_EVENTS.ADMIN_STATS_UPDATED, { reason: "order:cancelled" }) : null,
+    ]);
     return NextResponse.json({ ok: true });
   });
 }

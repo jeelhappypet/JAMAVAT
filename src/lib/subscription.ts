@@ -39,6 +39,15 @@ export function daysLeft(paidUntil: Date | undefined, now = Date.now()): number 
 /** The admin banner starts this many days before the period ends. */
 export const RENEWAL_NOTICE_DAYS = 7;
 
+/**
+ * `Restaurant.trialEndsAt` sentinel for "there was no end date before the
+ * first payment" — a real stored value (unlike `undefined`, which means
+ * "never captured" and falls back to the restaurant's current `paidUntil`).
+ * Always in the past, so `extendPaidUntil` treats it exactly like no anchor
+ * at all; never itself written to `paidUntil`, see `recomputePaidUntil`.
+ */
+export const NO_PRIOR_END = new Date(0);
+
 /** `paidUntil` after a payment: from today, or from the current end if it hasn't passed yet. */
 export function extendPaidUntil(current: Date | undefined, months: number, now = new Date()): Date {
   const from = current && current.getTime() > now.getTime() ? new Date(current) : new Date(now);

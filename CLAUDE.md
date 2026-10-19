@@ -21,7 +21,7 @@ Never hand-style a button, checkbox, dropdown, text field, date field or dialog 
 | Date | `DateInput` (native calendar, value `YYYY-MM-DD`) · month: `MonthPicker` |
 | Grey track with a white selected pill (filters, ranges, menu tabs, Veg/Non-veg) | `SegmentedControl` |
 | − 2 + quantity | `QuantityStepper` |
-| Dialog | `Modal` · confirmation: `ConfirmDialog` |
+| Dialog | `Modal` · confirmation: `ConfirmDialog` · sidebar on desktop / bottom sheet on mobile (an activity feed, anything too long for a centered dialog): `SidePanel` |
 | Error / success / info box | `Alert` |
 | Small status pill | `Badge` |
 | Panel | `Card` · empty list: `EmptyState` |

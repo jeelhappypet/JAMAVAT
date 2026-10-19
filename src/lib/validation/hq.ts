@@ -41,6 +41,22 @@ export const createRestaurantSchema = z.object({
   inquiryId: optional(24),
   /** Email the invite link to the owner as well as showing it in HQ. */
   sendInvite: z.boolean().optional(),
+  /** The "find my restaurant" login on Jamavat's own site — both optional, set up now or later. */
+  ownerUsername: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(3)
+    .max(40)
+    .regex(/^[a-z0-9._-]+$/, "Letters, numbers, dots, dashes and underscores only")
+    .optional()
+    .transform((value) => value || undefined),
+  ownerPassword: z
+    .string()
+    .min(6, "Use at least 6 characters")
+    .max(72)
+    .optional()
+    .transform((value) => value || undefined),
 });
 
 export const updateRestaurantSchema = z.object({
@@ -71,12 +87,42 @@ export const updateRestaurantSchema = z.object({
   whatsappPhoneNumberId: optional(40),
   /** Issue a fresh invite link (the old one stops working). */
   reinvite: z.literal(true).optional(),
+  ownerUsername: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(40)
+    .nullable()
+    .optional()
+    .transform((value) => (value === "" ? null : value))
+    .refine((value) => !value || /^[a-z0-9._-]{3,40}$/.test(value), "Letters, numbers, dots, dashes and underscores only, 3+ characters"),
+  /** Set/replace the owner-login password directly — never returned, hashed on save. Not trimmed: a password's whitespace is significant. */
+  newOwnerPassword: z
+    .string()
+    .max(72)
+    .optional()
+    .transform((value) => value || undefined)
+    .refine((value) => !value || value.length >= 6, "Use at least 6 characters"),
 });
 
 export const recordPaymentSchema = z.object({
   amount: z.number().min(0).max(10_000_000),
   method: z.enum(SUBSCRIPTION_PAYMENT_METHODS),
   months: z.number().int().min(1).max(36),
+  cycle: z.enum(BILLING_CYCLES).optional(),
+  paidAt: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  note: optional(300),
+});
+
+/** Editing an existing payment — every field optional (PATCH), re-validated the same way. */
+export const updatePaymentSchema = z.object({
+  amount: z.number().min(0).max(10_000_000).optional(),
+  method: z.enum(SUBSCRIPTION_PAYMENT_METHODS).optional(),
+  months: z.number().int().min(1).max(36).optional(),
   cycle: z.enum(BILLING_CYCLES).optional(),
   paidAt: z
     .string()

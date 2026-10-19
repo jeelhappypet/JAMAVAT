@@ -40,6 +40,9 @@ export function SiteHeader({ lang, path = "/" }: { lang: Lang; path?: string }) 
           >
             {other === "gu" ? "ગુજરાતી" : "English"}
           </Link>
+          <Link href="/login" className="py-2">
+            {pick(NAV.staffLogin, lang)}
+          </Link>
           <a href={anchor("#demo")} className={buttonClass({ size: "lg" })}>
             {pick(NAV.demo, lang)}
           </a>

@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
+import { ActivityPanel } from "@/components/hq/ActivityPanel";
 
 const TABS = [
   { href: "/hq", label: "Restaurants" },
@@ -15,6 +18,7 @@ const TABS = [
 export function HqHeader({ email }: { email: string }) {
   const pathname = usePathname() ?? "/hq";
   const current = TABS.filter((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`)).sort((a, b) => b.href.length - a.href.length)[0]?.href;
+  const [activityOpen, setActivityOpen] = useState(false);
 
   async function logout() {
     await fetch("/api/hq/auth/logout", { method: "POST" }).catch(() => null);
@@ -34,6 +38,12 @@ export function HqHeader({ email }: { email: string }) {
           </span>
           <div className="flex items-center gap-3">
             <span className="hidden text-[13px] font-semibold text-stone-300 sm:inline">{email}</span>
+            <IconButton label="Activity" tone="dark" onClick={() => setActivityOpen(true)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 3" />
+              </svg>
+            </IconButton>
             <Button variant="outlineDark" size="sm" onClick={logout}>
               Log out
             </Button>
@@ -54,6 +64,7 @@ export function HqHeader({ email }: { email: string }) {
           ))}
         </nav>
       </div>
+      <ActivityPanel open={activityOpen} onClose={() => setActivityOpen(false)} />
     </header>
   );
 }

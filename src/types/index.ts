@@ -86,7 +86,20 @@ export interface HqRestaurantDTO {
   /** Whether an unused invite link is still outstanding. */
   inviteePending: boolean;
   hasStaff: boolean;
+  /** The "find my restaurant" login on Jamavat's own site. */
+  ownerUsername?: string;
+  hasOwnerLogin: boolean;
   counts: { seats: number; staff: number; ordersToday: number };
+  createdAt: string;
+}
+
+export interface ActivityLogDTO {
+  id: string;
+  hqEmail: string;
+  action: string;
+  summary: string;
+  restaurantId?: string;
+  restaurantName?: string;
   createdAt: string;
 }
 
@@ -356,6 +369,22 @@ export interface MonthReportDTO {
   parcel: number;
   cancelled: number;
   bills: number;
+  days: { date: string; orders: number; dineIn: number; parcel: number; sales: number; cancelled: number }[];
+}
+
+/** HQ's per-restaurant CSV download, for an arbitrary date range (not one of the fixed presets). */
+export interface RangeReportDTO {
+  from: string;
+  to: string;
+  sales: number;
+  orders: number;
+  dineIn: number;
+  parcel: number;
+  cancelled: number;
+  bills: number;
+  averageBill: number;
+  byPayment: { mode: PaymentMode | "PARCEL"; amount: number }[];
+  topDishes: { name: string; quantity: number; amount: number }[];
   days: { date: string; orders: number; dineIn: number; parcel: number; sales: number; cancelled: number }[];
 }
 

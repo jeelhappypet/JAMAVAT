@@ -4,8 +4,9 @@ import { Restaurant, type RestaurantDocument } from "@/models/Restaurant";
 import { Seat } from "@/models/Seat";
 import { Staff } from "@/models/Staff";
 import { Order } from "@/models/Order";
+import { SubscriptionPayment, type SubscriptionPaymentDocument } from "@/models/SubscriptionPayment";
 import { getBusinessDate } from "@/lib/utils/businessDate";
-import { daysLeft, subscriptionState } from "@/lib/subscription";
+import { daysLeft, extendPaidUntil, subscriptionState, NO_PRIOR_END } from "@/lib/subscription";
 import type { BillingCycle, HqRestaurantDTO, RestaurantStatus } from "@/types";
 
 /**
@@ -91,9 +92,56 @@ function toHqRestaurant(
     notes: restaurant.notes || undefined,
     inviteePending: Boolean(restaurant.invite?.tokenHash && staffCount === 0),
     hasStaff: staffCount > 0,
+    ownerUsername: restaurant.ownerUsername || undefined,
+    hasOwnerLogin: Boolean(restaurant.ownerPasswordHash),
     counts: { seats: totals.seatCount.get(id) ?? 0, staff: staffCount, ordersToday: totals.orderCount.get(id) ?? 0 },
     createdAt: restaurant.createdAt.toISOString(),
   };
+}
+
+/**
+ * Freezes `Restaurant.trialEndsAt` — the fixed pre-payment anchor
+ * `recomputePaidUntil` replays from — the moment it's needed and still
+ * trustworthy: either a one-time startup backfill (`lib/db/migrate.ts`, for
+ * restaurants that predate this field) or right here, called from the
+ * payments POST route before a restaurant's *first ever* payment is
+ * created. Both capture "whatever `paidUntil` is right now" (or
+ * `NO_PRIOR_END` if there's none) — the only moment that value is
+ * guaranteed to still be the pre-payment one, not something a payment
+ * already chained. A no-op once `trialEndsAt` exists.
+ */
+export async function captureTrialAnchor(restaurantId: string): Promise<void> {
+  await connectToDatabase();
+  const restaurant = await Restaurant.findOne({ _id: restaurantId, trialEndsAt: { $exists: false } }).select({ paidUntil: 1 }).lean<RestaurantDocument>();
+  if (!restaurant) return;
+  await Restaurant.updateOne({ _id: restaurantId, trialEndsAt: { $exists: false } }, { $set: { trialEndsAt: restaurant.paidUntil ?? NO_PRIOR_END } });
+}
+
+/**
+ * Rebuilds `Restaurant.paidUntil` by replaying every payment in `paidAt`
+ * order from `trialEndsAt` — the source of truth after editing or deleting
+ * *any* payment, not just the latest one. Each payment's own stored
+ * `paidUntil` is rewritten too, so the list still shows the period that
+ * payment actually bought once the chain shifts.
+ */
+export async function recomputePaidUntil(restaurantId: string): Promise<Date | undefined> {
+  await connectToDatabase();
+  const restaurant = await Restaurant.findById(restaurantId).select({ trialEndsAt: 1, paidUntil: 1 }).lean<RestaurantDocument>();
+  if (!restaurant) return undefined;
+  // `trialEndsAt` is the trustworthy anchor once captured (see captureTrialAnchor); a restaurant
+  // that somehow still lacks it falls back to its current `paidUntil` — best-effort only.
+  const anchor = restaurant.trialEndsAt ?? restaurant.paidUntil ?? undefined;
+
+  const payments = await SubscriptionPayment.find({ restaurantId }).sort({ paidAt: 1 }).lean<SubscriptionPaymentDocument[]>();
+  let cursor = anchor && anchor.getTime() > NO_PRIOR_END.getTime() ? anchor : undefined;
+  const writes = payments.map((payment) => {
+    cursor = extendPaidUntil(cursor, payment.months, payment.paidAt);
+    return { updateOne: { filter: { _id: payment._id }, update: { $set: { paidUntil: cursor } } } };
+  });
+  if (writes.length) await SubscriptionPayment.bulkWrite(writes);
+
+  await Restaurant.updateOne({ _id: restaurantId }, cursor ? { $set: { paidUntil: cursor } } : { $unset: { paidUntil: "" } });
+  return cursor;
 }
 
 /** Turns a wanted link into a free one: "kirans-thali", then "-2", "-3"… */

@@ -8,14 +8,17 @@ import { Order } from "@/models/Order";
 import { Restaurant } from "@/models/Restaurant";
 import { Seat } from "@/models/Seat";
 import { Staff } from "@/models/Staff";
+import { SubscriptionPayment } from "@/models/SubscriptionPayment";
 import { Table } from "@/models/Table";
 import { WhatsAppConversation } from "@/models/WhatsAppConversation";
 import { WhatsAppCustomer } from "@/models/WhatsAppCustomer";
 import { WhatsAppMessage } from "@/models/WhatsAppMessage";
 import { Counter } from "@/models/Counter";
 import { slugify } from "@/lib/utils/slug";
+import { NO_PRIOR_END } from "@/lib/subscription";
 
 const TENANCY = "tenancy-v1";
+const TRIAL_ANCHOR = "trial-anchor-v1";
 const LOCK_MS = 60_000;
 
 /** Every collection whose documents belong to one restaurant. */
@@ -40,6 +43,33 @@ interface MigrationDoc {
 }
 
 /**
+ * Claims the named one-time migration, or waits for whoever already has it.
+ * Returns false (nothing to do) once it's `"done"` — the shared half of
+ * every migration below, so each one only has to write its own body.
+ */
+async function claimMigration(migrations: mongo.Collection<MigrationDoc>, id: string): Promise<boolean> {
+  const deadline = Date.now() + 2 * LOCK_MS;
+  while (true) {
+    const current = await migrations.findOne({ _id: id });
+    if (current?.state === "done") return false;
+    const now = new Date();
+    try {
+      const locked = await migrations.findOneAndUpdate(
+        { _id: id, state: { $ne: "done" }, $or: [{ lockedUntil: { $exists: false } }, { lockedUntil: { $lt: now } }] },
+        { $set: { state: "running", lockedUntil: new Date(now.getTime() + LOCK_MS) } },
+        { upsert: true, returnDocument: "after" }
+      );
+      if (locked) return true;
+    } catch (error) {
+      // Upsert lost the race on _id: someone else holds the lock.
+      if (!(typeof error === "object" && error && "code" in error && error.code === 11000)) throw error;
+    }
+    if (Date.now() > deadline) throw new Error(`[migrate] ${id} is still locked by another instance`);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
+/**
  * Turns the single-restaurant database into the first tenant, once. Runs on
  * the first DB connect of every server instance; after it's done that costs
  * one indexed read. Safe with many cold starts at once: one instance takes
@@ -57,26 +87,7 @@ interface MigrationDoc {
  */
 export async function migrateToTenancy(db: mongo.Db): Promise<void> {
   const migrations = db.collection<MigrationDoc>("migrations");
-  const deadline = Date.now() + 2 * LOCK_MS;
-
-  while (true) {
-    const current = await migrations.findOne({ _id: TENANCY });
-    if (current?.state === "done") return;
-    const now = new Date();
-    try {
-      const locked = await migrations.findOneAndUpdate(
-        { _id: TENANCY, state: { $ne: "done" }, $or: [{ lockedUntil: { $exists: false } }, { lockedUntil: { $lt: now } }] },
-        { $set: { state: "running", lockedUntil: new Date(now.getTime() + LOCK_MS) } },
-        { upsert: true, returnDocument: "after" }
-      );
-      if (locked) break;
-    } catch (error) {
-      // Upsert lost the race on _id: someone else holds the lock.
-      if (!(typeof error === "object" && error && "code" in error && error.code === 11000)) throw error;
-    }
-    if (Date.now() > deadline) throw new Error("[migrate] tenancy migration is still locked by another instance");
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
+  if (!(await claimMigration(migrations, TENANCY))) return;
 
   const restaurants = db.collection(Restaurant.collection.collectionName);
   const staffCount = await db.collection(Staff.collection.collectionName).countDocuments({}, { limit: 1 });
@@ -132,4 +143,39 @@ export async function migrateToTenancy(db: mongo.Db): Promise<void> {
 
   await migrations.updateOne({ _id: TENANCY }, { $set: { state: "done", doneAt: new Date(), restaurantId: rid }, $unset: { lockedUntil: "" } });
   console.info(`[migrate] data moved to restaurant ${String(rid)}`);
+}
+
+/**
+ * One-time backfill for `Restaurant.trialEndsAt`, for restaurants that
+ * predate it (new ones get it reactively — `captureTrialAnchor` in
+ * lib/hq/restaurants.ts, called right before a restaurant's first-ever
+ * payment). Reconstructs the anchor while payment history is still intact:
+ *
+ * - no payments yet → today's `paidUntil` is exactly the trial end, nothing
+ *   has moved it;
+ * - payments exist → the oldest one's `paidAt` (there's no record of the
+ *   exact value before it, so this is the closest approximation — it only
+ *   affects what "Paid until" recalculates to if that oldest payment is
+ *   later edited or deleted);
+ * - neither → `NO_PRIOR_END`, same as a brand-new restaurant with no trial.
+ *
+ * Runs on every DB connect like `migrateToTenancy`, immediately after it (so
+ * a legacy restaurant it just created already has a `paidUntil` to read
+ * here).
+ */
+export async function backfillTrialEndsAt(db: mongo.Db): Promise<void> {
+  const migrations = db.collection<MigrationDoc>("migrations");
+  if (!(await claimMigration(migrations, TRIAL_ANCHOR))) return;
+
+  const restaurants = db.collection(Restaurant.collection.collectionName);
+  const payments = db.collection(SubscriptionPayment.collection.collectionName);
+
+  const candidates = await restaurants.find({ trialEndsAt: { $exists: false } }).project({ paidUntil: 1 }).toArray();
+  for (const restaurant of candidates) {
+    const [oldest] = await payments.find({ restaurantId: restaurant._id }).sort({ paidAt: 1 }).limit(1).toArray();
+    const anchor = oldest?.paidAt ?? restaurant.paidUntil ?? NO_PRIOR_END;
+    await restaurants.updateOne({ _id: restaurant._id }, { $set: { trialEndsAt: anchor } });
+  }
+
+  await migrations.updateOne({ _id: TRIAL_ANCHOR }, { $set: { state: "done", doneAt: new Date() }, $unset: { lockedUntil: "" } });
 }

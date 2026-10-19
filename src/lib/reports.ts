@@ -6,7 +6,7 @@ import { Category, type CategoryDocument } from "@/models/Category";
 import { Menu, type MenuDocument } from "@/models/Menu";
 import { getBusinessDate } from "@/lib/utils/businessDate";
 import type { OrderLean } from "@/lib/orders/serialize";
-import type { MonthReportDTO, PaymentMode, ReportRange, TodayReportDTO } from "@/types";
+import type { MonthReportDTO, PaymentMode, ReportRange, RangeReportDTO, TodayReportDTO } from "@/types";
 
 type ReportOrder = OrderLean & { guestSessionId?: unknown; paymentMode?: PaymentMode };
 type ReportBill = Pick<BillDocument, "businessDate" | "total" | "paymentMode" | "orderIds">;
@@ -188,6 +188,57 @@ export async function getTodayReport(restaurantId: RestaurantRef, range: ReportR
     lastDays: perDay(daysBetween(lastFrom, today), last7.orders, last7.bills)
       .reverse()
       .map(({ date, orders, sales, cancelled }) => ({ date, orders, sales, cancelled })),
+  };
+}
+
+/**
+ * An arbitrary [from, to] span for HQ's per-restaurant CSV download — day by
+ * day plus totals and a payment-mode breakdown, the same building blocks
+ * `getTodayReport` uses but without its "vs the previous period" comparison
+ * (there's no fixed preset here to compare against).
+ */
+export async function getRangeReport(restaurantId: RestaurantRef, from: string, to: string): Promise<RangeReportDTO> {
+  await connectToDatabase();
+  const { orders, bills } = await loadPeriod(restaurantId, from, to);
+  const live = orders.filter((order) => order.status !== "CANCELLED");
+
+  const payment = new Map<PaymentMode, number>();
+  const addPayment = (mode: PaymentMode, amount: number) => payment.set(mode, (payment.get(mode) ?? 0) + amount);
+  for (const bill of bills) addPayment(bill.paymentMode as PaymentMode, bill.total);
+  let unrecordedParcels = 0;
+  for (const order of live) {
+    if (order.guestSessionId) continue;
+    if (order.paymentMode) addPayment(order.paymentMode, order.totalAmount);
+    else unrecordedParcels += order.totalAmount;
+  }
+  const byPayment: RangeReportDTO["byPayment"] = [...payment.entries()].map(([mode, amount]) => ({ mode, amount })).sort((a, b) => b.amount - a.amount);
+  if (unrecordedParcels > 0) byPayment.push({ mode: "PARCEL", amount: unrecordedParcels });
+
+  const dishes = new Map<string, { name: string; quantity: number; amount: number }>();
+  for (const order of live) {
+    for (const item of order.items) {
+      const key = String(item.menuItemId);
+      const dish = dishes.get(key) ?? { name: item.nameSnapshot, quantity: 0, amount: 0 };
+      dish.quantity += item.quantity;
+      dish.amount += item.lineTotal;
+      dishes.set(key, dish);
+    }
+  }
+
+  const total = summarize(orders, bills);
+  return {
+    from,
+    to,
+    sales: total.sales,
+    orders: total.orders,
+    dineIn: total.dineIn,
+    parcel: total.parcel,
+    cancelled: total.cancelled,
+    bills: total.bills,
+    averageBill: total.averageBill,
+    byPayment,
+    topDishes: [...dishes.values()].sort((a, b) => b.amount - a.amount).slice(0, 10),
+    days: perDay(daysBetween(from, to), orders, bills).reverse(),
   };
 }
 
