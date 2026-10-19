@@ -4,7 +4,6 @@ import { Seat, type SeatDocument } from "@/models/Seat";
 import { GuestSession, type GuestSessionDocument } from "@/models/GuestSession";
 import { Order } from "@/models/Order";
 import { Bill } from "@/models/Bill";
-import { Counter } from "@/models/Counter";
 import { requireStaff } from "@/lib/auth/staff";
 import { ROLES } from "@/lib/auth/access";
 import { settleSchema } from "@/lib/validation/tables";
@@ -14,18 +13,12 @@ import { isMailConfigured, sendMail } from "@/lib/mail";
 import { renderBillEmail } from "@/lib/billEmail";
 import type { OrderLean } from "@/lib/orders/serialize";
 import { getBusinessDate } from "@/lib/utils/businessDate";
-import { counterId } from "@/lib/orders/build";
 import { emitRealtimeEvent, notifyGuestSeat } from "@/lib/realtime/server";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { getTranslator } from "@/lib/i18n/server";
 import { jsonError, respond } from "@/lib/api";
+import { createBill } from "@/lib/bills";
 import type { BillDTO, BillLineDTO } from "@/types";
-
-/** Bill numbers run on across days ("0142"), unlike token numbers which restart daily. */
-async function nextBillNumber(restaurantId: string): Promise<number> {
-  const counter = await Counter.findOneAndUpdate({ _id: counterId(restaurantId, "bill") }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: "after" });
-  return counter.seq;
-}
 
 /** Same dish ordered twice in one sitting → one line on the bill. */
 function billLines(orders: OrderLean[]): BillLineDTO[] {
@@ -70,21 +63,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const itemsTotal = orders.reduce((sum, order) => sum + order.totalAmount, 0);
     if (discount > itemsTotal) return jsonError(t("err.discountTooHigh"), 400);
 
-    // The atomic step: only one settle can close this sitting, so a double tap can't bill twice.
-    const { closed } = await closeSeatSession(restaurantId, seat._id, session._id, "SETTLED");
-    if (!closed) return jsonError(t("err.alreadySettled"), 409);
-
     const settledAt = new Date();
-    await Order.updateMany(
-      { restaurantId, guestSessionId: session._id, status: { $in: ["PENDING", "READY"] } },
-      { $set: { status: "COMPLETED", completedAt: settledAt } }
-    );
-
     const lines = billLines(orders);
     const total = itemsTotal - discount;
-    const bill = await Bill.create({
+    // The bill is written before the table is freed: if it can't be written, the
+    // guest's sitting stays open with its orders instead of vanishing unbilled.
+    // One bill per sitting (unique guestSessionId), so a double tap can't bill twice.
+    const bill = await createBill(restaurantId, {
       restaurantId,
-      billNo: await nextBillNumber(restaurantId),
       businessDate: getBusinessDate(settledAt),
       seatId: seat._id,
       seatCode: session.seatCode,
@@ -99,6 +85,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       settledBy: staff.id,
       settledAt,
     });
+    if (!bill) return jsonError(t("err.alreadySettled"), 409);
+
+    const { closed } = await closeSeatSession(restaurantId, seat._id, session._id, "SETTLED");
+    if (!closed) {
+      // Freed or settled from another screen in between — that one wins, this bill never happened.
+      await Bill.deleteOne({ restaurantId, _id: bill._id });
+      return jsonError(t("err.alreadySettled"), 409);
+    }
+
+    await Order.updateMany(
+      { restaurantId, guestSessionId: session._id, status: { $in: ["PENDING", "READY"] } },
+      { $set: { status: "COMPLETED", completedAt: settledAt } }
+    );
 
     let emailStatus: BillDTO["emailStatus"] = "SKIPPED";
     if (sendEmail && session.email && isMailConfigured()) {

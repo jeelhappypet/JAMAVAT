@@ -24,7 +24,11 @@ export async function respond(
     return await work();
   } catch (error) {
     if (error instanceof ZodError) return jsonError(zodErrorMessage(error, t), 400);
-    if (isDuplicateKeyError(error)) return jsonError(t("err.duplicateName"), 409);
+    if (isDuplicateKeyError(error)) {
+      // Which index clashed — "name already exists" is only the usual reason.
+      console.warn("[respond] duplicate key", (error as { keyPattern?: unknown }).keyPattern);
+      return jsonError(t("err.duplicateName"), 409);
+    }
     console.error(error);
     return jsonError(t(failKey), 500);
   }

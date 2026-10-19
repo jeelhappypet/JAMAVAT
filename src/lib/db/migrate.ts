@@ -19,6 +19,7 @@ import { NO_PRIOR_END } from "@/lib/subscription";
 
 const TENANCY = "tenancy-v1";
 const TRIAL_ANCHOR = "trial-anchor-v1";
+const OLD_INDEXES_AGAIN = "old-indexes-v2";
 const LOCK_MS = 60_000;
 
 /** Every collection whose documents belong to one restaurant. */
@@ -128,13 +129,7 @@ export async function migrateToTenancy(db: mongo.Db): Promise<void> {
     await db.collection(model.collection.collectionName).updateMany({ restaurantId: { $exists: false } }, { $set: { restaurantId: rid } });
   }
 
-  for (const [model, index] of OLD_INDEXES) {
-    try {
-      await db.collection(model.collection.collectionName).dropIndex(index);
-    } catch {
-      // Not there (fresh collection or already dropped).
-    }
-  }
+  await dropOldIndexes(db);
 
   const counters = db.collection<{ _id: string; seq: number }>(Counter.collection.collectionName);
   for (const counter of await counters.find({ _id: { $not: /:/ } }).toArray()) {
@@ -143,6 +138,31 @@ export async function migrateToTenancy(db: mongo.Db): Promise<void> {
 
   await migrations.updateOne({ _id: TENANCY }, { $set: { state: "done", doneAt: new Date(), restaurantId: rid }, $unset: { lockedUntil: "" } });
   console.info(`[migrate] data moved to restaurant ${String(rid)}`);
+}
+
+async function dropOldIndexes(db: mongo.Db): Promise<void> {
+  for (const [model, index] of OLD_INDEXES) {
+    try {
+      await db.collection(model.collection.collectionName).dropIndex(index);
+      console.info(`[migrate] dropped old unique index ${model.collection.collectionName}.${index}`);
+    } catch {
+      // Not there (fresh collection or already dropped).
+    }
+  }
+}
+
+/**
+ * The single-restaurant unique indexes again, in every database — not only
+ * the ones `migrateToTenancy` converted. Any server still running the old
+ * schema (an old preview deployment, a stale local checkout) re-creates
+ * them on connect, and a global `billNo_1` then fails a restaurant's settle
+ * whenever another restaurant already has that bill number.
+ */
+export async function dropOldIndexesAgain(db: mongo.Db): Promise<void> {
+  const migrations = db.collection<MigrationDoc>("migrations");
+  if (!(await claimMigration(migrations, OLD_INDEXES_AGAIN))) return;
+  await dropOldIndexes(db);
+  await migrations.updateOne({ _id: OLD_INDEXES_AGAIN }, { $set: { state: "done", doneAt: new Date() }, $unset: { lockedUntil: "" } });
 }
 
 /**
