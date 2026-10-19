@@ -51,8 +51,14 @@ export const AUDIENCE = {
   ],
 };
 
-/** The carousel on the hero. Screenshots come in once there are real ones to show. */
-export const SLIDES: { tag: Localized; title: Localized; body: Localized; shape: "phone" | "screen" }[] = [
+/**
+ * The carousel on the hero. Screenshots are the seeded "Jamavat Demo"
+ * restaurant (scripts/seed-demo.mjs) — published on purpose, exactly so the
+ * website never shows a customer's real dishes or sales (see §8d of
+ * PROJECT_ARCHITECTURE.md). Re-capture with scripts/capture-hero.mjs after
+ * a visual change to the screens below.
+ */
+export const SLIDES: { tag: Localized; title: Localized; body: Localized; shape: "phone" | "screen"; image: string }[] = [
   {
     tag: L("For guests", "ગ્રાહક માટે"),
     title: L("Order from the table", "ટેબલ પરથી જ ઓર્ડર"),
@@ -61,6 +67,7 @@ export const SLIDES: { tag: Localized; title: Localized; body: Localized; shape:
       "પોતાની બાજુનો QR સ્કેન કરો, વાનગી પસંદ કરો, રસોઈ માટે નોંધ લખો અને એક વાર ઈમેલ વેરિફાય કરો. એપ નહીં, વેઇટરની રાહ નહીં."
     ),
     shape: "phone",
+    image: "/site/hero-guest-menu.png",
   },
   {
     tag: L("For kitchens", "કિચન માટે"),
@@ -70,6 +77,7 @@ export const SLIDES: { tag: Localized; title: Localized; body: Localized; shape:
       "ગુજરાતી વાનગી ગુજરાતી કિચનમાં અને પંજાબી વાનગી પંજાબી કિચનમાં — એક જ ઓર્ડરમાં હોય તો પણ."
     ),
     shape: "screen",
+    image: "/site/hero-kitchen.png",
   },
   {
     tag: L("For the counter", "કાઉન્ટર માટે"),
@@ -79,6 +87,7 @@ export const SLIDES: { tag: Localized; title: Localized; body: Localized; shape:
       "નવા ઓર્ડર અવાજ સાથે તરત દેખાય. રોકડ, UPI કે કાર્ડથી બિલ કરો — ગ્રાહકને બિલ સાથે આભારનો ઈમેલ જાય."
     ),
     shape: "screen",
+    image: "/site/hero-counter.png",
   },
   {
     tag: L("For the owner", "માલિક માટે"),
@@ -88,6 +97,7 @@ export const SLIDES: { tag: Localized; title: Localized; body: Localized; shape:
       "આજના અને છેલ્લા 7 દિવસના ઓર્ડર, વેચાણ, ટોપ વાનગીઓ અને પેમેન્ટ મોડ."
     ),
     shape: "screen",
+    image: "/site/hero-report.png",
   },
 ];
 

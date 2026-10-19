@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { IconButton } from "@/components/ui/IconButton";
 import { SLIDES, pick } from "@/lib/site/content";
 import type { Lang } from "@/lib/i18n/messages";
@@ -10,8 +11,9 @@ import type { Lang } from "@/lib/i18n/messages";
  * first render (only the display changes on a tap), so a search engine reads
  * all of it even though a visitor sees one at a time.
  *
- * The frames are placeholders until there are real screenshots to put in —
- * an invented screenshot would show a restaurant that doesn't exist.
+ * Each frame shows a real screenshot of the seeded "Jamavat Demo" restaurant
+ * (see SLIDES in lib/site/content.ts) — never an invented one, which would
+ * show a restaurant that doesn't exist.
  */
 export function SlideShow({ lang }: { lang: Lang }) {
   const [current, setCurrent] = useState(0);
@@ -25,16 +27,11 @@ export function SlideShow({ lang }: { lang: Lang }) {
           <div
             key={slide.title.en}
             hidden={index !== current}
-            className={`flex flex-col items-center justify-center gap-2 border-8 border-stone-900 bg-surface p-3 text-center text-[13px] font-bold text-text-muted ${
+            className={`relative overflow-hidden border-8 border-stone-900 bg-surface ${
               slide.shape === "phone" ? "h-[280px] w-[170px] rounded-[30px]" : "h-[250px] w-[380px] max-w-full rounded-[20px]"
             }`}
           >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-              <circle cx="9" cy="10" r="2" />
-              <path d="m21 16-5-5-9 9" />
-            </svg>
-            {pick(slide.tag, lang)}
+            <Image src={slide.image} alt={pick(slide.title, lang)} fill sizes="380px" className="object-cover object-top" priority={index === 0} />
           </div>
         ))}
       </div>
