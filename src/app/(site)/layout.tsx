@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
+
+/** Google Search Console, URL-prefix property for https://jamavat.vercel.app — checked against `/`. */
+export const metadata: Metadata = {
+  verification: {
+    google: "TB4cysLy0_EcKd0GyJ3vQHwCaJdyK6OBuhWtJjNU6lw",
+  },
+};
 
 /**
  * Jamavat's own website. Deliberately plain: server-rendered, no service
