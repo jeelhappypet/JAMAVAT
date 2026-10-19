@@ -19,10 +19,14 @@ export function siteUrl(lang: Lang, path = "/"): string {
   return `${siteOrigin()}${sitePath(lang, path)}`;
 }
 
-/** The canonical + hreflang block every public page carries. */
-export function languageAlternates(path = "/") {
+/**
+ * The canonical + hreflang block every public page carries. The canonical is
+ * the page's own address — a ગુજરાતી page pointing at the English one tells
+ * Google it's a duplicate, and Google then drops it from the index.
+ */
+export function languageAlternates(path = "/", lang: Lang = "en") {
   return {
-    canonical: siteUrl("en", path),
+    canonical: siteUrl(lang, path),
     languages: {
       "en-IN": siteUrl("en", path),
       "gu-IN": siteUrl("gu", path),

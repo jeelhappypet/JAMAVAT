@@ -3,6 +3,9 @@ import { KeywordRoute, keywordMetadata } from "@/lib/site/keywordRoute";
 
 const SLUG = "qr-code-ordering-system";
 
+/** Prerendered and served from the CDN — nothing on it changes between deploys. */
+export const dynamic = "force-static";
+
 export const metadata: Metadata = keywordMetadata(SLUG, "en");
 
 export default function QrCodeOrderingSystemPage() {

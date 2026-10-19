@@ -2,8 +2,17 @@ import type { Metadata } from "next";
 import { getTranslator } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { Card } from "@/components/ui/Card";
+import { siteMetadata } from "@/lib/site/metadata";
 
-export const metadata: Metadata = { title: "Privacy Policy · Jamavat" };
+// The root layout's template adds " · Jamavat".
+export const metadata: Metadata = siteMetadata({
+  lang: "en",
+  path: "/privacy",
+  title: "Privacy Policy",
+  description: "How Jamavat collects, uses and deletes guest, staff and WhatsApp data for restaurants that use its QR ordering and kitchen software.",
+  type: "article",
+  hasGujarati: false,
+});
 
 const SECTIONS: { title: MessageKey; body: MessageKey[]; id?: string }[] = [
   { title: "privacy.whoTitle", body: ["privacy.who"] },

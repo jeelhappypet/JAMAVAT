@@ -5,24 +5,14 @@ import { KeywordPageView } from "@/components/site/KeywordPageView";
 import { SitePage } from "@/components/site/SitePage";
 import { SITE_NAME, keywordPage, pick } from "@/lib/site/content";
 import { breadcrumbJsonLd, softwareJsonLd } from "@/lib/site/jsonLd";
-import { languageAlternates } from "@/lib/site/urls";
+import { siteMetadata } from "@/lib/site/metadata";
 import type { Lang } from "@/lib/i18n/messages";
 
 /** Builds the metadata and the page for one keyword page, in one language. */
 export function keywordMetadata(slug: string, lang: Lang): Metadata {
   const page = keywordPage(slug);
   if (!page) return {};
-  return {
-    title: pick(page.title, lang),
-    description: pick(page.description, lang),
-    alternates: languageAlternates(`/${slug}`),
-    openGraph: {
-      title: pick(page.title, lang),
-      description: pick(page.description, lang),
-      type: "article",
-      locale: lang === "gu" ? "gu_IN" : "en_IN",
-    },
-  };
+  return siteMetadata({ lang, path: `/${slug}`, title: pick(page.title, lang), description: pick(page.description, lang), type: "article" });
 }
 
 export function KeywordRoute({ slug, lang }: { slug: string; lang: Lang }) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { KEYWORD_PAGES, FAQS, pick } from "@/lib/site/content";
+import { HERO, KEYWORD_PAGES, FAQS, internationalPhone, pick } from "@/lib/site/content";
 import { languageAlternates, sitePath } from "@/lib/site/urls";
 
 describe("website addresses", () => {
@@ -15,6 +15,11 @@ describe("website addresses", () => {
     expect(alternates.canonical).toMatch(/\/qr-code-ordering-system$/);
     expect(alternates.languages["gu-IN"]).toMatch(/\/gu\/qr-code-ordering-system$/);
     expect(alternates.languages["x-default"]).toBe(alternates.canonical);
+  });
+
+  it("makes each ગુજરાતી page its own canonical — pointing it at the English page gets it dropped from Google", () => {
+    expect(languageAlternates("/", "gu").canonical).toMatch(/\/gu$/);
+    expect(languageAlternates("/pricing", "gu").canonical).toMatch(/\/gu\/pricing$/);
   });
 });
 
@@ -37,10 +42,27 @@ describe("website copy", () => {
       for (const lang of ["en", "gu"] as const) {
         expect(pick(page.title, lang).length, page.slug).toBeLessThanOrEqual(70);
         expect(pick(page.description, lang).length, page.slug).toBeGreaterThan(70);
-        expect(pick(page.description, lang).length, page.slug).toBeLessThanOrEqual(185);
+        // Google cuts a snippet at roughly 155 characters.
+        expect(pick(page.description, lang).length, page.slug).toBeLessThanOrEqual(155);
       }
+      expect(pick(page.label, "en").length).toBeGreaterThan(0);
+      expect(pick(page.label, "gu").length).toBeGreaterThan(0);
       // Its own heading, not the home page's.
       expect(page.heading.en).not.toBe(page.title.en);
     }
+  });
+});
+
+describe("home page snippet", () => {
+  it("leads with the brand and fits in a search result", () => {
+    for (const lang of ["en", "gu"] as const) {
+      expect(pick(HERO.metaTitle, lang)).toMatch(/Jamavat/);
+      expect(pick(HERO.metaDescription, lang).length).toBeLessThanOrEqual(155);
+    }
+  });
+
+  it("writes phone numbers in international form", () => {
+    expect(internationalPhone("917984020642")).toBe("+917984020642");
+    expect(internationalPhone("98765 43210")).toBe("+919876543210");
   });
 });

@@ -8,6 +8,7 @@ import { planSchema } from "@/lib/validation/hq";
 import { toPlanDTO } from "../route";
 import { getTranslator } from "@/lib/i18n/server";
 import { jsonError, respond } from "@/lib/api";
+import { refreshPlanPages } from "@/lib/site/plans";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -38,6 +39,7 @@ export async function PATCH(request: Request, { params }: Params) {
       { returnDocument: "after" }
     ).lean<PlanDocument>();
     if (!updated) return jsonError(t("err.notFound"), 404);
+    refreshPlanPages();
     return NextResponse.json({ plan: toPlanDTO(updated, await Restaurant.countDocuments({ planId: id })) });
   });
 }
@@ -54,6 +56,8 @@ export async function DELETE(_request: Request, { params }: Params) {
     await connectToDatabase();
     if (await Restaurant.exists({ planId: id })) return jsonError("Restaurants are on this plan — archive it instead", 409);
     const deleted = await Plan.findByIdAndDelete(id).lean();
-    return deleted ? NextResponse.json({ ok: true }) : jsonError(t("err.notFound"), 404);
+    if (!deleted) return jsonError(t("err.notFound"), 404);
+    refreshPlanPages();
+    return NextResponse.json({ ok: true });
   });
 }

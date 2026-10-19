@@ -3,23 +3,27 @@ import { JsonLd } from "@/components/site/SiteChrome";
 import { SiteHome } from "@/components/site/SiteHome";
 import { SitePage } from "@/components/site/SitePage";
 import { HERO, pick } from "@/lib/site/content";
-import { faqJsonLd, organizationJsonLd, softwareJsonLd } from "@/lib/site/jsonLd";
+import { faqJsonLd, organizationJsonLd, softwareJsonLd, websiteJsonLd } from "@/lib/site/jsonLd";
 import { getPublicPlans } from "@/lib/site/plans";
-import { languageAlternates } from "@/lib/site/urls";
+import { siteMetadata } from "@/lib/site/metadata";
 
-export const metadata: Metadata = {
-  title: pick(HERO.title, "gu"),
-  description: pick(HERO.body, "gu"),
-  alternates: languageAlternates("/"),
-  openGraph: { title: `જમાવટ — ${pick(HERO.title, "gu")}`, description: pick(HERO.body, "gu"), type: "website", locale: "gu_IN" },
-};
+/** Prerendered and served from the CDN; plans edited in HQ refresh it (revalidatePath) or within the hour. */
+export const dynamic = "force-static";
+export const revalidate = 3600;
+
+export const metadata: Metadata = siteMetadata({
+  lang: "gu",
+  title: pick(HERO.metaTitle, "gu"),
+  description: pick(HERO.metaDescription, "gu"),
+  absoluteTitle: true,
+});
 
 /** The same page in ગુજરાતી at its own address, so Google can index and show it. */
 export default async function GujaratiHomePage() {
   const plans = await getPublicPlans();
   return (
     <SitePage lang="gu">
-      <JsonLd data={[organizationJsonLd("gu"), softwareJsonLd("gu"), faqJsonLd("gu")]} />
+      <JsonLd data={[websiteJsonLd("gu"), organizationJsonLd("gu"), softwareJsonLd("gu"), faqJsonLd("gu")]} />
       <SiteHome lang="gu" plans={plans} />
     </SitePage>
   );

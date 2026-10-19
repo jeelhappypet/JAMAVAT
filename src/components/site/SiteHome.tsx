@@ -4,7 +4,7 @@ import { InquiryForm } from "@/components/site/InquiryForm";
 import { PricingPlans } from "@/components/site/PricingPlans";
 import { Reveal } from "@/components/site/Reveal";
 import { SlideShow } from "@/components/site/SlideShow";
-import { AUDIENCE, CONTACT, FAQS, FEATURES, HERO, INQUIRY, NAV, SECTIONS, STEPS, pick } from "@/lib/site/content";
+import { AUDIENCE, CONTACT, FAQS, FEATURES, HERO, INQUIRY, NAV, SECTIONS, STEPS, internationalPhone, pick } from "@/lib/site/content";
 import type { PublicPlan } from "@/lib/site/plans";
 import { sitePath } from "@/lib/site/urls";
 import type { Lang } from "@/lib/i18n/messages";
@@ -147,7 +147,7 @@ export function SiteHome({ lang, plans }: { lang: Lang; plans: PublicPlan[] }) {
                 </a>
               ) : null}
               {CONTACT.phone ? (
-                <a href={`tel:${CONTACT.phone.replace(/\s/g, "")}`} className={buttonClass({ variant: "secondary", size: "lg" })}>
+                <a href={`tel:${internationalPhone(CONTACT.phone)}`} className={buttonClass({ variant: "secondary", size: "lg" })}>
                   {CONTACT.phone}
                 </a>
               ) : null}

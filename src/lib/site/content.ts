@@ -20,6 +20,12 @@ export const CONTACT = {
   whatsapp: process.env.NEXT_PUBLIC_SITE_WHATSAPP || "",
 };
 
+/** E.164 for `tel:` links and schema.org — the env holds it as typed (e.g. 917984020642 or 98765 43210). */
+export function internationalPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  return digits.length === 10 ? `+91${digits}` : `+${digits}`;
+}
+
 export function pick(text: Localized, lang: Lang): string {
   return (lang === "gu" ? text.gu : text.en) || text.en;
 }
@@ -32,6 +38,12 @@ export const HERO = {
   body: L(
     "Guests scan, order and track their food from the table. Each kitchen gets only its own dishes. You see the whole day's sales in one place — on any phone or tablet, in English and ગુજરાતી.",
     "ગ્રાહક ટેબલ પરથી જ QR સ્કેન કરી ઓર્ડર આપે અને સ્ટેટસ જુએ. દરેક કિચનને ફક્ત તેની જ વાનગીઓ મળે. આખા દિવસનું વેચાણ એક જ જગ્યાએ — કોઈપણ ફોન કે ટેબ્લેટ પર, English અને ગુજરાતીમાં."
+  ),
+  /** What Google shows: the brand first (people search "Jamavat"), the description under ~155 characters so it isn't cut. */
+  metaTitle: L("Jamavat: QR Ordering & Kitchen Software for Restaurants", "જમાવટ (Jamavat): રેસ્ટોરન્ટ માટે QR ઓર્ડરિંગ અને કિચન સોફ્ટવેર"),
+  metaDescription: L(
+    "Jamavat is QR table ordering and kitchen display software for restaurants. Guests order by phone, each kitchen sees its dishes, you see daily sales.",
+    "જમાવટ રેસ્ટોરન્ટ માટે QR ટેબલ ઓર્ડરિંગ અને કિચન સોફ્ટવેર છે. ગ્રાહક ફોનથી ઓર્ડર આપે, દરેક કિચનને તેની વાનગી મળે, તમને રોજનું વેચાણ દેખાય."
   ),
   points: [
     L("No app to install", "કોઈ એપ ડાઉનલોડ નહીં"),
@@ -219,6 +231,21 @@ export const FAQS: { q: Localized; a: Localized }[] = [
     ),
   },
   {
+    q: L("Does it handle parcel and counter orders too?", "પાર્સલ અને કાઉન્ટર ઓર્ડર પણ લેવાય?"),
+    a: L(
+      "Yes. The counter types in a parcel or walk-in order, it gets a token number, and it goes to the same kitchen screens as the table orders. It shows up separately in the daily report.",
+      "હા. કાઉન્ટર પાર્સલ કે સીધો આવેલો ઓર્ડર લખે, તેને ટોકન નંબર મળે, અને ટેબલના ઓર્ડરની જેમ જ કિચન સ્ક્રીન પર જાય. રોજના રિપોર્ટમાં તે અલગ દેખાય છે."
+    ),
+  },
+  {
+    q: L("How long does it take to start?", "શરૂ કરવામાં કેટલો સમય લાગે?"),
+    a: L(
+      "Usually a day. We set up your menu, kitchens and QR codes with you, you stick the codes on the tables, and your staff can take orders the same evening.",
+      "સામાન્ય રીતે એક દિવસ. તમારી સાથે મળીને અમે મેનુ, કિચન અને QR કોડ સેટ કરીએ, તમે ટેબલ પર સ્ટીકર લગાવો, અને એ જ સાંજે સ્ટાફ ઓર્ડર લેતો થઈ જાય."
+    ),
+  },
+  // Keep last: the pricing page shows this one on its own.
+  {
     q: L("What does it cost?", "ભાવ કેટલો?"),
     a: L(
       "Jamavat is a monthly subscription per restaurant, with a free trial to start. Ask for a demo and we'll show you the plan that fits your number of tables.",
@@ -263,6 +290,7 @@ export const NAV = {
   privacy: L("Privacy policy", "પ્રાઇવસી પોલિસી"),
   terms: L("Terms", "શરતો"),
   staffLogin: L("Restaurant login", "રેસ્ટોરન્ટ લોગિન"),
+  solutions: L("Solutions", "સોલ્યુશન"),
   tagline: L("QR ordering & kitchen software for restaurants", "રેસ્ટોરન્ટ માટે QR ઓર્ડરિંગ અને કિચન સોફ્ટવેર"),
 };
 
@@ -293,6 +321,8 @@ export const SECTIONS = {
  */
 export interface KeywordPage {
   slug: string;
+  /** Short link text for the footer — the words someone searches for. */
+  label: Localized;
   title: Localized;
   description: Localized;
   heading: Localized;
@@ -303,9 +333,10 @@ export interface KeywordPage {
 export const KEYWORD_PAGES: KeywordPage[] = [
   {
     slug: "restaurant-management-software",
+    label: L("Restaurant management software", "રેસ્ટોરન્ટ મેનેજમેન્ટ સોફ્ટવેર"),
     title: L("Restaurant management software for Indian restaurants", "ભારતીય રેસ્ટોરન્ટ માટે રેસ્ટોરન્ટ મેનેજમેન્ટ સોફ્ટવેર"),
     description: L(
-      "Jamavat is restaurant management software for Indian restaurants: QR table ordering, kitchen screens, billing and daily sales reports, in English and Gujarati.",
+      "Jamavat is restaurant management software for Indian restaurants: QR table ordering, kitchen screens, billing and daily reports, in English and Gujarati.",
       "જમાવટ ભારતીય રેસ્ટોરન્ટ માટેનું મેનેજમેન્ટ સોફ્ટવેર છે: QR ટેબલ ઓર્ડરિંગ, કિચન સ્ક્રીન, બિલિંગ અને રોજનો રિપોર્ટ — English અને ગુજરાતીમાં."
     ),
     heading: L("Restaurant management software that your staff will actually use", "સ્ટાફ ખરેખર વાપરે એવું રેસ્ટોરન્ટ મેનેજમેન્ટ સોફ્ટવેર"),
@@ -332,9 +363,10 @@ export const KEYWORD_PAGES: KeywordPage[] = [
   },
   {
     slug: "qr-code-ordering-system",
+    label: L("QR code ordering system", "QR કોડ ઓર્ડરિંગ સિસ્ટમ"),
     title: L("QR code ordering system for restaurants", "રેસ્ટોરન્ટ માટે QR કોડ ઓર્ડરિંગ સિસ્ટમ"),
     description: L(
-      "A QR code ordering system where every seat has its own code: guests scan, order and track their food, and the kitchen gets it instantly. No app for the guest.",
+      "A QR code ordering system where every seat has its own code: guests scan, order and track their food, and the kitchen gets it at once. No app needed.",
       "એવી QR ઓર્ડરિંગ સિસ્ટમ જેમાં દરેક બેઠકનો પોતાનો કોડ છે: ગ્રાહક સ્કેન કરી ઓર્ડર આપે અને સ્ટેટસ જુએ, કિચનને તરત મળે. ગ્રાહક માટે કોઈ એપ નહીં."
     ),
     heading: L("A QR code ordering system built around one guest per code", "દરેક કોડ દીઠ એક ગ્રાહક — એ રીતે બનેલી QR ઓર્ડરિંગ સિસ્ટમ"),
@@ -361,6 +393,7 @@ export const KEYWORD_PAGES: KeywordPage[] = [
   },
   {
     slug: "kitchen-display-system",
+    label: L("Kitchen display system", "કિચન ડિસ્પ્લે સિસ્ટમ"),
     title: L("Kitchen display system (KDS) for multi-kitchen restaurants", "બે કે વધુ કિચનવાળી રેસ્ટોરન્ટ માટે કિચન ડિસ્પ્લે સિસ્ટમ (KDS)"),
     description: L(
       "A kitchen display system that splits one order item-wise: each kitchen screen shows only the dishes it cooks, with a sound for every new ticket.",
@@ -390,6 +423,7 @@ export const KEYWORD_PAGES: KeywordPage[] = [
   },
   {
     slug: "restaurant-billing-software",
+    label: L("Restaurant billing software", "રેસ્ટોરન્ટ બિલિંગ સોફ્ટવેર"),
     title: L("Restaurant billing software with QR orders and daily reports", "QR ઓર્ડર અને રોજના રિપોર્ટ સાથેનું રેસ્ટોરન્ટ બિલિંગ સોફ્ટવેર"),
     description: L(
       "Restaurant billing software where the bill builds itself from the table's orders: one bill per sitting, cash/UPI/card, a thank-you email and sales reports.",

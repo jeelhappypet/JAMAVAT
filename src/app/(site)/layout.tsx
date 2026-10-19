@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 /** Google Search Console, URL-prefix property for https://jamavat.vercel.app — checked against `/`. */
@@ -6,6 +6,20 @@ export const metadata: Metadata = {
   verification: {
     google: "TB4cysLy0_EcKd0GyJ3vQHwCaJdyK6OBuhWtJjNU6lw",
   },
+};
+
+/**
+ * The app screens lock zoom (a POS doesn't want pinch-zoom mid-service); the
+ * website must not — it fails accessibility checks and search engines'
+ * mobile-friendliness tests.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Viewports merge key by key — these replace the root layout's zoom lock rather than inherit it.
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: "#c2410c",
 };
 
 /**

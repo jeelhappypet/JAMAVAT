@@ -12,6 +12,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified: now,
     changeFrequency: path === "/" ? "weekly" : "monthly",
     priority: path === "/" ? 1 : path === "/privacy" || path === "/terms" ? 0.3 : 0.8,
-    alternates: { languages: { "en-IN": siteUrl("en", path), "gu-IN": siteUrl("gu", path) } },
+    // The privacy policy has no /gu page of its own — an alternate pointing at a 404 makes Google distrust the rest.
+    ...(path === "/privacy" ? {} : { alternates: { languages: { "en-IN": siteUrl("en", path), "gu-IN": siteUrl("gu", path) } } }),
   }));
 }

@@ -6,6 +6,7 @@ import { requireHq } from "@/lib/hq/guard";
 import { planSchema } from "@/lib/validation/hq";
 import { getTranslator } from "@/lib/i18n/server";
 import { respond } from "@/lib/api";
+import { refreshPlanPages } from "@/lib/site/plans";
 import type { Localized, PlanDTO } from "@/types";
 
 const text = (value: { en?: string | null; gu?: string | null } | null | undefined): Localized => ({ en: value?.en ?? "", gu: value?.gu ?? "" });
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
       maxSeats: input.maxSeats ?? undefined,
       maxStaff: input.maxStaff ?? undefined,
     });
+    refreshPlanPages();
     return NextResponse.json({ plan: toPlanDTO(created.toObject()) }, { status: 201 });
   });
 }

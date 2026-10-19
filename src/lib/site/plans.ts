@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { Plan, type PlanDocument } from "@/models/Plan";
 import type { Localized } from "@/types";
@@ -18,6 +19,11 @@ export interface PublicPlan {
 const empty: Localized = { en: "", gu: "" };
 const text = (value: { en?: string | null; gu?: string | null } | null | undefined): Localized =>
   value ? { en: value.en ?? "", gu: value.gu ?? "" } : empty;
+
+/** The prerendered pages that show plans — rebuilt on their next visit after HQ edits a plan. */
+export function refreshPlanPages() {
+  for (const path of ["/", "/gu", "/pricing", "/gu/pricing"]) revalidatePath(path);
+}
 
 /**
  * The plans the website shows. Edited in HQ; a plan is only public once it's

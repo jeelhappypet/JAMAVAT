@@ -10,6 +10,6 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [{ userAgent: "*", allow: "/", disallow: ["/r/", "/t/", "/hq", "/go", "/api/", "/login", "/forgot-password", "/reset-password"] }],
     sitemap: `${siteOrigin()}/sitemap.xml`,
-    host: siteOrigin(),
+    // No `host:` line — it's a Yandex-only directive that Google ignores and validators report as invalid syntax.
   };
 }

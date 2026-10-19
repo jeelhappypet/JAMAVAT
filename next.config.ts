@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Tells scanners which framework to try exploits against, and nothing useful to anyone else.
+  poweredByHeader: false,
   // Poll instead of inotify when the OS watcher limit is exhausted (EMFILE).
   ...(process.env.WATCHPACK_POLLING === "true" && {
     watchOptions: { pollIntervalMs: 1000 },

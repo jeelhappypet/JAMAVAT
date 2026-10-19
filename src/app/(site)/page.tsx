@@ -3,22 +3,26 @@ import { JsonLd } from "@/components/site/SiteChrome";
 import { SiteHome } from "@/components/site/SiteHome";
 import { SitePage } from "@/components/site/SitePage";
 import { HERO, pick } from "@/lib/site/content";
-import { faqJsonLd, organizationJsonLd, softwareJsonLd } from "@/lib/site/jsonLd";
+import { faqJsonLd, organizationJsonLd, softwareJsonLd, websiteJsonLd } from "@/lib/site/jsonLd";
 import { getPublicPlans } from "@/lib/site/plans";
-import { languageAlternates } from "@/lib/site/urls";
+import { siteMetadata } from "@/lib/site/metadata";
 
-export const metadata: Metadata = {
-  title: pick(HERO.title, "en"),
-  description: pick(HERO.body, "en"),
-  alternates: languageAlternates("/"),
-  openGraph: { title: `Jamavat — ${pick(HERO.title, "en")}`, description: pick(HERO.body, "en"), type: "website", locale: "en_IN" },
-};
+/** Prerendered and served from the CDN; plans edited in HQ refresh it (revalidatePath) or within the hour. */
+export const dynamic = "force-static";
+export const revalidate = 3600;
+
+export const metadata: Metadata = siteMetadata({
+  lang: "en",
+  title: pick(HERO.metaTitle, "en"),
+  description: pick(HERO.metaDescription, "en"),
+  absoluteTitle: true,
+});
 
 export default async function HomePage() {
   const plans = await getPublicPlans();
   return (
     <SitePage lang="en">
-      <JsonLd data={[organizationJsonLd("en"), softwareJsonLd("en"), faqJsonLd("en")]} />
+      <JsonLd data={[websiteJsonLd("en"), organizationJsonLd("en"), softwareJsonLd("en"), faqJsonLd("en")]} />
       <SiteHome lang="en" plans={plans} />
     </SitePage>
   );

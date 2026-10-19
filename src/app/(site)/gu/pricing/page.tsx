@@ -5,13 +5,18 @@ import { SitePage } from "@/components/site/SitePage";
 import { SECTIONS, SITE_NAME, pick } from "@/lib/site/content";
 import { breadcrumbJsonLd } from "@/lib/site/jsonLd";
 import { getPublicPlans } from "@/lib/site/plans";
-import { languageAlternates } from "@/lib/site/urls";
+import { siteMetadata } from "@/lib/site/metadata";
 
-export const metadata: Metadata = {
+/** Prerendered and served from the CDN; plans edited in HQ refresh it (revalidatePath) or within the hour. */
+export const dynamic = "force-static";
+export const revalidate = 3600;
+
+export const metadata: Metadata = siteMetadata({
+  lang: "gu",
+  path: "/pricing",
   title: pick(SECTIONS.pricingTitle, "gu"),
   description: pick(SECTIONS.pricingBody, "gu"),
-  alternates: languageAlternates("/pricing"),
-};
+});
 
 export default async function PricingPageGu() {
   const plans = await getPublicPlans();

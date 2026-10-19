@@ -5,7 +5,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { TextArea, TextField } from "@/components/ui/TextField";
-import { CONTACT, INQUIRY, pick } from "@/lib/site/content";
+import { CONTACT, INQUIRY, internationalPhone, pick } from "@/lib/site/content";
 import type { Lang } from "@/lib/i18n/messages";
 
 /** Campaign tags in the address, so HQ can tell which ad or post a lead came from. */
@@ -53,7 +53,7 @@ export function InquiryForm({ lang }: { lang: Lang }) {
       <div className="flex flex-col gap-4 rounded-3xl border border-border bg-surface p-6">
         <Alert tone="success">{pick(INQUIRY.done, lang)}</Alert>
         {CONTACT.phone ? (
-          <a className="text-[15px] font-bold text-brand underline" href={`tel:${CONTACT.phone.replace(/\s/g, "")}`}>
+          <a className="text-[15px] font-bold text-brand underline" href={`tel:${internationalPhone(CONTACT.phone)}`}>
             {CONTACT.phone}
           </a>
         ) : null}
