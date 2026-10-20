@@ -18,6 +18,14 @@ export const CONTACT = {
   email: process.env.NEXT_PUBLIC_SITE_EMAIL || "",
   /** Digits only, e.g. 919876543210 — makes the "Chat on WhatsApp" link. */
   whatsapp: process.env.NEXT_PUBLIC_SITE_WHATSAPP || "",
+  /**
+   * Jamavat's own profiles elsewhere (Instagram, LinkedIn, Facebook, YouTube, Google Business), comma-separated.
+   * They go into the Organization schema's `sameAs` — how Google ties "Jamavat" the brand to this site.
+   */
+  profiles: (process.env.NEXT_PUBLIC_SITE_PROFILES || "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter((url) => url.startsWith("https://")),
 };
 
 /** E.164 for `tel:` links and schema.org — the env holds it as typed (e.g. 917984020642 or 98765 43210). */
@@ -34,6 +42,8 @@ const L = (en: string, gu: string): Localized => ({ en, gu });
 
 export const HERO = {
   eyebrow: L("QR ordering · Kitchen screens · Daily reports", "QR ઓર્ડર · કિચન સ્ક્રીન · રોજનો રિપોર્ટ"),
+  /** Leads the h1: "Jamavat" is also a Gujarati word, songs and restaurants, so the page must say plainly that it's the brand. */
+  brand: L("Jamavat", "જમાવટ"),
   title: L("QR table ordering & kitchen software for restaurants", "રેસ્ટોરન્ટ માટે QR ટેબલ ઓર્ડરિંગ અને કિચન સોફ્ટવેર"),
   body: L(
     "Guests scan, order and track their food from the table. Each kitchen gets only its own dishes. You see the whole day's sales in one place — on any phone or tablet, in English and ગુજરાતી.",

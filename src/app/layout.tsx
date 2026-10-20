@@ -31,8 +31,14 @@ const appName = "Jamavat";
  */
 export const metadata: Metadata = {
   title: { default: appName, template: `%s · ${appName}` },
+  // Google shows a site's favicon only if it's a square multiple of 48px, and draws it in a circle on light
+  // and dark results — so these are opaque white squares with the mark inset, not the transparent PWA icons.
+  // (`app/favicon.ico` carries 16/32/48 for browser tabs.)
   icons: {
-    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    icon: [
+      { url: "/icons/favicon-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/icons/favicon-192.png", sizes: "192x192", type: "image/png" },
+    ],
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   appleWebApp: {

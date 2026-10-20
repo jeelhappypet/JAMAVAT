@@ -34,6 +34,7 @@ export function organizationJsonLd(lang: Lang) {
     url: `${siteOrigin()}/`,
     logo: `${siteOrigin()}/icons/icon-512.png`,
     description: pick(HERO.metaDescription, lang),
+    ...(CONTACT.profiles.length ? { sameAs: CONTACT.profiles } : {}),
     ...(CONTACT.email ? { email: CONTACT.email } : {}),
     ...(CONTACT.phone
       ? {

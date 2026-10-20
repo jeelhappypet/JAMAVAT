@@ -554,6 +554,7 @@ LEGACY_RESTAURANT_SLUG=    # one-time: the link the existing restaurant gets at 
 NEXT_PUBLIC_SITE_PHONE=    # shown on the website
 NEXT_PUBLIC_SITE_EMAIL=
 NEXT_PUBLIC_SITE_WHATSAPP= # digits only (919876543210) — the "Chat on WhatsApp" link
+NEXT_PUBLIC_SITE_PROFILES= # comma-separated https:// profile links (Instagram, LinkedIn, Google Business…) — Organization `sameAs`, ties the brand to the site
 ADMIN_SESSION_SECRET=      # signs staff session cookies — `openssl rand -hex 32`
 SETUP_KEY=                 # one-time key for /setup (falls back to ADMIN_PASSWORD)
 NEXT_PUBLIC_APP_NAME=જમાવટ

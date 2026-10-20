@@ -27,7 +27,7 @@ export function SiteHome({ lang, plans }: { lang: Lang; plans: PublicPlan[] }) {
             {pick(HERO.eyebrow, lang)}
           </Badge>
           <h1 className="animate-fade-up text-[clamp(34px,5vw,56px)] font-extrabold leading-[1.08] tracking-[-0.03em] [animation-delay:70ms]">
-            {pick(HERO.title, lang)}
+            <span className="block text-brand">{pick(HERO.brand, lang)}</span> {pick(HERO.title, lang)}
           </h1>
           <p className="animate-fade-up max-w-[540px] text-lg leading-relaxed text-stone-700 [animation-delay:140ms]">{pick(HERO.body, lang)}</p>
           <div className="animate-fade-up flex flex-wrap gap-3 [animation-delay:210ms]">
