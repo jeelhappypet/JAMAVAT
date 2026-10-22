@@ -1,20 +1,28 @@
 @import "tailwindcss";
 
+/* Taken from public/brand/logo.png itself, not picked to look like it:
+   the cloche is #381e18 and the steam #f38507. The logo's own orange is too
+   light to carry white text (2.6:1), so `brand` is that hue darkened until it
+   passes AA on white (4.7:1) and `brand-strong` stays the real one, used as a
+   surface with brown text on it (6:1). */
 :root {
-  --background: #fafaf9;
-  --foreground: #1c1917;
+  --background: #fdfaf7;
+  --foreground: #2a1611;
 
-  --color-brand: #c2410c;
-  --color-brand-dark: #9a3412;
-  --color-brand-light: #ffedd5;
+  --color-brand: #b2560a;
+  --color-brand-dark: #8a4204;
+  --color-brand-strong: #f38507;
+  --color-brand-light: #ffeedd;
+  --color-ink: #2a1611;
+  --color-ink-soft: #40251d;
   --color-surface: #ffffff;
-  --color-surface-muted: #f5f5f4;
-  --color-border: #e7e5e4;
+  --color-surface-muted: #f7f2ec;
+  --color-border: #ebe2d9;
   --color-success: #15803d;
   --color-success-light: #dcfce7;
   --color-danger: #b91c1c;
   --color-danger-light: #fee2e2;
-  --color-text-muted: #57534e;
+  --color-text-muted: #6b5248;
 }
 
 @theme inline {
@@ -22,7 +30,10 @@
   --color-foreground: var(--foreground);
   --color-brand: var(--color-brand);
   --color-brand-dark: var(--color-brand-dark);
+  --color-brand-strong: var(--color-brand-strong);
   --color-brand-light: var(--color-brand-light);
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
   --color-surface: var(--color-surface);
   --color-surface-muted: var(--color-surface-muted);
   --color-border: var(--color-border);
@@ -31,8 +42,9 @@
   --color-danger: var(--color-danger);
   --color-danger-light: var(--color-danger-light);
   --color-text-muted: var(--color-text-muted);
-  --font-gujarati: var(--font-noto-gujarati);
-  --font-sans: var(--font-jakarta), var(--font-noto-gujarati), system-ui, sans-serif;
+  --font-gujarati: var(--font-sans-gujarati);
+  --font-sans: var(--font-sans-latin), var(--font-sans-gujarati), system-ui, sans-serif;
+  --font-display: var(--font-display-latin), var(--font-display-gujarati), Georgia, serif;
 }
 
 /* Light only, matching the approved design canvas. */
@@ -49,8 +61,75 @@ body {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-jakarta), var(--font-noto-gujarati), "Noto Sans Gujarati", system-ui, sans-serif;
+  font-family: var(--font-sans-latin), var(--font-sans-gujarati), "Noto Sans Gujarati", system-ui, sans-serif;
   overscroll-behavior-y: contain;
+}
+
+/*
+ * The website's type scale, in one place. It used to be a `clamp()` written
+ * inline at every heading, which is how six slightly different "section
+ * title" sizes ended up on one page.
+ *
+ * Only the hero is genuinely large. Everything below it steps down hard:
+ * a page where the body text is 17px and every heading is 38px reads as a
+ * poster, not as something a restaurant owner can skim.
+ *
+ * `.heading` is scoped to a class, not to `h1, h2`: the staff screens'
+ * headings are UI labels on a counter, and a display serif there would be
+ * decoration in the way of someone working.
+ */
+.heading {
+  font-family: var(--font-display-latin), var(--font-display-gujarati), Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.t-hero {
+  font-size: clamp(33px, 4.6vw, 56px);
+  line-height: 1.05;
+  letter-spacing: -0.028em;
+}
+
+.t-h2 {
+  font-size: clamp(24px, 2.7vw, 35px);
+  line-height: 1.14;
+  letter-spacing: -0.022em;
+}
+
+.t-h3 {
+  font-size: clamp(18px, 1.5vw, 21px);
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+/* The one paragraph under a hero or a section title. */
+.t-lead {
+  font-size: clamp(15.5px, 1.25vw, 17px);
+  line-height: 1.6;
+}
+
+.t-body {
+  font-size: 15px;
+  line-height: 1.62;
+}
+
+.t-small {
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+/* The little uppercase label above a section title. */
+.t-eyebrow {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+/* Gujarati has no case and its conjuncts come apart when letter-spaced. */
+:lang(gu) .t-eyebrow {
+  text-transform: none;
+  letter-spacing: 0.02em;
 }
 
 button,
@@ -105,7 +184,22 @@ input:disabled {
   }
 }
 
-/* Jamavat website (src/app/(site)): a load-in for the hero, a scroll-in for everything after. */
+/* ===========================================================================
+ * Jamavat website — motion.
+ *
+ * One easing and two durations for everything, so the page moves like one
+ * object. Every rule here is paired with a `prefers-reduced-motion` reset at
+ * the bottom of this block, and nothing animates content into existence that
+ * is not already in the HTML: a crawler, a printout and a phone with no
+ * JavaScript all get the finished page.
+ * ======================================================================== */
+
+:root {
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 0.25s;
+  --t-slow: 0.7s;
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -118,31 +212,173 @@ input:disabled {
 }
 
 .animate-fade-up {
-  animation: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: fade-up var(--t-slow) var(--ease-out-soft) both;
 }
 
-/* Scroll-reveal (components/site/Reveal.tsx): starts hidden, IntersectionObserver adds .is-visible.
-   The <noscript> rule in (site)/layout.tsx shows everything at once when JS never runs. */
+/* The hero collage arrives a touch later and from further back than the
+   words beside it, so the eye reads the headline first. */
+@keyframes art-in {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.965);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-art-in {
+  animation: art-in 1s var(--ease-out-soft) both;
+}
+
+/* A slow drift on the hero phone — enough to make the page feel alive,
+   small enough that nobody reading the headline notices it moving. */
+@keyframes drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-drift {
+  animation: drift 7s ease-in-out 1.2s infinite;
+}
+
+/* ---------------------------------------------------------------- reveals */
+/* components/site/Reveal.tsx: starts hidden, its IntersectionObserver adds
+   .is-visible. The <noscript> rule in (site)/layout.tsx shows everything at
+   once when JS never runs. `data-reveal` carries the direction, so a row
+   whose picture is on the right enters from the right. */
 [data-reveal] {
   opacity: 0;
-  transform: translateY(22px);
-  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity var(--t-slow) var(--ease-out-soft), transform var(--t-slow) var(--ease-out-soft), clip-path var(--t-slow) var(--ease-out-soft);
+}
+
+[data-reveal="up"] {
+  transform: translateY(24px);
+}
+
+[data-reveal="left"] {
+  transform: translateX(-28px);
+}
+
+[data-reveal="right"] {
+  transform: translateX(28px);
+}
+
+[data-reveal="scale"] {
+  transform: scale(0.955);
+}
+
+/* Screenshots wipe up rather than fade: a photograph that fades in looks
+   like it failed to load, one that is uncovered looks deliberate. */
+[data-reveal="wipe"] {
+  clip-path: inset(14% 0 0 0 round 20px);
+  transform: translateY(16px);
 }
 
 [data-reveal].is-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
+  clip-path: inset(0 0 0 0 round 20px);
+}
+
+/* ------------------------------------------------------------ interactions */
+.site-lift {
+  transition: transform var(--t-fast) var(--ease-out-soft), box-shadow var(--t-fast) var(--ease-out-soft), border-color var(--t-fast);
+}
+
+@media (hover: hover) {
+  .site-lift:hover {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--color-brand) 35%, var(--color-border));
+    box-shadow: 0 20px 44px -26px color-mix(in srgb, var(--color-ink) 60%, transparent);
+  }
+
+  /* The icon tile on a feature card leans in with its card. */
+  .site-lift:hover .site-tile {
+    transform: scale(1.08) rotate(-4deg);
+    background-color: var(--color-brand-strong);
+    color: var(--color-ink);
+  }
+
+  /* The arrow on a call to action slides out on hover. */
+  .site-cta:hover .site-arrow {
+    transform: translateX(4px);
+  }
+}
+
+.site-tile,
+.site-arrow {
+  transition: transform var(--t-fast) var(--ease-out-soft), background-color var(--t-fast), color var(--t-fast);
+}
+
+/* The sticky header sheds its padding once the page has moved, so it takes
+   less of a phone screen the further down you read. */
+.site-header {
+  transition: padding var(--t-fast) var(--ease-out-soft), box-shadow var(--t-fast), background-color var(--t-fast);
+}
+
+/* A <details> cannot animate its own height; the row holds the answer in a
+   grid track that opens from 0fr to 1fr, which can. */
+.site-answer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s var(--ease-out-soft);
+}
+
+details[open] .site-answer {
+  grid-template-rows: 1fr;
+}
+
+.site-answer > * {
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------ backgrounds */
+/* The warm wash behind the hero and the section bands — the logo's own
+   orange at low opacity, so the page reads as the brand before a single word
+   is read. One gradient, no image: it must not cost a request. */
+.site-warm {
+  background:
+    radial-gradient(900px 420px at 12% -10%, color-mix(in srgb, var(--color-brand-strong) 22%, transparent), transparent 70%),
+    radial-gradient(700px 380px at 92% 0%, color-mix(in srgb, var(--color-brand-strong) 12%, transparent), transparent 65%),
+    var(--background);
+}
+
+.site-ink {
+  background:
+    radial-gradient(760px 360px at 85% 0%, color-mix(in srgb, var(--color-brand-strong) 24%, transparent), transparent 70%),
+    var(--color-ink);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-up {
+  .animate-fade-up,
+  .animate-art-in,
+  .animate-drift {
     animation: none;
   }
 
-  [data-reveal] {
+  [data-reveal],
+  [data-reveal].is-visible {
     opacity: 1;
     transform: none;
+    clip-path: none;
     transition: none;
+  }
+
+  .site-lift,
+  .site-lift:hover,
+  .site-tile,
+  .site-arrow,
+  .site-header,
+  .site-answer {
+    transition: none;
+    transform: none;
   }
 }
 

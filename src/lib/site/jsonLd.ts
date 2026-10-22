@@ -1,4 +1,4 @@
-import { CONTACT, HERO, SITE_NAME, internationalPhone, pick } from "@/lib/site/content";
+import { CONTACT, HERO, SITE_NAME, brandProfiles, internationalPhone, pick } from "@/lib/site/content";
 import { siteOrigin, siteUrl } from "@/lib/site/urls";
 import type { Lang } from "@/lib/i18n/messages";
 
@@ -19,7 +19,9 @@ export function websiteJsonLd(lang: Lang) {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: SITE_NAME,
-    alternateName: ["જમાવટ", "Jamavat restaurant software"],
+    // The Instagram handle is in here because people who saw the account search
+    // for it by name; without it that search finds Instagram and not this site.
+    alternateName: ["જમાવટ", "Jamavat restaurant software", CONTACT.instagram],
     url: `${siteOrigin()}/`,
     inLanguage: lang === "gu" ? "gu-IN" : "en-IN",
   };
@@ -34,7 +36,9 @@ export function organizationJsonLd(lang: Lang) {
     url: `${siteOrigin()}/`,
     logo: `${siteOrigin()}/icons/icon-512.png`,
     description: pick(HERO.metaDescription, lang),
-    ...(CONTACT.profiles.length ? { sameAs: CONTACT.profiles } : {}),
+    // Instagram is always in here (see CONTACT.instagram) — it is how Google
+    // ties @jamavat.india and this site to one brand.
+    sameAs: brandProfiles(),
     ...(CONTACT.email ? { email: CONTACT.email } : {}),
     ...(CONTACT.phone
       ? {

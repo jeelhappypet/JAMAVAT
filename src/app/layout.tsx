@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Noto_Sans_Gujarati, Plus_Jakarta_Sans } from "next/font/google";
+import { Fraunces, Noto_Sans_Gujarati, Noto_Serif_Gujarati, Schibsted_Grotesk } from "next/font/google";
 import { OfflineIndicator } from "@/components/realtime/OfflineIndicator";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { TopProgress } from "@/components/shell/TopProgress";
@@ -7,16 +7,44 @@ import { I18nProvider } from "@/lib/i18n/I18nProvider";
 import { getLang } from "@/lib/i18n/server";
 import "./globals.css";
 
-// Latin text renders in Plus Jakarta Sans; Gujarati glyphs fall through to Noto Sans Gujarati.
-const plusJakartaSans = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
+/**
+ * Two typefaces, each in both scripts, so a ગુજરાતી heading is the same
+ * voice as an English one rather than the body font in disguise:
+ *
+ * - display (Fraunces / Noto Serif Gujarati) for headlines only. A warm,
+ *   high-contrast serif is what stops the page reading like every other
+ *   SaaS template — those all run one geometric sans at three sizes.
+ * - sans (Schibsted Grotesk / Noto Sans Gujarati) for body and the whole
+ *   staff app, where a serif at 13px on a counter screen would be wrong.
+ *
+ * Latin glyphs come from the first family in each stack and Gujarati from
+ * the second, so one `font-family` serves a sentence that mixes them.
+ */
+const fraunces = Fraunces({
+  variable: "--font-display-latin",
+  subsets: ["latin"],
+  // Two static cuts, not the variable file: `axes` and `weight` are mutually
+  // exclusive, and two weights are all the headings use.
+  weight: ["600", "700"],
+  display: "swap",
+});
+
+const notoSerifGujarati = Noto_Serif_Gujarati({
+  variable: "--font-display-gujarati",
+  subsets: ["gujarati"],
+  weight: ["600", "700"],
+  display: "swap",
+});
+
+const schibstedGrotesk = Schibsted_Grotesk({
+  variable: "--font-sans-latin",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   display: "swap",
 });
 
 const notoSansGujarati = Noto_Sans_Gujarati({
-  variable: "--font-noto-gujarati",
+  variable: "--font-sans-gujarati",
   subsets: ["gujarati", "latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
@@ -52,14 +80,17 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#c2410c",
+  themeColor: "#b2560a",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const lang = await getLang();
 
   return (
-    <html lang={lang} className={`${plusJakartaSans.variable} ${notoSansGujarati.variable} h-full antialiased`}>
+    <html
+      lang={lang}
+      className={`${schibstedGrotesk.variable} ${notoSansGujarati.variable} ${fraunces.variable} ${notoSerifGujarati.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col">
         <I18nProvider lang={lang}>
           <ServiceWorkerRegister />

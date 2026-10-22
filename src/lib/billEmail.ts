@@ -39,8 +39,8 @@ export function renderBillEmail(input: BillEmailInput): { subject: string; html:
     .map(
       (line, index) => `
         <tr>
-          <td style="padding:10px 0;font-size:15px;color:#1c1917;border-bottom:1px solid ${index === lines.length - 1 ? "#e7e5e4" : "#f5f5f4"}">${escapeHtml(line.name)} <span style="color:${muted}">× ${line.quantity}</span></td>
-          <td align="right" style="padding:10px 0;font-size:15px;font-weight:700;color:#1c1917;border-bottom:1px solid ${index === lines.length - 1 ? "#e7e5e4" : "#f5f5f4"}">${rupees(line.amount)}</td>
+          <td style="padding:10px 0;font-size:15px;color:#1c1917;border-bottom:1px solid ${index === lines.length - 1 ? "#ebe2d9" : "#f5f5f4"}">${escapeHtml(line.name)} <span style="color:${muted}">× ${line.quantity}</span></td>
+          <td align="right" style="padding:10px 0;font-size:15px;font-weight:700;color:#1c1917;border-bottom:1px solid ${index === lines.length - 1 ? "#ebe2d9" : "#f5f5f4"}">${rupees(line.amount)}</td>
         </tr>`
     )
     .join("");
@@ -55,7 +55,7 @@ export function renderBillEmail(input: BillEmailInput): { subject: string; html:
           <tr><td align="center" style="padding:20px;font-family:${font}">
             <div style="font-size:16px;font-weight:800;color:#1c1917">Enjoyed the food?</div>
             <div style="padding-top:8px;font-size:14px;color:#44403c">A quick Google review helps other food lovers find us.</div>
-            <div style="padding-top:12px"><a href="${escapeHtml(restaurant.reviewUrl)}" style="display:inline-block;padding:13px 22px;border-radius:12px;background:#c2410c;color:#ffffff;text-decoration:none;font-size:15px;font-weight:800">Rate us on Google</a></div>
+            <div style="padding-top:12px"><a href="${escapeHtml(restaurant.reviewUrl)}" style="display:inline-block;padding:13px 22px;border-radius:12px;background:#b2560a;color:#ffffff;text-decoration:none;font-size:15px;font-weight:800">Rate us on Google</a></div>
           </td></tr>
         </table>
       </td></tr>`
@@ -66,17 +66,17 @@ export function renderBillEmail(input: BillEmailInput): { subject: string; html:
 <body style="margin:0;padding:0;background:#f5f5f4">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f4">
   <tr><td align="center" style="padding:32px 16px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e7e5e4;border-radius:20px;overflow:hidden;font-family:${font};color:#1c1917">
-      <tr><td style="background:#c2410c;padding:28px 32px;color:#ffffff">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #ebe2d9;border-radius:20px;overflow:hidden;font-family:${font};color:#1c1917">
+      <tr><td style="background:#b2560a;padding:28px 32px;color:#ffffff">
         <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-          <td style="width:42px;height:42px;border-radius:12px;background:#ffffff;color:#c2410c;font-size:19px;font-weight:800;text-align:center;vertical-align:middle">${initial}</td>
+          <td style="width:42px;height:42px;border-radius:12px;background:#ffffff;color:#b2560a;font-size:19px;font-weight:800;text-align:center;vertical-align:middle">${initial}</td>
           <td style="padding-left:10px;font-size:20px;font-weight:800;color:#ffffff">${name}</td>
         </tr></table>
         <h1 style="margin:14px 0 0;font-size:28px;line-height:1.2;font-weight:800;letter-spacing:-0.02em;color:#ffffff">Thank you for dining with us!</h1>
         <p style="margin:14px 0 0;font-size:15px;line-height:1.6;color:#ffffff">We hope you enjoyed your meal. Here are the details of today's bill. See you again soon.</p>
       </td></tr>
       <tr><td style="padding:24px 32px 18px">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf9;border:1px solid #e7e5e4;border-radius:14px">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdfaf7;border:1px solid #ebe2d9;border-radius:14px">
           <tr>
             <td style="vertical-align:top;padding:14px 16px;width:33%"><div style="font-size:12px;color:${muted}">Bill no.</div><div style="font-size:15px;font-weight:800">${billNumber(input.billNo)}</div></td>
             <td style="vertical-align:top;padding:14px 8px;width:33%"><div style="font-size:12px;color:${muted}">Table</div><div style="font-size:15px;font-weight:800">${escapeHtml(input.seatCode)}</div></td>
@@ -87,8 +87,8 @@ export function renderBillEmail(input: BillEmailInput): { subject: string; html:
       <tr><td style="padding:0 32px 24px">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="padding:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.04em;color:${muted};border-bottom:1px solid #e7e5e4">ITEM</td>
-            <td align="right" style="padding:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.04em;color:${muted};border-bottom:1px solid #e7e5e4">AMOUNT</td>
+            <td style="padding:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.04em;color:${muted};border-bottom:1px solid #ebe2d9">ITEM</td>
+            <td align="right" style="padding:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.04em;color:${muted};border-bottom:1px solid #ebe2d9">AMOUNT</td>
           </tr>
           ${rows}
           <tr><td style="padding:10px 0 4px;font-size:14px;color:${muted}">Items total</td><td align="right" style="padding:10px 0 4px;font-size:14px;color:${muted}">${rupees(input.itemsTotal)}</td></tr>
@@ -101,7 +101,7 @@ export function renderBillEmail(input: BillEmailInput): { subject: string; html:
         </table>
       </td></tr>
       ${review}
-      <tr><td style="padding:18px 32px 24px;border-top:1px solid #e7e5e4;font-size:12px;line-height:1.6;color:${muted}">
+      <tr><td style="padding:18px 32px 24px;border-top:1px solid #ebe2d9;font-size:12px;line-height:1.6;color:${muted}">
         <div>${footerBits}</div>
         <div style="padding-top:6px">This is an order summary, not a tax invoice. You received it because you verified this email at table ${escapeHtml(input.seatCode)}.</div>
         <div style="padding-top:6px">Sent with <strong style="color:#1c1917">Jamavat</strong> — QR ordering for restaurants</div>

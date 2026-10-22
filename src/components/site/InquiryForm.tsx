@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Alert } from "@/components/ui/Alert";
+import { trackSiteEvent } from "@/components/site/SiteAnalytics";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { TextArea, TextField } from "@/components/ui/TextField";
@@ -42,6 +43,10 @@ export function InquiryForm({ lang }: { lang: Lang }) {
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error ?? "");
       setSent(true);
+      // The one conversion that matters, counted for HQ's Website tab. The
+      // inquiry itself is already saved; this only moves a counter, so it is
+      // never awaited and never allowed to fail the submit.
+      trackSiteEvent("inquiry-sent", lang);
     } catch (err) {
       setError(err instanceof Error && err.message ? err.message : pick(INQUIRY.body, lang));
       setSending(false);

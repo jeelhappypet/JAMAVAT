@@ -12,6 +12,7 @@ const TABS = [
   { href: "/hq", label: "Restaurants" },
   { href: "/hq/inquiries", label: "Inquiries" },
   { href: "/hq/plans", label: "Plans" },
+  { href: "/hq/website", label: "Website" },
 ];
 
 /** HQ's own dark header — deliberately unlike a restaurant's, so it's obvious where you are. */
@@ -27,13 +28,13 @@ export function HqHeader({ email }: { email: string }) {
   }
 
   return (
-    <header className="bg-stone-900 text-white">
+    <header className="bg-ink text-white">
       <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-2.5 px-[clamp(16px,3vw,32px)] pt-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="flex items-center gap-2.5">
             <BrandMark size={38} />
             <span className="text-[17px] font-extrabold">
-              Jamavat <span className="font-semibold text-stone-300">HQ</span>
+              Jamavat <span className="font-semibold text-white/65">HQ</span>
             </span>
           </span>
           <div className="flex items-center gap-3">
@@ -56,7 +57,7 @@ export function HqHeader({ email }: { email: string }) {
               href={tab.href}
               aria-current={tab.href === current ? "page" : undefined}
               className={`whitespace-nowrap border-b-2 px-3.5 py-3 text-sm ${
-                tab.href === current ? "border-orange-400 font-extrabold text-white" : "border-transparent font-semibold text-stone-300"
+                tab.href === current ? "border-brand-strong font-extrabold text-white" : "border-transparent font-semibold text-white/65"
               }`}
             >
               {tab.label}

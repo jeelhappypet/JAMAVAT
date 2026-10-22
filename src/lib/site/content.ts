@@ -19,14 +19,30 @@ export const CONTACT = {
   /** Digits only, e.g. 919876543210 — makes the "Chat on WhatsApp" link. */
   whatsapp: process.env.NEXT_PUBLIC_SITE_WHATSAPP || "",
   /**
-   * Jamavat's own profiles elsewhere (Instagram, LinkedIn, Facebook, YouTube, Google Business), comma-separated.
-   * They go into the Organization schema's `sameAs` — how Google ties "Jamavat" the brand to this site.
+   * Jamavat's Instagram handle. Hardcoded rather than env-only because it is
+   * the brand's main public profile: it has to be in the footer and in the
+   * Organization schema's `sameAs` on every build, including a preview one
+   * where the env is not set. `sameAs` is how Google learns that the account
+   * and this site are the same "Jamavat" — without it a search for the handle
+   * finds the Instagram page and not the product.
+   */
+  instagram: "jamavat.india",
+  /**
+   * Jamavat's other profiles (LinkedIn, Facebook, YouTube, Google Business),
+   * comma-separated. Joined with the Instagram URL above into `sameAs`.
    */
   profiles: (process.env.NEXT_PUBLIC_SITE_PROFILES || "")
     .split(",")
     .map((url) => url.trim())
     .filter((url) => url.startsWith("https://")),
 };
+
+export const INSTAGRAM_URL = `https://www.instagram.com/${CONTACT.instagram}`;
+
+/** Everywhere Jamavat exists as the same brand, for the Organization schema. */
+export function brandProfiles(): string[] {
+  return [...new Set([INSTAGRAM_URL, ...CONTACT.profiles])];
+}
 
 /** E.164 for `tel:` links and schema.org — the env holds it as typed (e.g. 917984020642 or 98765 43210). */
 export function internationalPhone(phone: string): string {
@@ -55,6 +71,15 @@ export const HERO = {
     "Jamavat is QR table ordering and kitchen display software for restaurants. Guests order by phone, each kitchen sees its dishes, you see daily sales.",
     "જમાવટ રેસ્ટોરન્ટ માટે QR ટેબલ ઓર્ડરિંગ અને કિચન સોફ્ટવેર છે. ગ્રાહક ફોનથી ઓર્ડર આપે, દરેક કિચનને તેની વાનગી મળે, તમને રોજનું વેચાણ દેખાય."
   ),
+  /** Alt text for the two screenshots in the hero collage (components/site/HeroArt.tsx). */
+  artScreenAlt: L(
+    "Jamavat's counter screen with a table's live orders and its bill",
+    "ટેબલના લાઇવ ઓર્ડર અને બિલ સાથેની જમાવટની કાઉન્ટર સ્ક્રીન"
+  ),
+  artPhoneAlt: L(
+    "A guest's phone showing the Jamavat menu after scanning a table QR",
+    "ટેબલનો QR સ્કેન કર્યા પછી ગ્રાહકના ફોન પર જમાવટનું મેનુ"
+  ),
   points: [
     L("No app to install", "કોઈ એપ ડાઉનલોડ નહીં"),
     L("Any phone or tablet", "કોઈપણ ફોન કે ટેબ્લેટ"),
@@ -80,7 +105,7 @@ export const AUDIENCE = {
  * PROJECT_ARCHITECTURE.md). Re-capture with scripts/capture-hero.mjs after
  * a visual change to the screens below.
  */
-export const SLIDES: { tag: Localized; title: Localized; body: Localized; shape: "phone" | "screen"; image: string }[] = [
+export const SLIDES: { tag: Localized; title: Localized; body: Localized; points: Localized[]; shape: "phone" | "screen"; image: string }[] = [
   {
     tag: L("For guests", "ગ્રાહક માટે"),
     title: L("Order from the table", "ટેબલ પરથી જ ઓર્ડર"),
@@ -88,6 +113,11 @@ export const SLIDES: { tag: Localized; title: Localized; body: Localized; shape:
       "Scan the QR on your side of the table, pick dishes, add a cooking note and verify your email once. No app, no waiting for a waiter.",
       "પોતાની બાજુનો QR સ્કેન કરો, વાનગી પસંદ કરો, રસોઈ માટે નોંધ લખો અને એક વાર ઈમેલ વેરિફાય કરો. એપ નહીં, વેઇટરની રાહ નહીં."
     ),
+    points: [
+      L("Photos, veg marks and prices", "ફોટા, વેજ માર્ક અને ભાવ"),
+      L("A cooking note with any dish", "કોઈપણ વાનગી સાથે રસોઈની નોંધ"),
+      L("Live status and running total", "લાઇવ સ્ટેટસ અને ચાલુ કુલ રકમ"),
+    ],
     shape: "phone",
     image: "/site/hero-guest-menu.png",
   },
@@ -98,6 +128,11 @@ export const SLIDES: { tag: Localized; title: Localized; body: Localized; shape:
       "Gujarati items go to the Gujarati kitchen and Punjabi items to the Punjabi one — even when they're on the same order.",
       "ગુજરાતી વાનગી ગુજરાતી કિચનમાં અને પંજાબી વાનગી પંજાબી કિચનમાં — એક જ ઓર્ડરમાં હોય તો પણ."
     ),
+    points: [
+      L("One order splits item by item", "એક ઓર્ડર વાનગી પ્રમાણે વહેંચાય"),
+      L("A sound for every new ticket", "દરેક નવી ટિકિટ પર અવાજ"),
+      L("Sold out in one tap", "એક ટેપમાં સોલ્ડ આઉટ"),
+    ],
     shape: "screen",
     image: "/site/hero-kitchen.png",
   },
@@ -108,6 +143,11 @@ export const SLIDES: { tag: Localized; title: Localized; body: Localized; shape:
       "New orders arrive live with a sound. Settle by cash, UPI or card, and the guest gets a thank-you email with the bill.",
       "નવા ઓર્ડર અવાજ સાથે તરત દેખાય. રોકડ, UPI કે કાર્ડથી બિલ કરો — ગ્રાહકને બિલ સાથે આભારનો ઈમેલ જાય."
     ),
+    points: [
+      L("One bill per sitting", "બેઠક દીઠ એક બિલ"),
+      L("Cash, UPI or card", "રોકડ, UPI કે કાર્ડ"),
+      L("Table frees itself after settling", "બિલ પછી ટેબલ જાતે ખાલી"),
+    ],
     shape: "screen",
     image: "/site/hero-counter.png",
   },
@@ -118,13 +158,26 @@ export const SLIDES: { tag: Localized; title: Localized; body: Localized; shape:
       "Orders, sales, top dishes and payment modes for today and the last 7 days.",
       "આજના અને છેલ્લા 7 દિવસના ઓર્ડર, વેચાણ, ટોપ વાનગીઓ અને પેમેન્ટ મોડ."
     ),
+    points: [
+      L("Today, yesterday, 7 days, month", "આજે, ગઈકાલે, 7 દિવસ, મહિનો"),
+      L("Cash / UPI / card split", "રોકડ / UPI / કાર્ડનું વિભાજન"),
+      L("Top dishes and parcel vs dine-in", "ટોપ વાનગી અને પાર્સલ સામે ડાઇન-ઇન"),
+    ],
     shape: "screen",
     image: "/site/hero-report.png",
   },
 ];
 
-export const FEATURES: { title: Localized; body: Localized }[] = [
+/**
+ * Which drawing `components/site/FeatureIcon` puts on a feature card. The
+ * cards used to be numbered 01…08, which made eight equally-grey tiles and
+ * implied an order the features don't have.
+ */
+export type FeatureIcon = "qr" | "route" | "bolt" | "verified" | "live" | "mail" | "report" | "parcel";
+
+export const FEATURES: { icon: FeatureIcon; title: Localized; body: Localized }[] = [
   {
+    icon: "qr",
     title: L("A QR for every seat", "દરેક બેઠક માટે QR"),
     body: L(
       "Two QRs on a table (4A, 4B). Each works for one guest at a time, so two orders never get mixed up.",
@@ -132,6 +185,7 @@ export const FEATURES: { title: Localized; body: Localized }[] = [
     ),
   },
   {
+    icon: "route",
     title: L("Kitchen-wise routing", "કિચન પ્રમાણે રૂટિંગ"),
     body: L(
       "Assign categories to each kitchen login. One order splits itself item by item.",
@@ -139,6 +193,7 @@ export const FEATURES: { title: Localized; body: Localized }[] = [
     ),
   },
   {
+    icon: "bolt",
     title: L("Straight to the kitchen", "સીધું કિચનમાં"),
     body: L(
       "A guest's order reaches the kitchen screens at once — no one at the counter has to approve it first.",
@@ -146,6 +201,7 @@ export const FEATURES: { title: Localized; body: Localized }[] = [
     ),
   },
   {
+    icon: "verified",
     title: L("Verified guests", "વેરિફાય થયેલા ગ્રાહક"),
     body: L(
       "An email code once per sitting. No prank orders, and a list of real guests for you.",
@@ -153,6 +209,7 @@ export const FEATURES: { title: Localized; body: Localized }[] = [
     ),
   },
   {
+    icon: "live",
     title: L("Live, no refresh", "લાઇવ, રિફ્રેશ વગર"),
     body: L(
       "New orders, ready dishes and bills update on every screen by themselves.",
@@ -160,6 +217,7 @@ export const FEATURES: { title: Localized; body: Localized }[] = [
     ),
   },
   {
+    icon: "mail",
     title: L("Thank-you email", "આભારનો ઈમેલ"),
     body: L(
       "After payment the guest gets the bill details and a link to review you on Google.",
@@ -167,6 +225,7 @@ export const FEATURES: { title: Localized; body: Localized }[] = [
     ),
   },
   {
+    icon: "report",
     title: L("Daily report", "રોજનો રિપોર્ટ"),
     body: L(
       "Sales, orders, top dishes and payment modes — today, yesterday, the last 7 days or the month.",
@@ -174,6 +233,7 @@ export const FEATURES: { title: Localized; body: Localized }[] = [
     ),
   },
   {
+    icon: "parcel",
     title: L("Parcel orders too", "પાર્સલ ઓર્ડર પણ"),
     body: L(
       "Counter and parcel orders with token numbers — same kitchens, same report.",
@@ -195,6 +255,18 @@ export const STEPS: { title: Localized; body: Localized }[] = [
     title: L("Start taking orders", "ઓર્ડર લેવાનું શરૂ"),
     body: L("Staff log in with a PIN on your own link and install it like an app.", "સ્ટાફ તમારી પોતાની લિંક પર PIN થી લોગિન કરે અને એપની જેમ ઇન્સ્ટોલ કરે."),
   },
+];
+
+/**
+ * The band under the hero. Every line is a fact about the product, checkable
+ * on this page — never "trusted by 10,000 restaurants", which Jamavat would
+ * have to invent and which Google penalises as a false claim.
+ */
+export const PROOF: { value: Localized; label: Localized }[] = [
+  { value: L("0", "0"), label: L("apps for your guests to install", "ગ્રાહકે ડાઉનલોડ કરવાની એપ") },
+  { value: L("2", "2"), label: L("languages — English and ગુજરાતી", "ભાષા — English અને ગુજરાતી") },
+  { value: L("1 day", "1 દિવસ"), label: L("from your menu to your first order", "તમારા મેનુથી પહેલા ઓર્ડર સુધી") },
+  { value: L("₹0", "₹0"), label: L("hardware — any phone or tablet works", "મશીનનો ખર્ચ — કોઈપણ ફોન કે ટેબ્લેટ ચાલે") },
 ];
 
 export const FAQS: { q: Localized; a: Localized }[] = [
@@ -296,6 +368,11 @@ export const NAV = {
   pricing: L("Pricing", "ભાવ"),
   faq: L("FAQ", "સવાલ-જવાબ"),
   demo: L("Book a free demo", "મફત ડેમો બુક કરો"),
+  /** The same button at phone width, where the full label overflows the bar. */
+  demoShort: L("Free demo", "મફત ડેમો"),
+  contact: L("Talk to us", "અમારો સંપર્ક"),
+  openMenu: L("Open menu", "મેનુ ખોલો"),
+  closeMenu: L("Close menu", "મેનુ બંધ કરો"),
   seeHow: L("See how it works", "કેમ ચાલે છે તે જુઓ"),
   privacy: L("Privacy policy", "પ્રાઇવસી પોલિસી"),
   terms: L("Terms", "શરતો"),
@@ -310,7 +387,25 @@ export const SECTIONS = {
     "From the guest's phone to the kitchen to the owner's report — one system, live on every screen.",
     "ગ્રાહકના ફોનથી કિચન સુધી અને માલિકના રિપોર્ટ સુધી — એક જ સિસ્ટમ, દરેક સ્ક્રીન પર લાઇવ."
   ),
+  showcaseEyebrow: L("Real screens", "સાચી સ્ક્રીન"),
+  showcaseTitle: L("See it on every screen", "દરેક સ્ક્રીન પર જુઓ"),
+  showcaseBody: L(
+    "Four screens, one system. These are real screens from the Jamavat demo restaurant — not drawings of what it might look like.",
+    "ચાર સ્ક્રીન, એક સિસ્ટમ. આ જમાવટના ડેમો રેસ્ટોરન્ટની સાચી સ્ક્રીન છે — કેવું દેખાશે તેનાં ચિત્રો નહીં."
+  ),
   howTitle: L("Live in three steps", "ત્રણ સ્ટેપમાં શરૂ"),
+  howBody: L(
+    "We do the setting up. You stick the codes on the tables.",
+    "સેટઅપ અમે કરીએ. તમારે ટેબલ પર સ્ટીકર લગાવવાના."
+  ),
+  relatedTitle: L("Read more", "વધુ વાંચો"),
+  onThisPage: L("What this page covers", "આ પાના પર શું છે"),
+  followTitle: L("Jamavat on Instagram", "Instagram પર જમાવટ"),
+  followBody: L(
+    "New features, restaurant setups and short how-to clips — in English and ગુજરાતી.",
+    "નવા ફીચર્સ, રેસ્ટોરન્ટના સેટઅપ અને ટૂંકી how-to ક્લિપ — English અને ગુજરાતીમાં."
+  ),
+  follow: L("Follow @jamavat.india", "@jamavat.india ને ફોલો કરો"),
   faqTitle: L("Questions owners ask", "માલિકો જે પૂછે છે"),
   pricingTitle: L("Simple monthly pricing", "સરળ માસિક ભાવ"),
   pricingBody: L(
@@ -335,8 +430,23 @@ export interface KeywordPage {
   label: Localized;
   title: Localized;
   description: Localized;
+  /** The small line above the h1 — says what kind of page this is. */
+  eyebrow: Localized;
+  /** One line under the link to this page from its sibling pages. */
+  teaser: Localized;
   heading: Localized;
   intro: Localized;
+  /**
+   * The screen this page is about, from the seeded demo restaurant. A page
+   * of nothing but paragraphs is the one thing every reader scrolls past:
+   * these pages are what someone lands on from a search, so each one has to
+   * show the thing it describes.
+   */
+  image: string;
+  imageShape: "phone" | "screen";
+  imageAlt: Localized;
+  /** Scannable facts beside the screenshot, for the reader who won't read the prose. */
+  highlights: Localized[];
   sections: { heading: Localized; body: Localized }[];
 }
 
@@ -349,11 +459,22 @@ export const KEYWORD_PAGES: KeywordPage[] = [
       "Jamavat is restaurant management software for Indian restaurants: QR table ordering, kitchen screens, billing and daily reports, in English and Gujarati.",
       "જમાવટ ભારતીય રેસ્ટોરન્ટ માટેનું મેનેજમેન્ટ સોફ્ટવેર છે: QR ટેબલ ઓર્ડરિંગ, કિચન સ્ક્રીન, બિલિંગ અને રોજનો રિપોર્ટ — English અને ગુજરાતીમાં."
     ),
+    eyebrow: L("Restaurant management software", "રેસ્ટોરન્ટ મેનેજમેન્ટ સોફ્ટવેર"),
+    teaser: L("Menus, orders, kitchens, billing and the day’s numbers in one place.", "મેનુ, ઓર્ડર, કિચન, બિલિંગ અને દિવસના આંકડા એક જ જગ્યાએ."),
     heading: L("Restaurant management software that your staff will actually use", "સ્ટાફ ખરેખર વાપરે એવું રેસ્ટોરન્ટ મેનેજમેન્ટ સોફ્ટવેર"),
     intro: L(
       "Most restaurant software asks you to change how your restaurant runs. Jamavat starts from what already happens at your tables: the guest sits down, orders, eats, and pays at the counter on the way out. It takes care of the ordering, the kitchens, the bill and the day's numbers — nothing else to learn.",
       "મોટા ભાગનું રેસ્ટોરન્ટ સોફ્ટવેર તમારી ચાલતી પદ્ધતિ બદલાવે છે. જમાવટ તમારા ટેબલ પર જે થાય છે ત્યાંથી જ શરૂ થાય છે: ગ્રાહક બેસે, ઓર્ડર આપે, જમે અને જતી વખતે કાઉન્ટર પર પેમેન્ટ કરે. ઓર્ડર, કિચન, બિલ અને દિવસના આંકડા — એ બધું આ સંભાળે, શીખવાનું બીજું કંઈ નહીં."
     ),
+    image: "/site/hero-report.png",
+    imageShape: "screen",
+    imageAlt: L("The owner's report: today's sales, orders and top dishes", "માલિકનો રિપોર્ટ: આજનું વેચાણ, ઓર્ડર અને ટોપ વાનગીઓ"),
+    highlights: [
+      L("Menus, categories and dish photos", "મેનુ, કેટેગરી અને વાનગીના ફોટા"),
+      L("QR ordering, one code per seat", "QR ઓર્ડર, બેઠક દીઠ એક કોડ"),
+      L("Item-wise kitchen routing", "વાનગી પ્રમાણે કિચન રૂટિંગ"),
+      L("Billing, parcel orders and daily reports", "બિલિંગ, પાર્સલ ઓર્ડર અને રોજના રિપોર્ટ"),
+    ],
     sections: [
       {
         heading: L("What it covers", "શું શું આવે છે"),
@@ -379,11 +500,22 @@ export const KEYWORD_PAGES: KeywordPage[] = [
       "A QR code ordering system where every seat has its own code: guests scan, order and track their food, and the kitchen gets it at once. No app needed.",
       "એવી QR ઓર્ડરિંગ સિસ્ટમ જેમાં દરેક બેઠકનો પોતાનો કોડ છે: ગ્રાહક સ્કેન કરી ઓર્ડર આપે અને સ્ટેટસ જુએ, કિચનને તરત મળે. ગ્રાહક માટે કોઈ એપ નહીં."
     ),
+    eyebrow: L("QR code ordering system", "QR કોડ ઓર્ડરિંગ સિસ્ટમ"),
+    teaser: L("One code per seat, no app, and the kitchen gets the order at once.", "બેઠક દીઠ એક કોડ, એપ નહીં, અને ઓર્ડર તરત કિચનમાં."),
     heading: L("A QR code ordering system built around one guest per code", "દરેક કોડ દીઠ એક ગ્રાહક — એ રીતે બનેલી QR ઓર્ડરિંગ સિસ્ટમ"),
     intro: L(
       "A table-wide QR sounds simpler until two groups share a table, or someone at home scans a photo of it. In Jamavat each side of a table has its own code (4A, 4B), and a code belongs to one guest from their first order until the bill is settled.",
       "આખા ટેબલ માટે એક QR સહેલું લાગે — પણ એક ટેબલ પર બે ગ્રુપ બેસે, કે કોઈ ઘરે બેઠા QR ના ફોટા પરથી સ્કેન કરે ત્યારે નહીં. જમાવટમાં ટેબલની દરેક બાજુનો પોતાનો કોડ છે (4A, 4B), અને એ કોડ પહેલા ઓર્ડરથી બિલ થાય ત્યાં સુધી એક જ ગ્રાહકનો રહે છે."
     ),
+    image: "/site/hero-guest-menu.png",
+    imageShape: "phone",
+    imageAlt: L("The guest menu on a phone after scanning a table QR", "ટેબલનો QR સ્કેન કર્યા પછી ફોન પર ગ્રાહકનું મેનુ"),
+    highlights: [
+      L("One code per seat — 4A, 4B", "બેઠક દીઠ એક કોડ — 4A, 4B"),
+      L("No app for your guests", "ગ્રાહક માટે કોઈ એપ નહીં"),
+      L("A random token, never the table number", "રેન્ડમ ટોકન, ટેબલ નંબર નહીં"),
+      L("Email verified once per sitting", "બેઠક દીઠ એક વાર ઈમેલ વેરિફાય"),
+    ],
     sections: [
       {
         heading: L("How a guest uses it", "ગ્રાહક કેવી રીતે વાપરે"),
@@ -409,11 +541,22 @@ export const KEYWORD_PAGES: KeywordPage[] = [
       "A kitchen display system that splits one order item-wise: each kitchen screen shows only the dishes it cooks, with a sound for every new ticket.",
       "એવી કિચન ડિસ્પ્લે સિસ્ટમ જે એક ઓર્ડરને વાનગી પ્રમાણે વહેંચે: દરેક કિચન સ્ક્રીન પર ફક્ત તેની જ વાનગી, અને દરેક નવા ટિકિટ પર અવાજ."
     ),
+    eyebrow: L("Kitchen display system", "કિચન ડિસ્પ્લે સિસ્ટમ"),
+    teaser: L("Each kitchen screen shows only the dishes that kitchen cooks.", "દરેક કિચન સ્ક્રીન પર ફક્ત એ જ કિચનની વાનગીઓ."),
     heading: L("A kitchen screen that shows one kitchen its own dishes", "દરેક કિચનને તેની જ વાનગી બતાવતી સ્ક્રીન"),
     intro: L(
       "If your Gujarati and Punjabi kitchens both see every ticket, both have to read past dishes they don't cook. Jamavat routes by category: the admin ticks which categories a kitchen login receives, and one order splits itself between them.",
       "જો ગુજરાતી અને પંજાબી બંને કિચનને દરેક ટિકિટ દેખાય, તો બંનેને પોતાની ન હોય એવી વાનગીઓ વાંચવી પડે. જમાવટ કેટેગરી પ્રમાણે મોકલે છે: એડમિન નક્કી કરે કે કયું કિચન લોગિન કઈ કેટેગરી મેળવે, અને એક ઓર્ડર જાતે બંનેમાં વહેંચાય."
     ),
+    image: "/site/hero-kitchen.png",
+    imageShape: "screen",
+    imageAlt: L("A kitchen screen showing only that kitchen's dishes", "ફક્ત એ જ કિચનની વાનગીઓ બતાવતી કિચન સ્ક્રીન"),
+    highlights: [
+      L("Each screen sees only its categories", "દરેક સ્ક્રીન ફક્ત તેની કેટેગરી જુએ"),
+      L("One order splits between kitchens", "એક ઓર્ડર કિચન વચ્ચે વહેંચાય"),
+      L("Ready marked item by item", "વાનગી પ્રમાણે તૈયાર નોંધાય"),
+      L("Sold out hides the dish at once", "સોલ્ડ આઉટ કરતાં વાનગી તરત છુપાય"),
+    ],
     sections: [
       {
         heading: L("Ready, item by item", "વાનગી પ્રમાણે તૈયાર"),
@@ -439,11 +582,22 @@ export const KEYWORD_PAGES: KeywordPage[] = [
       "Restaurant billing software where the bill builds itself from the table's orders: one bill per sitting, cash/UPI/card, a thank-you email and sales reports.",
       "એવું બિલિંગ સોફ્ટવેર જેમાં ટેબલના ઓર્ડરમાંથી બિલ જાતે બને છે: બેઠક દીઠ એક બિલ, રોકડ/UPI/કાર્ડ, આભારનો ઈમેલ અને વેચાણના રિપોર્ટ."
     ),
+    eyebrow: L("Restaurant billing software", "રેસ્ટોરન્ટ બિલિંગ સોફ્ટવેર"),
+    teaser: L("The bill writes itself from the table’s orders — cash, UPI or card.", "ટેબલના ઓર્ડરમાંથી બિલ જાતે બને — રોકડ, UPI કે કાર્ડ."),
     heading: L("The bill is already written by the time they reach the counter", "ગ્રાહક કાઉન્ટર પર પહોંચે ત્યાં સુધીમાં બિલ તૈયાર"),
     intro: L(
       "Everything ordered at a table — by the guest's phone or typed at the counter — lands on one bill for that sitting. The counter adds a discount if you give one, takes cash, UPI or card, and the table frees itself for the next guest.",
       "ટેબલ પર જે કંઈ ઓર્ડર થયું હોય — ગ્રાહકના ફોનથી કે કાઉન્ટર પર લખાયેલું — એ બધું એ બેઠકના એક બિલમાં આવે. કાઉન્ટર ડિસ્કાઉન્ટ આપે, રોકડ/UPI/કાર્ડ લે, અને ટેબલ આપમેળે આગળના ગ્રાહક માટે ખાલી થઈ જાય."
     ),
+    image: "/site/hero-counter.png",
+    imageShape: "screen",
+    imageAlt: L("The counter screen with a table's bill ready to settle", "ટેબલનું બિલ તૈયાર હોય એવી કાઉન્ટર સ્ક્રીન"),
+    highlights: [
+      L("The bill builds itself from the orders", "ઓર્ડરમાંથી બિલ જાતે બને"),
+      L("Discount, then cash, UPI or card", "ડિસ્કાઉન્ટ, પછી રોકડ, UPI કે કાર્ડ"),
+      L("Thank-you email with a review link", "રિવ્યૂ લિંક સાથે આભારનો ઈમેલ"),
+      L("Sales, payment split and top dishes", "વેચાણ, પેમેન્ટ વિભાજન અને ટોપ વાનગીઓ"),
+    ],
     sections: [
       {
         heading: L("What the guest gets", "ગ્રાહકને શું મળે"),

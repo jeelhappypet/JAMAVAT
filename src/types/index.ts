@@ -122,6 +122,24 @@ export interface PlanDTO {
 }
 
 /** A demo request from the Jamavat website, as HQ works through it. */
+export const SITE_STAT_KINDS = ["view", "click"] as const;
+export type SiteStatKind = (typeof SITE_STAT_KINDS)[number];
+
+/** What HQ's Website tab shows for a range of days. */
+export interface SiteStatsDTO {
+  from: string;
+  to: string;
+  days: number;
+  views: number;
+  clicks: number;
+  /** Views for the period just before this one, for the up/down figure. */
+  previousViews: number;
+  byDay: { day: string; views: number; clicks: number }[];
+  byPage: { path: string; views: number }[];
+  byClick: { label: string; count: number }[];
+  byLang: { lang: "en" | "gu"; views: number }[];
+}
+
 export const INQUIRY_STATUSES = ["NEW", "CONTACTED", "CONVERTED", "LOST"] as const;
 export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
 

@@ -25,7 +25,7 @@ export function ChoiceCards<T extends string>({ name, legend, options, value, on
                 on ? "border-2 border-brand bg-orange-50 font-extrabold text-brand-dark" : "border border-border font-bold"
               )}
             >
-              <input type="radio" name={name} checked={on} onChange={() => onChange(option.value)} className="m-0 accent-[#c2410c]" />
+              <input type="radio" name={name} checked={on} onChange={() => onChange(option.value)} className="m-0 accent-brand" />
               {option.label}
             </label>
           );

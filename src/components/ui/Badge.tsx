@@ -5,9 +5,9 @@ type Tone = "green" | "orange" | "red" | "stone" | "brand";
 
 const TONE: Record<Tone, string> = {
   green: "bg-success-light text-green-800",
-  orange: "bg-orange-100 text-brand-dark",
+  orange: "bg-brand-light text-brand-dark",
   red: "bg-danger-light text-red-800",
-  stone: "bg-stone-200 text-stone-900",
+  stone: "bg-surface-muted text-foreground",
   brand: "bg-brand text-white",
 };
 

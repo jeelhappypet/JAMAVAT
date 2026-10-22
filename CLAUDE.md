@@ -30,6 +30,27 @@ Never hand-style a button, checkbox, dropdown, text field, date field or dialog 
 
 Everything clickable gets the hand cursor from `globals.css` — don't add `cursor-pointer` per screen.
 
+Two display utilities on one element (`hidden` plus the `inline-flex` `buttonClass` already sets) are settled by stylesheet order, not by which you wrote last. Wrap the element instead.
+
+## Website typography and motion (`src/app/(site)` only)
+
+One scale, defined in `globals.css` — never a fresh `clamp()` in a screen:
+
+| Need | Class |
+|---|---|
+| Any website heading | `heading` (Fraunces / Noto Serif Gujarati) plus a size below |
+| Page h1 | `t-hero` · section h2: `t-h2` · card h3: `t-h3` |
+| The paragraph under a title | `t-lead` · body: `t-body` · fine print: `t-small` |
+| The label above a title | `t-eyebrow` |
+
+Body text and the whole staff app stay on the sans (Schibsted Grotesk / Noto Sans Gujarati); `heading` is the website's voice only — a serif on a counter screen is decoration in someone's way.
+
+Motion: `animate-fade-up` / `animate-art-in` for a load-in, `<Reveal from="up|left|right|scale|wipe">` for a scroll-in, `site-lift` for a card, `site-cta` + `<Arrow />` for a button. One easing (`--ease-out-soft`) and two durations. Everything is already in the HTML — motion only animates its entrance — and every rule has a `prefers-reduced-motion` reset.
+
+## Website analytics
+
+Views and button presses go to HQ's Website tab. Count a new button by giving it `data-track="…"` and adding that key to `TRACKED_LABELS` in `lib/site/statLabels.ts`; a new page needs its path in `TRACKED_PATHS`. Anything not on those lists is dropped — the write endpoint is public. Counters only: no address, no cookie, nothing that identifies a visitor.
+
 `className` on these is for layout only (width, flex, margin). If a screen needs a new look, add a variant to the component — don't override colours from outside. Join classes with `cn()`.
 
 ## API and data

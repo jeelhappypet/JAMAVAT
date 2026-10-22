@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { backfillTrialEndsAt, dropOldIndexesAgain, migrateToTenancy } from "@/lib/db/migrate";
+import { runMigrations } from "@/lib/db/migrate";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -23,13 +23,12 @@ export async function connectToDatabase() {
   if (cache.conn) return cache.conn;
 
   if (!cache.promise) {
-    // One-time data migrations run before anything reads, on every cold start (a no-op once done).
+    // One-time data migrations run before anything reads, on every cold start —
+    // one query to find they are all done, then nothing (see runMigrations).
     cache.promise = mongoose
       .connect(MONGODB_URI, { bufferCommands: false })
       .then(async (connected) => {
-        await migrateToTenancy(connected.connection.db!);
-        await backfillTrialEndsAt(connected.connection.db!);
-        await dropOldIndexesAgain(connected.connection.db!);
+        await runMigrations(connected.connection.db!);
         return connected;
       })
       .catch((error) => {

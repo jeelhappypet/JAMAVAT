@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/Badge";
 import { buttonClass } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Tick } from "@/components/site/SiteIcon";
 import { NAV, SECTIONS, pick } from "@/lib/site/content";
 import type { PublicPlan } from "@/lib/site/plans";
 import type { Lang } from "@/lib/i18n/messages";
@@ -15,8 +16,8 @@ export function PricingPlans({ lang, plans }: { lang: Lang; plans: PublicPlan[] 
   if (plans.length === 0) {
     return (
       <Card className="flex flex-wrap items-center justify-between gap-4">
-        <p className="text-base text-stone-700">{pick(SECTIONS.pricingAsk, lang)}</p>
-        <a href="#demo" className={buttonClass({ size: "lg" })}>
+        <p className="text-base text-text-muted">{pick(SECTIONS.pricingAsk, lang)}</p>
+        <a href="#demo" data-track="plan-demo" className={buttonClass({ size: "md" })}>
           {pick(NAV.demo, lang)}
         </a>
       </Card>
@@ -24,7 +25,9 @@ export function PricingPlans({ lang, plans }: { lang: Lang; plans: PublicPlan[] 
   }
 
   return (
-    <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]">
+    // A lone plan stretched the full 1120px and read as a banner rather than a
+    // price card, so one plan is capped at a card's width.
+    <div className={`grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))] ${plans.length === 1 ? "max-w-[420px]" : ""}`}>
       {plans.map((plan) => (
         <Card key={plan.id} className={`flex flex-col gap-4 p-6 ${plan.isPopular ? "border-2 border-brand" : ""}`}>
           <div className="flex items-center justify-between gap-2">
@@ -50,30 +53,17 @@ export function PricingPlans({ lang, plans }: { lang: Lang; plans: PublicPlan[] 
           ) : null}
 
           {plan.highlights.length > 0 ? (
-            <ul className="flex list-none flex-col gap-2 p-0 text-[15px] text-stone-700">
+            <ul className="flex list-none flex-col gap-2 p-0 text-[15px] text-text-muted">
               {plan.highlights.map((highlight) => (
                 <li key={highlight.en} className="flex items-start gap-2">
-                  <svg
-                    className="mt-1 shrink-0"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#15803d"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <path d="M5 13l4 4L19 7" />
-                  </svg>
+                  <Tick size={16} className="mt-1" />
                   {pick(highlight, lang)}
                 </li>
               ))}
             </ul>
           ) : null}
 
-          <a href="#demo" className={buttonClass({ variant: plan.isPopular ? "primary" : "secondary", size: "lg", className: "mt-auto" })}>
+          <a href="#demo" data-track="plan-demo" className={buttonClass({ variant: plan.isPopular ? "primary" : "secondary", size: "md", className: "mt-auto" })}>
             {pick(NAV.demo, lang)}
           </a>
         </Card>

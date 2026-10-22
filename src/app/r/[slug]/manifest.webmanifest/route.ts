@@ -21,8 +21,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
       scope: `${base}/`,
       id: `${base}/`,
       display: "standalone",
-      background_color: "#fafaf9",
-      theme_color: "#c2410c",
+      background_color: "#fdfaf7",
+      theme_color: "#b2560a",
       orientation: "any",
       icons: [
         { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

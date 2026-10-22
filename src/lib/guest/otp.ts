@@ -59,7 +59,7 @@ export async function sendOtp(scope: string, email: string, restaurantName: stri
       html: `<div style="font-family:Arial,sans-serif;max-width:420px;margin:auto;padding:24px;color:#1c1917">
   <p style="font-size:16px;font-weight:bold;margin:0 0 8px">${name}</p>
   <p style="font-size:15px;margin:0 0 16px">Your code to order from your table:</p>
-  <p style="font-size:34px;font-weight:bold;letter-spacing:8px;margin:0 0 16px;color:#c2410c">${code}</p>
+  <p style="font-size:34px;font-weight:bold;letter-spacing:8px;margin:0 0 16px;color:#b2560a">${code}</p>
   <p style="font-size:13px;color:#57534e;margin:0">Valid for ${CODE_TTL_MINUTES} minutes. If you didn't ask for this code, you can ignore this email.</p>
   <p style="font-size:12px;color:#57534e;margin:24px 0 0">Sent with Jamavat</p>
 </div>`,

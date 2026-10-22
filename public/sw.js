@@ -1,11 +1,29 @@
-const CACHE_NAME = "jamavat-shell-v3";
-const APP_SHELL = ["/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE_NAME = "jamavat-shell-v4";
+
+/**
+ * Precached on install. `/manifest.webmanifest` used to be in here and does
+ * not exist: Jamavat serves one manifest per restaurant, at
+ * `/r/{slug}/manifest.webmanifest`. Its 404 rejected `addAll`, which is
+ * all-or-nothing, so the install failed, the worker never activated, and
+ * every page load tried the whole install again — a permanent loop of 404s
+ * with the two icons downloaded and thrown away each time.
+ */
+const APP_SHELL = ["/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+      // One file at a time, and a failure is logged rather than thrown: a
+      // missing or momentarily unreachable icon must not cost the whole
+      // worker, which is what caching the shell with `addAll` did.
+      .then((cache) =>
+        Promise.all(
+          APP_SHELL.map((path) =>
+            cache.add(path).catch((error) => console.warn("[sw] could not precache", path, error))
+          )
+        )
+      )
       .then(() => self.skipWaiting())
   );
 });
@@ -25,7 +43,9 @@ function isStaticAsset(url) {
     (url.pathname.startsWith("/_next/static/") ||
       url.pathname.startsWith("/icons/") ||
       url.pathname.startsWith("/brand/") ||
-      url.pathname === "/manifest.webmanifest" ||
+      // The real one, per restaurant. It names only the restaurant — nothing
+      // about the person signed in — so it is safe on a shared tablet.
+      url.pathname.endsWith("/manifest.webmanifest") ||
       url.pathname === "/favicon.ico")
   );
 }

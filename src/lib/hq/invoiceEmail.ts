@@ -44,7 +44,7 @@ export async function sendPaymentReceiptEmail(to: string, input: PaymentReceiptI
       html: `<div style="font-family:Arial,sans-serif;max-width:460px;margin:auto;padding:24px;color:#1c1917">
   <p style="font-size:17px;font-weight:bold;margin:0 0 10px">Payment received</p>
   <p style="font-size:15px;line-height:1.6;margin:0 0 18px">For <strong>${name}</strong> on Jamavat. Keep this for your records.</p>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf9;border:1px solid #e7e5e4;border-radius:14px;margin:0 0 18px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdfaf7;border:1px solid #ebe2d9;border-radius:14px;margin:0 0 18px">
     <tr><td style="padding:14px 16px;font-size:14px;color:#57534e">Amount</td><td align="right" style="padding:14px 16px;font-size:16px;font-weight:800">${rupees(input.amount)}</td></tr>
     <tr><td style="padding:0 16px 14px;font-size:14px;color:#57534e">Paid by</td><td align="right" style="padding:0 16px 14px;font-size:14px;font-weight:700">${METHOD_LABEL[input.method]}</td></tr>
     <tr><td style="padding:0 16px 14px;font-size:14px;color:#57534e">Period</td><td align="right" style="padding:0 16px 14px;font-size:14px;font-weight:700">${input.months} month${input.months > 1 ? "s" : ""}</td></tr>

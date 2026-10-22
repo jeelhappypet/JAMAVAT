@@ -21,7 +21,7 @@ export function Checkbox({ checked, onChange, size = "md", label, variant = "pla
       type="checkbox"
       checked={checked}
       onChange={(e) => onChange(e.target.checked)}
-      className={cn("m-0 shrink-0 cursor-pointer accent-[#c2410c] disabled:cursor-default", SIZE[size], !label && className)}
+      className={cn("m-0 shrink-0 cursor-pointer accent-brand disabled:cursor-default", SIZE[size], !label && className)}
       {...rest}
     />
   );

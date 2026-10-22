@@ -1,20 +1,55 @@
-/** The Jamavat software mark from the design canvas — orange tile with a cloche. */
-export function BrandMark({ size = 40, withName = false }: { size?: number; withName?: boolean }) {
+import Image from "next/image";
+import { cn } from "@/components/ui/cn";
+
+/**
+ * Jamavat's actual logo — the cloche and steam from `public/brand/logo.png`,
+ * exported on its own at `public/icons/icon-192.png`. This used to be a
+ * cloche drawn in four SVG paths, which was not the logo and looked like a
+ * placeholder next to it.
+ *
+ * The artwork is brown on transparent, so it needs a light tile to sit on:
+ * the cream tile keeps it readable on the dark kitchen and HQ headers too,
+ * where the bare mark would disappear.
+ */
+export function BrandMark({
+  size = 40,
+  withName = false,
+  /** Hides the wordmark below `sm`, keeping the tile — the site header needs the room for its CTA. */
+  compactName = false,
+  className,
+}: {
+  size?: number;
+  withName?: boolean;
+  compactName?: boolean;
+  className?: string;
+}) {
+  const inner = Math.round(size * 0.86);
   return (
-    <span className="flex items-center gap-2.5">
+    <span className={cn("flex items-center gap-2.5", className)}>
       <span
-        className="flex shrink-0 items-center justify-center rounded-xl bg-brand text-white"
-        style={{ width: size, height: size }}
-        aria-hidden={withName}
+        className="flex shrink-0 items-center justify-center overflow-hidden bg-brand-light"
+        style={{ width: size, height: size, borderRadius: Math.round(size * 0.28) }}
       >
-        <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M3 18h18" />
-          <path d="M5 18a7 7 0 0 1 14 0" />
-          <path d="M12 8V6" />
-          <path d="M10 6h4" />
-        </svg>
+        <Image
+          src="/icons/icon-192.png"
+          alt={withName ? "" : "Jamavat"}
+          width={inner}
+          height={inner}
+          sizes={`${inner}px`}
+          // Three colours and hard edges: Next's optimizer costs a request and
+          // a function invocation to make this 17 KB file no smaller.
+          unoptimized
+          priority
+        />
       </span>
-      {withName ? <span className="text-lg font-extrabold">Jamavat</span> : null}
+      {withName ? (
+        <span className={cn("flex-col leading-none", compactName ? "hidden sm:flex" : "flex")}>
+          <span className="text-lg font-extrabold tracking-[-0.01em]">Jamavat</span>
+          {/* The Gujarati spelling, not uppercased or letter-spaced: the script has no
+              case and tracking pulls its conjuncts apart. */}
+          <span className="mt-1 text-[11px] font-semibold text-text-muted">જમાવટ</span>
+        </span>
+      ) : null}
     </span>
   );
 }

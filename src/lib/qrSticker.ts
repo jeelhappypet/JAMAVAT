@@ -39,11 +39,11 @@ export function renderQrSticker({ url, code, area, restaurantName, cutLine = fal
   const name = escapeHtml(restaurantName.length > 26 ? `${restaurantName.slice(0, 25)}…` : restaurantName);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${STICKER_MM.width}mm" height="${STICKER_MM.height}mm" viewBox="0 0 ${w} ${h}" font-family="${font}">
-  <rect x="${cutLine ? 4 : 0}" y="${cutLine ? 4 : 0}" width="${w - (cutLine ? 8 : 0)}" height="${h - (cutLine ? 8 : 0)}" rx="${cutLine ? 0 : 36}" fill="#ffffff" stroke="${cutLine ? "#a8a29e" : "#e7e5e4"}" stroke-width="3" ${cutLine ? 'stroke-dasharray="14 10"' : ""}/>
+  <rect x="${cutLine ? 4 : 0}" y="${cutLine ? 4 : 0}" width="${w - (cutLine ? 8 : 0)}" height="${h - (cutLine ? 8 : 0)}" rx="${cutLine ? 0 : 36}" fill="#ffffff" stroke="${cutLine ? "#a8a29e" : "#ebe2d9"}" stroke-width="3" ${cutLine ? 'stroke-dasharray="14 10"' : ""}/>
   <text x="${w / 2}" y="68" text-anchor="middle" font-size="40" font-weight="800" fill="#1c1917">${name}</text>
   <g transform="translate(${qrX} ${qrY}) scale(${unit})"><rect width="${size + quiet * 2}" height="${size + quiet * 2}" fill="#ffffff"/><path d="${path}" fill="#1c1917" shape-rendering="crispEdges"/></g>
   <text x="${w / 2}" y="592" text-anchor="middle" font-size="26" font-weight="700" letter-spacing="4" fill="#57534e">TABLE · ટેબલ</text>
-  <text x="${w / 2}" y="${area ? 690 : 700}" text-anchor="middle" font-size="${code.length > 6 ? 76 : 104}" font-weight="800" fill="#c2410c">${escapeHtml(code)}</text>
+  <text x="${w / 2}" y="${area ? 690 : 700}" text-anchor="middle" font-size="${code.length > 6 ? 76 : 104}" font-weight="800" fill="#b2560a">${escapeHtml(code)}</text>
   ${area ? `<text x="${w / 2}" y="732" text-anchor="middle" font-size="26" fill="#57534e">${escapeHtml(area)}</text>` : ""}
   <text x="${w / 2}" y="782" text-anchor="middle" font-size="30" font-weight="800" fill="#1c1917">Scan to order · ઓર્ડર કરવા સ્કેન કરો</text>
   <text x="${w / 2}" y="822" text-anchor="middle" font-size="22" fill="#57534e">Pay at the counter after your meal</text>

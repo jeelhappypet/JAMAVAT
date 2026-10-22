@@ -22,6 +22,9 @@ const TRIAL_ANCHOR = "trial-anchor-v1";
 const OLD_INDEXES_AGAIN = "old-indexes-v2";
 const LOCK_MS = 60_000;
 
+/** Every one-time migration below, in the order `runMigrations` applies them. */
+const MIGRATION_IDS = [TENANCY, TRIAL_ANCHOR, OLD_INDEXES_AGAIN];
+
 /** Every collection whose documents belong to one restaurant. */
 const TENANT_MODELS: Model<unknown>[] = [Menu, Category, MenuItem, Order, Bill, Staff, Table, Seat, GuestSession, WhatsAppCustomer, WhatsAppConversation, WhatsAppMessage];
 
@@ -34,6 +37,29 @@ const OLD_INDEXES: [Model<unknown>, string][] = [
   [Category, "legacyKey_1"],
   [WhatsAppCustomer, "whatsappWaId_1"],
 ];
+
+/**
+ * Every cold start used to ask Mongo three times — once per migration —
+ * whether it was already done, and the three questions went one after the
+ * other. That is three round trips before the request's own first read, on
+ * the slowest request a staff member makes (the one right after login).
+ * One query answers all three; the migrations themselves only run on the
+ * cold start that finds something left to do, which after launch is none.
+ */
+export async function runMigrations(db: mongo.Db): Promise<void> {
+  const done = await db
+    .collection<MigrationDoc>("migrations")
+    .find({ _id: { $in: MIGRATION_IDS }, state: "done" })
+    .project<{ _id: string }>({ _id: 1 })
+    .toArray();
+  if (done.length === MIGRATION_IDS.length) return;
+
+  // Order matters: a legacy restaurant created by the first migration needs a
+  // `paidUntil` for the second to read.
+  await migrateToTenancy(db);
+  await backfillTrialEndsAt(db);
+  await dropOldIndexesAgain(db);
+}
 
 interface MigrationDoc {
   _id: string;

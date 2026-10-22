@@ -17,7 +17,7 @@ export async function sendInviteEmail(to: string, restaurantName: string, link: 
       html: `<div style="font-family:Arial,sans-serif;max-width:460px;margin:auto;padding:24px;color:#1c1917">
   <p style="font-size:17px;font-weight:bold;margin:0 0 10px">${name} is ready on Jamavat</p>
   <p style="font-size:15px;line-height:1.6;margin:0 0 18px">Open this link to create your owner login. It works once, and for 14 days.</p>
-  <p style="margin:0 0 18px"><a href="${link}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:#c2410c;color:#ffffff;font-weight:bold;text-decoration:none">Create my login</a></p>
+  <p style="margin:0 0 18px"><a href="${link}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:#b2560a;color:#ffffff;font-weight:bold;text-decoration:none">Create my login</a></p>
   <p style="font-size:13px;color:#57534e;margin:0;word-break:break-all">${escapeHtml(link)}</p>
 </div>`,
     });

@@ -19,7 +19,7 @@ export const viewport: Viewport = {
   // Viewports merge key by key — these replace the root layout's zoom lock rather than inherit it.
   maximumScale: 5,
   userScalable: true,
-  themeColor: "#c2410c",
+  themeColor: "#b2560a",
 };
 
 /**
