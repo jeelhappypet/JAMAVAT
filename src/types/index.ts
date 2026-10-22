@@ -223,6 +223,8 @@ export interface OrderItemDTO {
   /** Absent on v1 orders, which predate category routing — those show on every kitchen screen. */
   categoryId?: string;
   categorySnapshot: string;
+  /** The menu/kitchen that cooks it ("Gujarati"). Absent on orders placed before it was snapshotted. */
+  kitchenSnapshot?: string;
   quantity: number;
   unitPrice: number;
   lineTotal: number;

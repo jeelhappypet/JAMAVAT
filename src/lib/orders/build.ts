@@ -1,6 +1,7 @@
 import { isValidObjectId } from "mongoose";
 import { MenuItem, type MenuItemDocument } from "@/models/MenuItem";
 import { Category, type CategoryDocument } from "@/models/Category";
+import { Menu, type MenuDocument } from "@/models/Menu";
 import { Counter } from "@/models/Counter";
 import { ensureMenuStructure } from "@/lib/menu/structure";
 import type { RestaurantRef } from "@/lib/db/tenant";
@@ -32,6 +33,15 @@ export async function buildOrderItems(restaurantId: RestaurantRef, requested: Re
   const categories = await Category.find({ restaurantId, _id: { $in: menuItems.map((item) => item.categoryId) } }).lean<CategoryDocument[]>();
   const categoryById = new Map(categories.map((category) => [String(category._id), category]));
 
+  // The kitchen each dish goes to, named once here rather than looked up on
+  // every read: this is one small query over the one or two menus involved,
+  // and it saves the counter screens fetching the whole menu tree just to
+  // turn a categoryId into "Gujarati".
+  const menus = await Menu.find({ restaurantId, _id: { $in: [...new Set(categories.map((category) => String(category.menuId)))] } })
+    .select({ name: 1 })
+    .lean<Pick<MenuDocument, "_id" | "name">[]>();
+  const menuNameById = new Map(menus.map((menu) => [String(menu._id), menu.name]));
+
   const items: Record<string, unknown>[] = [];
   let totalAmount = 0;
   for (const requestedItem of requested) {
@@ -49,6 +59,7 @@ export async function buildOrderItems(restaurantId: RestaurantRef, requested: Re
       nameGuSnapshot: menuItem.nameGu || undefined,
       categoryId: menuItem.categoryId,
       categorySnapshot: category?.name ?? menuItem.category ?? "",
+      kitchenSnapshot: category ? menuNameById.get(String(category.menuId)) : undefined,
       quantity: requestedItem.quantity,
       unitPrice: menuItem.price,
       lineTotal,

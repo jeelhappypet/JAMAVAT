@@ -10,6 +10,14 @@ const orderItemSchema = new Schema(
     /** Routes the item to kitchen screens. Missing on v1 orders (those show on every screen). */
     categoryId: { type: Schema.Types.ObjectId, ref: "Category" },
     categorySnapshot: { type: String, required: true },
+    /**
+     * The menu the category belongs to — which is the kitchen that cooks it
+     * ("Gujarati"). Snapshotted like the name and price so a renamed menu
+     * never rewrites yesterday's orders, and so the counter can name the
+     * kitchen without fetching the whole menu tree to look it up.
+     * Missing on orders placed before this field existed.
+     */
+    kitchenSnapshot: { type: String },
     quantity: { type: Number, required: true, min: 1 },
     unitPrice: { type: Number, required: true, min: 0 },
     lineTotal: { type: Number, required: true, min: 0 },

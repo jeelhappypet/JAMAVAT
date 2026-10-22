@@ -71,7 +71,7 @@ function AdminHeader({ staffName, role, pathname }: StaffHeaderProps & { pathnam
                 key={item.href}
                 href={path(item.href)}
                 aria-current={active ? "page" : undefined}
-                className={`whitespace-nowrap border-b-2 px-2 py-3 text-center text-sm sm:px-3.5 sm:text-left ${active ? "border-brand font-extrabold text-brand-dark" : "border-transparent font-semibold text-stone-700"}`}
+                className={`whitespace-nowrap border-b-2 px-2 py-3 text-center text-sm sm:px-3.5 sm:text-left ${active ? "border-brand font-extrabold text-brand-dark" : "border-transparent font-semibold text-text-muted"}`}
               >
                 <span className="sm:hidden">{t(item.shortLabel ?? item.label)}</span>
                 <span className="hidden sm:inline">{t(item.label)}</span>
@@ -93,9 +93,15 @@ function CounterHeader({ staffName, role, pathname }: StaffHeaderProps & { pathn
 
   return (
     <header className="border-b border-border bg-surface print:hidden">
-      <div className="mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-5 gap-y-3 px-[clamp(16px,3vw,32px)] py-3">
-        <Restaurant caption={t("common.onJamavat")} />
-        <nav aria-label={t("nav.counter")} className="flex flex-grow flex-wrap gap-1">
+      {/* On a 390px phone this used to wrap into three rows — name, tabs,
+          controls — and eat a fifth of the screen above a till. The name and
+          the controls now share the first row and the tabs get their own,
+          scrolling sideways rather than wrapping. */}
+      <div className="mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-5 gap-y-2 px-[clamp(16px,3vw,32px)] py-2.5 sm:gap-y-3 sm:py-3">
+        <div className="min-w-0 flex-1 sm:flex-none">
+          <Restaurant caption={t("common.onJamavat")} />
+        </div>
+        <nav aria-label={t("nav.counter")} className="no-scrollbar order-last -mx-1 flex w-full gap-1 overflow-x-auto px-1 sm:order-none sm:mx-0 sm:w-auto sm:flex-grow sm:overflow-x-visible sm:px-0">
           {COUNTER_NAV.map((item) => {
             const active = item.href === current;
             return (
@@ -103,15 +109,19 @@ function CounterHeader({ staffName, role, pathname }: StaffHeaderProps & { pathn
                 key={item.href}
                 href={path(item.href)}
                 aria-current={active ? "page" : undefined}
-                className={`rounded-[10px] px-3.5 py-2.5 text-sm ${active ? "bg-stone-900 font-bold text-white" : "font-semibold text-stone-700 hover:bg-surface-muted"}`}
+                className={`shrink-0 whitespace-nowrap rounded-[10px] px-3.5 py-2 text-sm transition-colors ${active ? "bg-ink font-bold text-white" : "font-semibold text-text-muted hover:bg-surface-muted"}`}
               >
                 {t(item.label)}
               </Link>
             );
           })}
         </nav>
-        <div className="flex flex-wrap items-center gap-2">
-          <RealtimeStatus state={state} />
+        <div className="flex shrink-0 items-center gap-2">
+          {/* The global OfflineIndicator already shouts when the connection
+              drops, so this badge is the roomy-screen version of the same news. */}
+          <span className="hidden sm:inline-flex">
+            <RealtimeStatus state={state} />
+          </span>
           <IconButton size="md" onClick={toggleSound} aria-pressed={soundOn} label={soundOn ? t("account.soundOn") : t("account.soundOff")}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M11 5 6 9H3v6h3l5 4V5Z" />

@@ -382,6 +382,90 @@ details[open] .site-answer {
   }
 }
 
+/* ===========================================================================
+ * Staff screens — motion.
+ *
+ * Different rules from the website's: these are screens people work on at
+ * speed during a rush, so movement is only ever used to say that something
+ * arrived or changed, never for decoration. Short, and never blocking.
+ * ======================================================================== */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The bill sheet on a phone, and its summary bar. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* A dish landing in the bill, and a ticket arriving on a kitchen screen. */
+@keyframes line-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-line-in {
+  animation: line-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* The brief flash on a row whose quantity just changed — the one way to show
+   that a second tap on a dish already in the bill did something. */
+@keyframes line-bump {
+  0% {
+    background-color: transparent;
+  }
+  30% {
+    background-color: var(--color-brand-light);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.animate-line-bump {
+  animation: line-bump 0.5s ease-out;
+}
+
+/* A till is a touch screen: a tile has to answer the finger immediately,
+   because the dish only appears in the bill a pane away. */
+.tap-tile {
+  transition: transform 0.12s ease-out, border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+
+.tap-tile:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-line-in,
+  .animate-line-bump {
+    animation: none;
+  }
+
+  .tap-tile,
+  .tap-tile:active {
+    transition: none;
+    transform: none;
+  }
+}
+
 @layer utilities {
   .touch-target {
     min-height: 44px;

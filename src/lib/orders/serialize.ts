@@ -6,6 +6,7 @@ export interface OrderItemLean {
   nameGuSnapshot?: string;
   categoryId?: unknown;
   categorySnapshot: string;
+  kitchenSnapshot?: string;
   quantity: number;
   unitPrice: number;
   lineTotal: number;
@@ -43,6 +44,7 @@ export function serializeOrderItem(item: OrderItemLean, orderStatus: string): Or
     nameGuSnapshot: item.nameGuSnapshot || undefined,
     categoryId: item.categoryId ? String(item.categoryId) : undefined,
     categorySnapshot: item.categorySnapshot,
+    kitchenSnapshot: item.kitchenSnapshot || undefined,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     lineTotal: item.lineTotal,
