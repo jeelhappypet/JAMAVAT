@@ -67,7 +67,7 @@ export function SiteHeader({ lang, path = "/" }: { lang: Lang; path?: string }) 
           </Link>
 
           <nav aria-label={SITE_NAME} className="flex items-center gap-x-1">
-            <span className="hidden items-center gap-x-1 md:flex">
+            <span className="hidden items-center gap-x-1 lg:flex">
               {links.map((item) =>
                 item.internal ? (
                   <Link key={item.label} href={item.href} className={link}>
@@ -84,13 +84,13 @@ export function SiteHeader({ lang, path = "/" }: { lang: Lang; path?: string }) 
             <Link
               href={sitePath(other, path)}
               hrefLang={other}
-              className="rounded-[9px] border border-border px-2.5 py-1.5 text-[13px] font-bold text-text-muted transition-colors hover:border-brand hover:text-brand"
+              className="rounded-[9px] border border-border px-2.5 py-2 text-[13px] font-bold text-text-muted transition-colors hover:border-brand hover:text-brand"
             >
               {other === "gu" ? "ગુજરાતી" : "English"}
             </Link>
 
             {/* A full page load: the website is prerendered in English, and the login screen must pick up the staff's own language. */}
-            <a href="/login" data-track="staff-login" className={`${link} hidden md:inline-block`}>
+            <a href="/login" data-track="staff-login" className={`${link} hidden lg:inline-block`}>
               {pick(NAV.staffLogin, lang)}
             </a>
 
@@ -99,7 +99,7 @@ export function SiteHeader({ lang, path = "/" }: { lang: Lang; path?: string }) 
                 element are settled by stylesheet order, not by which was asked
                 for last. On a phone the hamburger holds this button anyway. */}
             <span className="ml-1 hidden sm:block">
-              <a href={anchor("#demo")} data-track="demo-header" className={buttonClass({ size: "sm", className: "site-cta md:h-11 md:px-4 md:text-[14.5px]" })}>
+              <a href={anchor("#demo")} data-track="demo-header" className={buttonClass({ size: "sm", className: "site-cta lg:h-11 lg:px-4 lg:text-[14.5px]" })}>
                 {pick(NAV.demo, lang)}
               </a>
             </span>
@@ -110,7 +110,7 @@ export function SiteHeader({ lang, path = "/" }: { lang: Lang; path?: string }) 
               aria-expanded={open}
               aria-controls="site-menu"
               aria-label={pick(open ? NAV.closeMenu : NAV.openMenu, lang)}
-              className="ml-0.5 flex h-10 w-10 items-center justify-center rounded-xl border border-border text-foreground transition-colors hover:border-brand hover:text-brand md:hidden"
+              className="ml-0.5 flex h-10 w-10 items-center justify-center rounded-xl border border-border text-foreground transition-colors hover:border-brand hover:text-brand lg:hidden"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
                 {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
@@ -120,7 +120,7 @@ export function SiteHeader({ lang, path = "/" }: { lang: Lang; path?: string }) 
         </div>
 
         {open ? (
-          <div id="site-menu" className="flex flex-col gap-1 border-t border-border pb-3 pt-3 md:hidden">
+          <div id="site-menu" className="flex flex-col gap-1 border-t border-border pb-3 pt-3 lg:hidden">
             {links.map((item) =>
               item.internal ? (
                 <Link key={item.label} href={item.href} onClick={() => setOpen(false)} className="rounded-xl px-2 py-2.5 text-[15px] font-semibold">

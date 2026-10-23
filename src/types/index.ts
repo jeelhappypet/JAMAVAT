@@ -339,6 +339,9 @@ export interface BillDTO {
   lines: BillLineDTO[];
   itemsTotal: number;
   discount: number;
+  /** Absent when the restaurant has GST switched off. */
+  tax?: BillTaxDTO;
+  /** What the guest paid: items − discount + tax. */
   total: number;
   paymentMode: PaymentMode;
   settledAt: string;
@@ -352,6 +355,8 @@ export interface SeatDetailDTO {
   orders: OrderDTO[];
   /** categoryId → its menu ("Gujarati"), i.e. the kitchen column of the bill. */
   kitchens: Record<string, { name: string; nameGu?: string }>;
+  /** What the counter adds on top before collecting, if the admin switched GST on. */
+  gst: GstSettingsDTO;
 }
 
 export const REPORT_RANGES = ["today", "yesterday", "week", "month"] as const;
@@ -414,6 +419,34 @@ export interface RestaurantSettingsDTO {
   phone?: string;
   /** "Rate us on Google" link in the thank-you email. */
   reviewUrl?: string;
+  gst: GstSettingsDTO;
+}
+
+/** CGST+SGST within a state, IGST across states — the restaurant picks one. */
+export const GST_MODES = ["CGST_SGST", "IGST"] as const;
+export type GstMode = (typeof GST_MODES)[number];
+
+/**
+ * What the admin set on Settings. `enabled: false` (the default) means a bill
+ * is what it always was: items minus discount, no tax line anywhere.
+ */
+export interface GstSettingsDTO {
+  enabled: boolean;
+  /** The full rate, e.g. 5 — CGST_SGST shows half of it twice. */
+  percent: number;
+  mode: GstMode;
+  gstin?: string;
+}
+
+/** The tax on one bill, worked out at settle and stored with it. */
+export interface BillTaxDTO {
+  percent: number;
+  mode: GstMode;
+  /** Total tax in rupees; with CGST_SGST it is exactly `cgst + sgst`. */
+  amount: number;
+  /** Per half, only for CGST_SGST. */
+  cgst?: number;
+  sgst?: number;
 }
 
 // ---- WhatsApp inbox (/whatsapp)

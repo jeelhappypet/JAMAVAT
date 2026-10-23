@@ -9,11 +9,13 @@ import { GuestBusyView } from "@/components/guest/GuestBusyView";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { GUEST_PUSH_CONFIGURED, useGuestRealtime, usePageVisible } from "@/lib/realtime/useGuestRealtime";
 import { guestUrlFor, startView, viewFromSearch, type GuestView } from "@/lib/guest/view";
-import type { GuestStateDTO, MenuDTO, MenuItemDTO } from "@/types";
+import type { GstSettingsDTO, GuestStateDTO, MenuDTO, MenuItemDTO } from "@/types";
 
 interface GuestAppProps {
   token: string;
   restaurantName: string;
+  /** The restaurant's GST setting — the cart says so rather than quoting a total without it. */
+  gst: GstSettingsDTO;
   initialMenus: MenuDTO[];
   initialState: GuestStateDTO;
   /** Step from the URL (?v=), so a reload or a back/forward lands where the guest was. */
@@ -30,7 +32,7 @@ const viewFromUrl = () => viewFromSearch(new URLSearchParams(window.location.sea
  * with the phone's back button moving between steps. The cart survives a
  * reload in localStorage; everything else comes from the server.
  */
-export function GuestApp({ token, restaurantName, initialMenus, initialState, initialView }: GuestAppProps) {
+export function GuestApp({ token, restaurantName, gst, initialMenus, initialState, initialView }: GuestAppProps) {
   const { t } = useI18n();
   const [menus, setMenus] = useState(initialMenus);
   const [state, setState] = useState(initialState);
@@ -260,7 +262,7 @@ export function GuestApp({ token, restaurantName, initialMenus, initialState, in
     setState((prev) => ({ ...prev, verifiedEmail: undefined }));
   }, []);
 
-  const common = { restaurantName, state };
+  const common = { restaurantName, state, gst };
 
   if (view === "busy" && !browsing) {
     return (

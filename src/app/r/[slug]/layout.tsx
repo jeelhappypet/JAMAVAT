@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { RestaurantProvider } from "@/components/shell/RestaurantProvider";
+import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { getRestaurantBySlug } from "@/lib/restaurant";
 
 /** One restaurant's staff app. Never Jamavat's own pages, so never indexed. */
@@ -24,6 +25,10 @@ export default async function RestaurantAppLayout({ children, params }: LayoutPr
 
   return (
     <RestaurantProvider id={found.restaurant.id} slug={found.restaurant.slug} name={found.restaurant.name}>
+      {/* Only the staff app is installed and only it has an offline shell, so
+          only it registers the worker. A guest who scans a QR once, and a
+          visitor reading the website, used to install it from the root layout. */}
+      <ServiceWorkerRegister />
       {children}
     </RestaurantProvider>
   );

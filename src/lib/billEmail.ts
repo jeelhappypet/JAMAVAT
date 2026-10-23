@@ -1,5 +1,6 @@
 import { escapeHtml } from "@/lib/mail";
-import type { BillLineDTO, PaymentMode, RestaurantSettingsDTO } from "@/types";
+import { halfPercent } from "@/lib/gst";
+import type { BillLineDTO, BillTaxDTO, PaymentMode, RestaurantSettingsDTO } from "@/types";
 
 interface BillEmailInput {
   restaurant: RestaurantSettingsDTO;
@@ -9,6 +10,8 @@ interface BillEmailInput {
   lines: BillLineDTO[];
   itemsTotal: number;
   discount: number;
+  /** Set only when the restaurant has GST switched on. */
+  tax?: BillTaxDTO;
   total: number;
   paymentMode: PaymentMode;
 }
@@ -26,7 +29,13 @@ const when = (date: Date) =>
 /**
  * The thank-you email from the "6 · Thank-you email" artboard. Table layout
  * and inline styles only — that's what Gmail, Outlook and phone mail apps
- * render reliably. An order summary, deliberately not a tax invoice.
+ * render reliably.
+ *
+ * With GST switched off it is an order summary and says so. With GST on it
+ * carries the tax lines, and it only calls itself a tax invoice once the
+ * restaurant has put its GSTIN in Settings — an invoice without the number on
+ * it isn't one, and claiming otherwise in a guest's inbox would be a lie the
+ * restaurant has to answer for.
  */
 export function renderBillEmail(input: BillEmailInput): { subject: string; html: string; text: string; fromName: string } {
   const { restaurant, lines } = input;
@@ -44,6 +53,18 @@ export function renderBillEmail(input: BillEmailInput): { subject: string; html:
         </tr>`
     )
     .join("");
+
+  // CGST and SGST on their own lines, IGST on one — the way a guest's
+  // accountant expects to read it.
+  const taxRow = (label: string, amount: number) =>
+    `<tr><td style="padding:4px 0 10px;font-size:14px;color:${muted}">${label}</td><td align="right" style="padding:4px 0 10px;font-size:14px;color:${muted}">${rupees(amount)}</td></tr>`;
+  const tax = input.tax;
+  const taxRows = !tax
+    ? ""
+    : tax.mode === "CGST_SGST"
+      ? taxRow(`CGST ${halfPercent(tax.percent)}%`, tax.cgst ?? 0) + taxRow(`SGST ${halfPercent(tax.percent)}%`, tax.sgst ?? 0)
+      : taxRow(`IGST ${tax.percent}%`, tax.amount);
+  const isTaxInvoice = Boolean(tax && restaurant.gst.gstin);
 
   const footerRaw = [restaurant.name, restaurant.address, restaurant.phone].filter(Boolean).join(" · ");
   const footerBits = escapeHtml(footerRaw);
@@ -93,6 +114,7 @@ export function renderBillEmail(input: BillEmailInput): { subject: string; html:
           ${rows}
           <tr><td style="padding:10px 0 4px;font-size:14px;color:${muted}">Items total</td><td align="right" style="padding:10px 0 4px;font-size:14px;color:${muted}">${rupees(input.itemsTotal)}</td></tr>
           <tr><td style="padding:4px 0 10px;font-size:14px;color:${muted}">Discount</td><td align="right" style="padding:4px 0 10px;font-size:14px;color:${muted}">${rupees(input.discount)}</td></tr>
+          ${taxRows}
           <tr>
             <td style="padding-top:12px;border-top:1px dashed #d6d3d1;font-size:16px;font-weight:800">Total paid</td>
             <td align="right" style="padding-top:12px;border-top:1px dashed #d6d3d1;font-size:26px;font-weight:800">${rupees(input.total)}</td>
@@ -103,7 +125,8 @@ export function renderBillEmail(input: BillEmailInput): { subject: string; html:
       ${review}
       <tr><td style="padding:18px 32px 24px;border-top:1px solid #ebe2d9;font-size:12px;line-height:1.6;color:${muted}">
         <div>${footerBits}</div>
-        <div style="padding-top:6px">This is an order summary, not a tax invoice. You received it because you verified this email at table ${escapeHtml(input.seatCode)}.</div>
+        ${isTaxInvoice ? `<div style="padding-top:6px">GSTIN ${escapeHtml(restaurant.gst.gstin!)}</div>` : ""}
+        <div style="padding-top:6px">${isTaxInvoice ? "Tax invoice" : "This is an order summary, not a tax invoice"}. You received it because you verified this email at table ${escapeHtml(input.seatCode)}.</div>
         <div style="padding-top:6px">Sent with <strong style="color:#1c1917">Jamavat</strong> — QR ordering for restaurants</div>
       </td></tr>
     </table>
@@ -120,10 +143,15 @@ export function renderBillEmail(input: BillEmailInput): { subject: string; html:
     "",
     `Items total ${rupees(input.itemsTotal)}`,
     `Discount ${rupees(input.discount)}`,
+    ...(!tax
+      ? []
+      : tax.mode === "CGST_SGST"
+        ? [`CGST ${halfPercent(tax.percent)}% ${rupees(tax.cgst ?? 0)}`, `SGST ${halfPercent(tax.percent)}% ${rupees(tax.sgst ?? 0)}`]
+        : [`IGST ${tax.percent}% ${rupees(tax.amount)}`]),
     `Total paid ${rupees(input.total)} (paid by ${PAID_BY[input.paymentMode]} at the counter)`,
     ...(restaurant.reviewUrl ? ["", `Enjoyed the food? Rate us on Google: ${restaurant.reviewUrl}`] : []),
     "",
-    "This is an order summary, not a tax invoice.",
+    isTaxInvoice ? `Tax invoice · GSTIN ${restaurant.gst.gstin}` : "This is an order summary, not a tax invoice.",
     footerRaw,
   ].join("\n");
 

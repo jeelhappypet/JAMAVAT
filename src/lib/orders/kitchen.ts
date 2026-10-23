@@ -4,7 +4,7 @@ import { Category, type CategoryDocument } from "@/models/Category";
 import { Menu, type MenuDocument } from "@/models/Menu";
 import { getBusinessDate } from "@/lib/utils/businessDate";
 import type { RestaurantRef } from "@/lib/db/tenant";
-import { itemStatus, serializeOrderItem, type OrderItemLean, type OrderLean } from "./serialize";
+import { ORDER_FIELDS, itemStatus, serializeOrderItem, type OrderItemLean, type OrderLean } from "./serialize";
 import type { KitchenScopeDTO, KitchenTicketDTO, StaffSession } from "@/types";
 
 /** Which order items a kitchen screen is responsible for. */
@@ -28,6 +28,7 @@ export function isInScope(item: OrderItemLean, scope: KitchenScope): boolean {
 /** Today's orders that still have something for this screen to cook, oldest first. */
 export async function getKitchenTickets(restaurantId: RestaurantRef, scope: KitchenScope): Promise<KitchenTicketDTO[]> {
   const orders = await Order.find({ restaurantId, businessDate: getBusinessDate(), status: "PENDING" })
+    .select(ORDER_FIELDS)
     .sort({ createdAt: 1 })
     .lean<OrderLean[]>();
 
@@ -54,9 +55,10 @@ export async function getKitchenTickets(restaurantId: RestaurantRef, scope: Kitc
 export async function describeKitchenScope(restaurantId: RestaurantRef, scope: KitchenScope): Promise<KitchenScopeDTO> {
   if (scope.all) return { all: true, categories: [] };
   const categories = await Category.find({ restaurantId, _id: { $in: [...scope.categoryIds] } })
+    .select({ name: 1, nameGu: 1, menuId: 1, sortOrder: 1 })
     .sort({ sortOrder: 1 })
     .lean<CategoryDocument[]>();
-  const menus = await Menu.find({ restaurantId, _id: { $in: categories.map((c) => c.menuId) } }).lean<MenuDocument[]>();
+  const menus = await Menu.find({ restaurantId, _id: { $in: categories.map((c) => c.menuId) } }).select({ name: 1, nameGu: 1 }).lean<MenuDocument[]>();
   const menuById = new Map(menus.map((m) => [String(m._id), m]));
   return {
     all: false,

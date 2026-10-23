@@ -72,13 +72,18 @@ export function SiteHome({ lang, plans }: { lang: Lang; plans: PublicPlan[] }) {
       </section>
 
       <section aria-label={pick(AUDIENCE.label, lang)} className="border-b border-border bg-surface">
-        <div className={`${section} flex flex-wrap items-center gap-x-2.5 gap-y-2 py-4`}>
-          <span className="t-eyebrow mr-1.5 text-text-muted">{pick(AUDIENCE.label, lang)}</span>
-          {AUDIENCE.items.map((item) => (
-            <span key={item.en} className="rounded-full border border-border bg-surface-muted px-3 py-1.5 text-[13px] font-semibold">
-              {pick(item, lang)}
-            </span>
-          ))}
+        {/* The label on its own line below `sm`. Inline, it pushed the first
+            chip into the middle of the row and left the rest wrapping around
+            a hole — one side full, the other side a gap. */}
+        <div className={`${section} flex flex-col gap-2 py-3.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2.5`}>
+          <span className="t-eyebrow text-text-muted sm:mr-1.5">{pick(AUDIENCE.label, lang)}</span>
+          <ul className="flex list-none flex-wrap gap-1.5 p-0 sm:contents">
+            {AUDIENCE.items.map((item) => (
+              <li key={item.en} className="rounded-full border border-border bg-surface-muted px-3 py-1.5 text-[13px] font-semibold">
+                {pick(item, lang)}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

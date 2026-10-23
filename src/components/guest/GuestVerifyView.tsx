@@ -104,7 +104,7 @@ export function GuestVerifyView({ restaurantName, state, token, placing, onBack,
   const working = busy || placing;
 
   return (
-    <div className="flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
+    <div className="flex min-h-dvh w-full flex-col bg-background">
       <GuestHeader restaurantName={restaurantName} title={t("guest.almostDone")} subtitle={t("guest.step", { code: state.seatCode })} onBack={onBack} />
 
       <main className="flex flex-1 flex-col gap-5 px-5 pb-6 pt-7">
@@ -135,7 +135,7 @@ export function GuestVerifyView({ restaurantName, state, token, placing, onBack,
         ) : (
           <>
             <div className="flex items-center gap-2.5 rounded-[14px] border border-border bg-surface px-3.5 py-3">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-success-light text-green-700">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-success-light text-success">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M5 13l4 4L19 7" />
                 </svg>
@@ -149,7 +149,8 @@ export function GuestVerifyView({ restaurantName, state, token, placing, onBack,
               </Button>
             </div>
 
-            {devCode ? <div className="rounded-[14px] border border-dashed border-amber-500 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">{t("guest.devCode", { code: devCode })}</div> : null}
+            {/* Development only: the mail server isn't set up locally, so the code is shown instead of sent. */}
+            {devCode ? <Alert tone="warning">{t("guest.devCode", { code: devCode })}</Alert> : null}
 
             <fieldset className="flex flex-col gap-2.5">
               <legend className="mb-2.5 text-sm font-bold">{t("guest.enterCode")}</legend>

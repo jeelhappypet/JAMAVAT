@@ -4,13 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SkeletonCards } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Alert } from "@/components/ui/Alert";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Checkbox } from "@/components/ui/Checkbox";
-import { ChoiceCards } from "@/components/ui/ChoiceCards";
 import { IconButton } from "@/components/ui/IconButton";
-import { TextField } from "@/components/ui/TextField";
+import { FreeSeatCard, SettledCard } from "@/components/counter/SeatBillOutcome";
+import { SeatOrderList } from "@/components/counter/SeatOrderList";
+import { SettlePanel } from "@/components/counter/SettlePanel";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
@@ -18,22 +16,22 @@ import { POLL_MS, SAFETY_RESYNC_MS } from "@/lib/realtime/polling";
 import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { formatClock } from "@/lib/utils/time";
-import { localName, type MessageKey } from "@/lib/i18n/messages";
-import { PAYMENT_MODES, type BillDTO, type OrderDTO, type PaymentMode, type SeatDetailDTO } from "@/types";
+import { localName } from "@/lib/i18n/messages";
+import type { BillDTO, PaymentMode, SeatDetailDTO } from "@/types";
 import { useAppPath } from "@/components/shell/RestaurantProvider";
 
-const STATUS: Record<OrderDTO["status"], { label: MessageKey; tone: "orange" | "green" | "red" }> = {
-  PENDING: { label: "seatBill.statusCooking", tone: "orange" },
-  READY: { label: "seatBill.statusReady", tone: "green" },
-  COMPLETED: { label: "seatBill.statusReady", tone: "green" },
-  CANCELLED: { label: "seatBill.statusCancelled", tone: "red" },
-};
-
-const PAY_LABEL: Record<PaymentMode, MessageKey> = { CASH: "seatBill.cash", UPI: "seatBill.upi", CARD: "seatBill.card" };
-
-const rupees = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
-
-/** "Counter · settle seat bill" artboard: one guest's orders, then discount → paid by → settle & free. */
+/**
+ * "Counter · settle seat bill": one guest's orders, then discount → paid by
+ * → settle & free.
+ *
+ * This file is now the data and the decisions only; the orders list, the
+ * settle panel and the two outcome cards are their own components. It was
+ * 361 lines doing all four.
+ *
+ * The settle call itself is deliberately unchanged — it is one conditional
+ * `findOneAndUpdate` on the server, so two people settling the same table at
+ * the same moment still produce one bill and the loser gets a 409.
+ */
 export function SeatBillScreen({ seatId }: { seatId: string }) {
   const path = useAppPath();
   const { t, lang } = useI18n();
@@ -76,10 +74,12 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
   useEffect(() => {
     orderIds.current = new Set(detail?.orders.map((order) => order.id) ?? []);
   }, [detail]);
+
   const ifMine = (payload: unknown) => {
     const { id, seatId: forSeat } = (payload ?? {}) as { id?: string; seatId?: string };
     if (forSeat === seatId || (id && orderIds.current.has(id))) void load();
   };
+
   const { state } = useRealtime(
     {
       [REALTIME_EVENTS.ORDER_ITEMS_READY]: ifMine,
@@ -106,9 +106,7 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
   const billable = orders.filter((order) => order.status !== "CANCELLED");
   const itemsTotal = billable.reduce((sum, order) => sum + order.totalAmount, 0);
   const discount = Math.max(0, Math.floor(Number(discountText) || 0));
-  const toCollect = Math.max(0, itemsTotal - discount);
   const stillCooking = billable.filter((order) => order.status === "PENDING").length;
-  const clock = (iso: string) => formatClock(iso, lang);
 
   async function settle() {
     if (!detail?.session) return;
@@ -149,7 +147,7 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
   const subtitle = seat
     ? [
         seat.area,
-        session ? t("seatBill.seatedAt", { time: clock(session.openedAt) }) : null,
+        session ? t("seatBill.seatedAt", { time: formatClock(session.openedAt, lang) }) : null,
         session ? t("counter.minutes", { n: minutes }) : null,
         session ? (billable.length === 1 ? t("seatBill.orderCountOne") : t("seatBill.orderCount", { n: billable.length })) : null,
       ]
@@ -160,20 +158,21 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
   return (
     <div className="flex min-h-full flex-1 flex-col bg-surface-muted">
       <header className="border-b border-border bg-surface print:hidden">
-        <div className="mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-4 gap-y-3 px-[clamp(16px,3vw,32px)] py-3">
+        <div className="mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-3.5 gap-y-2 px-[clamp(16px,3vw,32px)] py-2.5">
           <IconButton href={path("/counter")} label={t("seatBill.back")} size="md">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M19 12H5" />
               <path d="m11 6-6 6 6 6" />
             </svg>
           </IconButton>
           <div className="flex min-w-0 flex-grow flex-col">
-            <span className="text-[22px] font-extrabold">{seat ? t("tables.table", { name: seat.code }) : "…"}</span>
-            {subtitle ? <span className="text-[13px] text-text-muted">{subtitle}</span> : null}
+            <span className="text-xl font-extrabold">{seat ? t("tables.table", { name: seat.code }) : "…"}</span>
+            {subtitle ? <span className="truncate text-[13px] text-text-muted">{subtitle}</span> : null}
           </div>
           {session && !settled ? (
             <Button
               variant="secondary"
+              size="sm"
               onClick={() => setConfirmFree(true)}
               icon={
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -188,162 +187,33 @@ export function SeatBillScreen({ seatId }: { seatId: string }) {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-[1360px] flex-1 flex-wrap items-start gap-6 px-[clamp(16px,3vw,32px)] pb-10 pt-5">
+      <main className="mx-auto flex w-full max-w-[1360px] flex-1 flex-wrap items-start gap-5 px-[clamp(16px,3vw,32px)] pb-8 pt-4">
         {loading ? (
           <div className="w-full">
             <SkeletonCards count={2} minWidth={300} />
           </div>
         ) : settled ? (
-          <section className="mx-auto flex w-full max-w-[480px] flex-col items-center gap-3 rounded-[20px] border border-border bg-surface p-8 text-center">
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-success-light text-green-700">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M5 13l4 4L19 7" />
-              </svg>
-            </span>
-            <h1 className="text-2xl font-extrabold">{t("seatBill.settledTitle", { code: settled.seatCode })}</h1>
-            <p className="text-[15px] text-text-muted">
-              {t("seatBill.settledBody", { no: String(settled.billNo).padStart(4, "0"), total: rupees(settled.total), mode: t(PAY_LABEL[settled.paymentMode]) })}
-            </p>
-            <p className="text-sm font-semibold text-stone-700">
-              {settled.emailStatus === "SENT"
-                ? t("seatBill.emailSent", { email: settled.email ?? "" })
-                : settled.emailStatus === "FAILED"
-                  ? t("seatBill.emailFailed")
-                  : t("seatBill.emailSkipped")}
-            </p>
-            <Button href={path("/counter")} size="lg" className="mt-2">
-              {t("seatBill.backToSeats")}
-            </Button>
-          </section>
+          <SettledCard bill={settled} />
         ) : !session ? (
-          <section className="mx-auto flex w-full max-w-[480px] flex-col items-center gap-3 rounded-[20px] border border-border bg-surface p-8 text-center">
-            <h1 className="text-xl font-extrabold">{t("seatBill.freeTitle", { code: seat?.code ?? "" })}</h1>
-            <p className="text-[15px] text-text-muted">{error ?? t("seatBill.freeBody")}</p>
-            <Button href={path("/counter")} variant="secondary" size="lg" className="mt-2">
-              {t("seatBill.backToSeats")}
-            </Button>
-          </section>
+          <FreeSeatCard code={seat?.code ?? ""} message={error ?? undefined} />
         ) : (
           <>
-            <section className="flex min-w-0 flex-[999_1_560px] flex-col gap-3.5">
-              <div className="flex flex-wrap items-center justify-between gap-2.5">
-                <h2 className="text-lg font-extrabold">{t("seatBill.ordersTitle")}</h2>
-                <Button
-                  href={path(`/new-order?seat=${seatId}`)}
-                  variant="secondary"
-                  icon={
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M12 5v14" />
-                      <path d="M5 12h14" />
-                    </svg>
-                  }
-                >
-                  {t("seatBill.addItem")}
-                </Button>
-              </div>
-
-              {orders.map((order, index) => (
-                <article key={order.id} className={`overflow-hidden rounded-[18px] border border-border bg-surface ${order.status === "CANCELLED" ? "opacity-70" : ""}`}>
-                  <div className="flex items-center justify-between gap-2.5 border-b border-border bg-stone-50 px-4 py-3">
-                    <span className="text-sm font-extrabold">
-                      {t("seatBill.orderNo", { n: order.tokenNumber })}{" "}
-                      <span className="font-semibold text-text-muted">
-                        · {clock(order.createdAt)} · {order.source === "QR" ? t("seatBill.sourceQr") : t("seatBill.sourceCounter")}
-                      </span>
-                    </span>
-                    <Badge tone={STATUS[order.status].tone}>{t(STATUS[order.status].label)}</Badge>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[460px] border-collapse text-[15px]">
-                      {index === 0 ? (
-                        <thead>
-                          <tr className="text-left text-xs tracking-wide text-text-muted">
-                            <th className="px-4 py-2.5 font-bold">{t("seatBill.colItem")}</th>
-                            <th className="px-2 py-2.5 font-bold">{t("seatBill.colKitchen")}</th>
-                            <th className="px-2 py-2.5 text-right font-bold">{t("seatBill.colQty")}</th>
-                            <th className="px-4 py-2.5 text-right font-bold">{t("seatBill.colAmount")}</th>
-                          </tr>
-                        </thead>
-                      ) : null}
-                      <tbody>
-                        {order.items.map((item, i) => (
-                          <tr key={`${item.menuItemId}-${i}`} className={index === 0 || i > 0 ? "border-t border-stone-100" : ""}>
-                            <td className="px-4 py-2.5 font-semibold">{localName(lang, item.nameSnapshot, item.nameGuSnapshot)}</td>
-                            <td className="px-2 py-2.5 text-text-muted">{kitchenOf(item.categoryId) ?? item.categorySnapshot}</td>
-                            <td className="px-2 py-2.5 text-right">{item.quantity}</td>
-                            <td className={`px-4 py-2.5 text-right font-bold ${order.status === "CANCELLED" ? "line-through" : ""}`}>{rupees(item.lineTotal)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {order.note ? (
-                    <div className="border-t border-stone-100 px-4 py-2.5 text-[13px] text-orange-900">
-                      <strong>{t("counter.note")}</strong> {order.note}
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-            </section>
-
-            <aside className="flex min-w-0 flex-[1_1_360px] flex-col gap-4 rounded-[20px] border border-border bg-surface p-5">
-              <h2 className="text-lg font-extrabold">{t("seatBill.settleTitle")}</h2>
-
-              <div className="flex flex-col gap-2 text-[15px]">
-                <div className="flex justify-between text-stone-700">
-                  <span>{t("seatBill.itemsTotal")}</span>
-                  <span>{rupees(itemsTotal)}</span>
-                </div>
-                <label className="flex items-center justify-between gap-2.5 text-stone-700">
-                  <span>{t("seatBill.discount")}</span>
-                  <TextField
-                    size="sm"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={itemsTotal}
-                    value={discountText}
-                    onChange={(e) => setDiscountText(e.target.value.replace(/[^\d]/g, "").slice(0, 7))}
-                    onFocus={(e) => e.target.select()}
-                    className="w-[110px]"
-                    inputClassName="text-right"
-                  />
-                </label>
-                <div className="mt-1 flex items-baseline justify-between border-t border-dashed border-stone-300 pt-3">
-                  <span className="text-base font-bold">{t("seatBill.toCollect")}</span>
-                  <span className="text-[30px] font-extrabold tracking-tight">{rupees(toCollect)}</span>
-                </div>
-              </div>
-
-              <ChoiceCards name="pay" legend={t("seatBill.paidBy")} value={mode} onChange={setMode} options={PAYMENT_MODES.map((option) => ({ value: option, label: t(PAY_LABEL[option]) }))} />
-
-              <div className="flex flex-col gap-2 rounded-[14px] border border-border bg-stone-50 p-3.5">
-                <span className="text-sm font-bold">{t("seatBill.emailTitle")}</span>
-                {session.email ? (
-                  <div className="flex items-center gap-2.5 text-sm">
-                    <Checkbox checked={sendEmail} onChange={setSendEmail} label={<span className="block truncate">{session.email}</span>} className="min-w-0 flex-grow items-center" />
-                    <Badge tone="green" size="sm">
-                      {t("counter.verified")}
-                    </Badge>
-                  </div>
-                ) : (
-                  <span className="text-sm text-text-muted">{t("seatBill.noEmail")}</span>
-                )}
-                <span className="text-xs text-text-muted">{t("seatBill.emailHint")}</span>
-              </div>
-
-              {stillCooking > 0 ? (
-                <div className="rounded-[14px] bg-orange-50 px-3.5 py-2.5 text-[13px] font-semibold text-orange-900">
-                  {stillCooking === 1 ? t("seatBill.stillCookingOne") : t("seatBill.stillCooking", { n: stillCooking })}
-                </div>
-              ) : null}
-
-              {error ? <Alert>{error}</Alert> : null}
-
-              <Button size="xl" fullWidth onClick={settle} disabled={settling || discount > itemsTotal}>
-                {settling ? t("seatBill.settling") : t("seatBill.settleAction")}
-              </Button>
-            </aside>
+            <SeatOrderList seatId={seatId} orders={orders} kitchenOf={kitchenOf} />
+            <SettlePanel
+              itemsTotal={itemsTotal}
+              gst={detail.gst}
+              discountText={discountText}
+              onDiscountChange={setDiscountText}
+              mode={mode}
+              onModeChange={setMode}
+              email={session.email}
+              sendEmail={sendEmail}
+              onSendEmailChange={setSendEmail}
+              stillCooking={stillCooking}
+              error={error}
+              settling={settling}
+              onSettle={settle}
+            />
           </>
         )}
       </main>

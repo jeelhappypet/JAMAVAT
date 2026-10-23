@@ -44,7 +44,7 @@
   --color-text-muted: var(--color-text-muted);
   --font-gujarati: var(--font-sans-gujarati);
   --font-sans: var(--font-sans-latin), var(--font-sans-gujarati), system-ui, sans-serif;
-  --font-display: var(--font-display-latin), var(--font-display-gujarati), Georgia, serif;
+  --font-display: var(--font-display-latin, Georgia), var(--font-display-gujarati, "Noto Serif Gujarati"), Georgia, serif;
 }
 
 /* Light only, matching the approved design canvas. */
@@ -79,7 +79,14 @@ body {
  * decoration in the way of someone working.
  */
 .heading {
-  font-family: var(--font-display-latin), var(--font-display-gujarati), Georgia, serif;
+  /*
+   * Both vars carry a fallback on purpose. The display faces are declared by
+   * the layouts that need them — Latin by the website's, Gujarati by `/gu`'s
+   * — so on an English page `--font-display-gujarati` is simply not set, and
+   * a bare `var()` with nothing set makes the whole `font-family` invalid at
+   * computed-value time: every heading silently inherited the body sans.
+   */
+  font-family: var(--font-display-latin, Georgia), var(--font-display-gujarati, "Noto Serif Gujarati"), Georgia, serif;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
@@ -255,7 +262,7 @@ input:disabled {
    whose picture is on the right enters from the right. */
 [data-reveal] {
   opacity: 0;
-  transition: opacity var(--t-slow) var(--ease-out-soft), transform var(--t-slow) var(--ease-out-soft), clip-path var(--t-slow) var(--ease-out-soft);
+  transition: opacity var(--t-slow) var(--ease-out-soft), transform var(--t-slow) var(--ease-out-soft);
 }
 
 [data-reveal="up"] {
@@ -279,11 +286,22 @@ input:disabled {
 [data-reveal="wipe"] {
   clip-path: inset(14% 0 0 0 round 20px);
   transform: translateY(16px);
+  transition: opacity var(--t-slow) var(--ease-out-soft), transform var(--t-slow) var(--ease-out-soft), clip-path var(--t-slow) var(--ease-out-soft);
 }
 
 [data-reveal].is-visible {
   opacity: 1;
   transform: none;
+}
+
+/*
+ * Only the wipe gets a clip-path. This rule used to be on `[data-reveal]`,
+ * so every revealed element was clipped to `inset(0 round 20px)` — and a
+ * 20px corner radius on a 49px-tall line of text rounds the corners away and
+ * takes the first glyph with them. It was eating the "0" and the "a" of
+ * "apps" in the facts band on a phone.
+ */
+[data-reveal="wipe"].is-visible {
   clip-path: inset(0 0 0 0 round 20px);
 }
 
@@ -364,7 +382,9 @@ details[open] .site-answer {
   }
 
   [data-reveal],
-  [data-reveal].is-visible {
+  [data-reveal].is-visible,
+  [data-reveal="wipe"],
+  [data-reveal="wipe"].is-visible {
     opacity: 1;
     transform: none;
     clip-path: none;

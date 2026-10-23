@@ -27,10 +27,20 @@ export default async function LoginPage({ params, searchParams }: PageProps<"/r/
     redirect(appPath(slug, "/welcome"));
   }
 
-  const [categories, menus] = await Promise.all([
-    Category.find({ restaurantId }).select({ menuId: 1 }).lean<Pick<CategoryDocument, "_id" | "menuId">[]>(),
-    Menu.find({ restaurantId }).select({ name: 1, nameGu: 1 }).lean<Pick<MenuDocument, "_id" | "name" | "nameGu">[]>(),
-  ]);
+  // Kitchen logins show which station they are ("Kitchen · Gujarati"), which
+  // means their categories' menu. Only those categories, and only when some
+  // kitchen login is on the list — this screen is the one staff wait on, and
+  // it used to read every category and every menu of the restaurant to put a
+  // word under two names.
+  const kitchenCategoryIds = [...new Set(active.filter((s) => s.role === "KITCHEN").flatMap((s) => (s.categoryIds ?? []).map(String)))];
+  const categories = kitchenCategoryIds.length
+    ? await Category.find({ restaurantId, _id: { $in: kitchenCategoryIds } }).select({ menuId: 1 }).lean<Pick<CategoryDocument, "_id" | "menuId">[]>()
+    : [];
+  const menus = categories.length
+    ? await Menu.find({ restaurantId, _id: { $in: [...new Set(categories.map((c) => String(c.menuId)))] } })
+        .select({ name: 1, nameGu: 1 })
+        .lean<Pick<MenuDocument, "_id" | "name" | "nameGu">[]>()
+    : [];
   const menuOfCategory = new Map(categories.map((c) => [String(c._id), String(c.menuId)]));
   const menuById = new Map(menus.map((m) => [String(m._id), m]));
   const stationOf = (categoryIds: unknown[] = []) => {

@@ -28,10 +28,10 @@ const GRID = "grid grid-cols-[repeat(auto-fill,minmax(258px,1fr))] gap-3";
  * running orders and nothing else, and every option on that hook is another
  * request.
  */
-export function OrdersScreen() {
+export function OrdersScreen({ initialOrders }: { initialOrders?: OrderDTO[] }) {
   const path = useAppPath();
   const { t } = useI18n();
-  const { orders, loading, error, busyIds, act } = useCounterData();
+  const { orders, loading, error, busyIds, act } = useCounterData({ initial: initialOrders ? { orders: initialOrders } : undefined });
   const [cancelling, setCancelling] = useState<OrderDTO | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [pickingTable, setPickingTable] = useState(false);

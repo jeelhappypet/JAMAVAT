@@ -29,8 +29,10 @@ that shape the code:
 - QR orders go straight to the kitchens (no counter approval), split
   item-wise by category (admin maps categories → staff logins). No
   "served" step: the table is freed when its bill is settled.
-- Pay at the counter after the meal (cash/UPI/card). No GST, no printing —
-  only a thank-you email with bill details.
+- Pay at the counter after the meal (cash/UPI/card). No printing — only a
+  thank-you email with bill details. **GST: optional since 2026-10-23** (the
+  owner asked for it), off by default and off for every restaurant that
+  existed before; see "GST on bills" below.
 - Menus → categories → items are fully dynamic; with one menu the guest
   sees no menu tabs. Only a cooking note (no "call waiter"/"ask for bill").
 - Realtime moves to Pusher (private channels), keeping a slow resync.
@@ -89,7 +91,7 @@ Decisions:
 | 5C | ✅ **HQ (`/hq`).** Email-OTP login for HQ admins (first one created with `SETUP_KEY`), own cookie; dashboard (restaurants, new inquiries, orders today across all); restaurants list + create (slug check, plan, trial, owner email → invite) + detail (status, plan, usage, invite again, suspend/resume, change slug with redirect); inquiries (New → Contacted → Converted/Lost, notes, call, create restaurant from it); Plans | ✅ (Website content and SEO settings move to 5F) |
 | 5D | ✅ **Subscriptions (manual billing).** `Plan` (name, monthly/yearly price, seat + staff limits, WhatsApp feature, public on pricing); restaurant subscription (plan, TRIAL/ACTIVE/SUSPENDED/CANCELLED, period end, grace days → computed PAST_DUE/EXPIRED); `SubscriptionPayment` ledger (HQ records UPI/cash/bank → extends the period); limits enforced on adding seats/staff and re-activating them; expired/suspended = no new orders (counter + QR), settle still works, guest sees "not taking QR orders"; admin banner 7 days before expiry; plan card in Settings; HQ "needs attention" count | ✅ (reminder emails are 5E, with the daily cron) |
 | 5E | **Razorpay** — plan separately with the owner: Subscriptions API or payment links, webhook → same ledger, invoices/GST, self-serve renew in Settings, daily cron for reminders | ⬜ later |
-| 5F | **Growth/SEO ops:** custom domain (`.vercel.app` ranks poorly) + `APP_URL`; Google Search Console + sitemap submit; Google Business Profile; blog/guides edited in HQ; case studies with real restaurants; Vercel Pro (Hobby is non-commercial) | ⬜ |
+| 5F | **Growth/SEO ops:** custom domain (`.vercel.app` ranks poorly) + `APP_URL`; Google Search Console + sitemap submit; Google Business Profile; blog/guides edited in HQ; case studies with real restaurants; Vercel Pro (Hobby is non-commercial) | ⬜ (favicon fixed 2026-10-23, see below) |
 | 5G | **Ops & trust:** per-restaurant data export and deletion (DPDP), HQ audit log, HQ "open admin" support login (logged), backups, uptime/error alerts, terms of service | ⬜ |
 | 5H | **Self-serve signup** (optional): restaurant signs up from the website, trial starts without HQ | ⬜ later |
 
@@ -211,6 +213,44 @@ Cases 5A–5D must cover (checklist — tick in tests or by hand):
   canonical and hreflang; sitemap lists only public pages.
 - HQ: only allow-listed HQ admins; OTP purpose `hq` can't be used as a
   guest OTP and vice versa; the guest test inbox bypass never applies to HQ.
+
+## The favicon in Google results (2026-10-23)
+
+The icon was declared from `app/favicon.ico`, which Next serves with a build
+hash in the query (`/favicon.ico?favicon.1g7wuota.ico`). Google looks for a
+site's favicon at a **stable** URL and only when it crawls the home page, so
+every deploy moved the goalposts. The file is `public/favicon.ico` now (16/32
+/48 in one .ico, plus the 48 and 192 PNGs) and the link is a plain
+`/favicon.ico`.
+
+That is the half that is in the code. The rest is Google's: a favicon only
+appears once the site is indexed and the icon has been crawled, which on a
+`jamavat.vercel.app` subdomain can take weeks and is one more reason for the
+custom domain in 5F. Search Console has no favicon report — if the site
+itself is missing there, it is an indexing matter (URL Inspection → Request
+indexing, and check the sitemap is submitted), not an icon one.
+
+## GST on bills (2026-10-23)
+
+Settings → **GST on bills**: a switch, the rate, CGST+SGST or IGST, and an
+optional GSTIN. Off is the default and is exactly what Jamavat did before —
+a bill is items minus discount and the email says it is an order summary.
+
+- The arithmetic lives in `lib/gst.ts` and nowhere else, so the counter's
+  settle panel, the stored bill and the emailed invoice cannot disagree.
+  CGST+SGST rounds each half to rupees and adds them up, so the invoice's
+  three numbers always tally.
+- The rate, the mode and the amount are **stored on the bill**: changing the
+  rate next month never rewrites an invoice already sent.
+- The guest's cart and order screen say "GST x% is added at the counter"
+  rather than quoting a figure — the tax lands on the table's whole bill at
+  settle, not on one order.
+- The email only calls itself a **tax invoice** once a GSTIN is saved. Without
+  the number on it, it isn't one.
+- **Reports are unchanged:** `Bill.total` is what the guest paid, GST
+  included, so "sales" is the money that came in. Turnover net of GST (and a
+  GST report for the accountant) is a separate job — `Bill.taxAmount` is
+  stored for it.
 
 ## Known non-blocking items
 

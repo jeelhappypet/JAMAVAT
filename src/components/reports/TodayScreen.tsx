@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SkeletonReport } from "@/components/ui/Skeleton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Alert } from "@/components/ui/Alert";
@@ -22,11 +22,19 @@ const PAY_LABEL: Record<TodayReportDTO["byPayment"][number]["mode"], MessageKey>
 const rupees = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
 const PLOT_HEIGHT = 160;
 
-/** "Admin · today's report" artboard. Updates live as orders and bills come in. */
-export function TodayScreen() {
+/**
+ * "Admin · today's report" artboard. Updates live as orders and bills come in.
+ *
+ * `initialReport` is today's figures as the page rendered them — this is the
+ * admin's first screen after the PIN, so it arrives with the numbers on it
+ * and only fetches when the range changes or something moves.
+ */
+export function TodayScreen({ initialReport }: { initialReport?: TodayReportDTO }) {
   const { t, lang } = useI18n();
   const [range, setRange] = useState<ReportRange>("today");
-  const [report, setReport] = useState<TodayReportDTO | null>(null);
+  const [report, setReport] = useState<TodayReportDTO | null>(initialReport ?? null);
+  /** True until the mount effect has decided not to refetch what the page sent. */
+  const seeded = useRef(Boolean(initialReport));
   const [error, setError] = useState<string | null>(null);
   const [hover, setHover] = useState<number | null>(null);
 
@@ -44,7 +52,10 @@ export function TodayScreen() {
   }, [range, t]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- (re)load when the range changes
+    if (seeded.current) {
+      seeded.current = false;
+      return;
+    }
     load();
   }, [load]);
 

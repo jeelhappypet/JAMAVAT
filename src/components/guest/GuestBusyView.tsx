@@ -11,7 +11,7 @@ export function GuestBusyView({ restaurantName, state, onBrowse }: { restaurantN
   const subtitle = [t("guest.table", { code: state.seatCode }), state.area].filter(Boolean).join(" · ");
 
   return (
-    <div className="flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
+    <div className="flex min-h-dvh w-full flex-col bg-background">
       <GuestHeader restaurantName={restaurantName} subtitle={subtitle} />
       <main className="flex flex-1 flex-col items-center gap-[18px] px-6 pb-6 pt-10 text-center">
         <span className="flex h-[84px] w-[84px] items-center justify-center rounded-[26px] bg-brand-light text-brand">
@@ -26,7 +26,7 @@ export function GuestBusyView({ restaurantName, state, onBrowse }: { restaurantN
           {state.otherSeats.length > 0 ? (
             <div className="flex items-start gap-3 rounded-2xl border border-border bg-surface px-4 py-3.5">
               <span className="flex h-9 min-w-9 shrink-0 items-center justify-center rounded-[10px] bg-surface-muted px-1 text-sm font-extrabold">{state.otherSeats[0]}</span>
-              <span className="text-sm leading-relaxed text-stone-700">
+              <span className="text-sm leading-relaxed text-text-muted">
                 <strong className="text-foreground">{t("guest.busyOtherSide")}</strong>
                 <br />
                 {t("guest.busyOtherSideBody", { codes: state.otherSeats.join(", ") })}
@@ -40,7 +40,7 @@ export function GuestBusyView({ restaurantName, state, onBrowse }: { restaurantN
                 <path d="M4 21a8 8 0 0 1 16 0" />
               </svg>
             </span>
-            <span className="text-sm leading-relaxed text-stone-700">
+            <span className="text-sm leading-relaxed text-text-muted">
               <strong className="text-foreground">{t("guest.busyYours")}</strong>
               <br />
               {t("guest.busyYoursBody")}

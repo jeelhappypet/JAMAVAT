@@ -26,15 +26,28 @@ export const getCurrentStaff = cache(async (): Promise<StaffSession | null> => {
   if (!session) return null;
 
   await connectToDatabase();
+
+  // The two reads go together rather than one after the other. The cookie
+  // already names the restaurant, and the staff query is scoped to it — so a
+  // staff member that comes back is in that restaurant by construction, and
+  // there is nothing in the first answer the second one needs. Waiting for
+  // one before starting the other cost a round trip on every staff page and
+  // every API call, which is the slowest moment staff see: the first screen
+  // after the PIN.
+  //
   // A cookie from before Jamavat served many restaurants has no restaurant
-  // id; its staff id alone (globally unique) finds the person, and the proxy
-  // upgrades the cookie on the next page load.
-  const staff = session.rid
-    ? await Staff.findOne({ _id: session.sid, restaurantId: session.rid }).lean<StaffDocument>()
-    : await Staff.findOne({ _id: session.sid }).setOptions({ crossTenant: true }).lean<StaffDocument>();
+  // id; its staff id alone (globally unique) finds the person, the restaurant
+  // has to follow from the staff, and the proxy upgrades the cookie on the
+  // next page load.
+  const [staff, restaurantFromCookie] = await Promise.all([
+    session.rid
+      ? Staff.findOne({ _id: session.sid, restaurantId: session.rid }).lean<StaffDocument>()
+      : Staff.findOne({ _id: session.sid }).setOptions({ crossTenant: true }).lean<StaffDocument>(),
+    session.rid ? getRestaurantInfo(session.rid) : Promise.resolve(null),
+  ]);
   if (!staff || !staff.isActive || staff.sessionVersion !== session.sv) return null;
 
-  const restaurant = await getRestaurantInfo(staff.restaurantId);
+  const restaurant = restaurantFromCookie ?? (await getRestaurantInfo(staff.restaurantId));
   if (!restaurant) return null;
 
   return {

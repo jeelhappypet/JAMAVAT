@@ -32,7 +32,10 @@ export async function POST(request: Request) {
     }
     const restaurantId = found.restaurant.id;
 
-    const staff = await Staff.findOne({ restaurantId, _id: staffId, isActive: true }).lean<StaffDocument>();
+    // Only what the PIN check and the session cookie need.
+    const staff = await Staff.findOne({ restaurantId, _id: staffId, isActive: true })
+      .select({ name: 1, role: 1, restaurantId: 1, sessionVersion: 1, isActive: 1, pinHash: 1, pinSalt: 1, failedPinAttempts: 1, lockedUntil: 1 })
+      .lean<StaffDocument>();
     if (!staff) {
       return NextResponse.json({ error: t("err.pickNameAgain") }, { status: 400 });
     }

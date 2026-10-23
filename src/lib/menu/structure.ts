@@ -88,15 +88,23 @@ export function toMenuItemDTO(item: MenuItemDocument): MenuItemDTO {
   };
 }
 
+const MENU_FIELDS = { name: 1, nameGu: 1, isActive: 1, sortOrder: 1, createdAt: 1 };
+const CATEGORY_FIELDS = { menuId: 1, name: 1, nameGu: 1, isActive: 1, sortOrder: 1, createdAt: 1 };
+const ITEM_FIELDS = { categoryId: 1, name: 1, nameGu: 1, description: 1, descriptionGu: 1, isBestseller: 1, imageUrl: 1, price: 1, isVeg: 1, isActive: 1, isAvailable: 1 };
+
 /** Menus → categories → items, in display order. `activeOnly` hides anything the admin switched off. */
 export async function loadMenuTree(restaurantId: RestaurantRef, { activeOnly = false } = {}): Promise<MenuDTO[]> {
   await ensureMenuStructure(restaurantId);
   const active = activeOnly ? { restaurantId, isActive: true } : { restaurantId };
 
+  // Only the fields the DTOs below carry: the rest of each document (legacy
+  // keys, timestamps, the v1 `category` string) would travel from Mongo to
+  // the guest's phone for nothing.
   const [menus, categories, items] = await Promise.all([
-    Menu.find(active).sort({ sortOrder: 1, createdAt: 1 }).lean<MenuDocument[]>(),
-    Category.find(active).sort({ sortOrder: 1, createdAt: 1 }).lean<CategoryDocument[]>(),
+    Menu.find(active).select(MENU_FIELDS).sort({ sortOrder: 1, createdAt: 1 }).lean<MenuDocument[]>(),
+    Category.find(active).select(CATEGORY_FIELDS).sort({ sortOrder: 1, createdAt: 1 }).lean<CategoryDocument[]>(),
     MenuItem.find({ ...active, categoryId: { $exists: true } })
+      .select(ITEM_FIELDS)
       .sort({ name: 1 })
       .lean<MenuItemDocument[]>(),
   ]);

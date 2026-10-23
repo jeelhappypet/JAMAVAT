@@ -146,7 +146,7 @@ export function TablesManager() {
                 type="button"
                 onClick={() => setForm({ mode: "edit", tableId: table.id })}
                 aria-label={t("tables.editLabel", { name: table.name })}
-                className="min-w-0 truncate text-left text-base font-extrabold hover:underline"
+                className="min-w-0 truncate py-1.5 text-left text-base font-extrabold hover:underline"
               >
                 {t("tables.table", { name: table.name })}
                 {table.area || !table.isActive ? (

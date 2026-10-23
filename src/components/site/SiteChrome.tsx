@@ -9,7 +9,9 @@ import type { Lang } from "@/lib/i18n/messages";
 // client component; everything else here stays server-rendered.
 export { SiteHeader } from "@/components/site/SiteHeader";
 
-const linkClass = "text-[14px] text-text-muted transition-colors hover:text-brand";
+// `py-2` so each link is a ~37px target rather than a 21px line of text;
+// the column gap shrinks to match, so the footer does not grow much.
+const linkClass = "py-2 text-[14px] text-text-muted transition-colors hover:text-brand";
 const headingClass = "t-eyebrow text-foreground";
 
 /**
@@ -35,15 +37,15 @@ export function SiteFooter({ lang }: { lang: Lang }) {
               // identity, the other half of the Organization schema's sameAs.
               rel="me noopener"
               data-track="instagram"
-              className="inline-flex items-center gap-1.5 text-[14px] font-bold text-brand transition-colors hover:text-brand-dark"
+              className="inline-flex items-center gap-1.5 py-2 text-[14px] font-bold text-brand transition-colors hover:text-brand-dark"
             >
               <SiteIcon name="instagram" size={16} />@{CONTACT.instagram}
             </a>
           </div>
 
           {/* Every keyword page is linked from every page — a page only the sitemap points to is one Google rates as unimportant. */}
-          <nav aria-label={pick(NAV.solutions, lang)} className="flex flex-col gap-2">
-            <h2 className={headingClass}>{pick(NAV.solutions, lang)}</h2>
+          <nav aria-label={pick(NAV.solutions, lang)} className="flex flex-col gap-0.5">
+            <h2 className={`${headingClass} mb-0.5`}>{pick(NAV.solutions, lang)}</h2>
             {KEYWORD_PAGES.map((page) => (
               <Link key={page.slug} href={sitePath(lang, `/${page.slug}`)} className={linkClass}>
                 {pick(page.label, lang)}
@@ -51,8 +53,8 @@ export function SiteFooter({ lang }: { lang: Lang }) {
             ))}
           </nav>
 
-          <nav aria-label={SITE_NAME} className="flex flex-col gap-2">
-            <h2 className={headingClass}>{SITE_NAME}</h2>
+          <nav aria-label={SITE_NAME} className="flex flex-col gap-0.5">
+            <h2 className={`${headingClass} mb-0.5`}>{SITE_NAME}</h2>
             <Link href={sitePath(lang, "/pricing")} className={linkClass}>
               {pick(NAV.pricing, lang)}
             </Link>
@@ -71,8 +73,8 @@ export function SiteFooter({ lang }: { lang: Lang }) {
               WhatsApp all come from env vars, and a preview build without them
               was rendering a heading over an empty column. */}
           {CONTACT.phone || CONTACT.email || CONTACT.whatsapp ? (
-          <address className="flex flex-col gap-2 not-italic">
-            <h2 className={headingClass}>{pick(NAV.contact, lang)}</h2>
+          <address className="flex flex-col gap-0.5 not-italic">
+            <h2 className={`${headingClass} mb-0.5`}>{pick(NAV.contact, lang)}</h2>
             {CONTACT.phone ? (
               <a href={`tel:${internationalPhone(CONTACT.phone)}`} className={linkClass}>
                 {CONTACT.phone}

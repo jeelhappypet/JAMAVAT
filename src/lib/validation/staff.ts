@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { STAFF_ROLES } from "@/types";
+import { GST_MODES, STAFF_ROLES } from "@/types";
 import { PIN_PATTERN } from "@/lib/auth/constants";
 
 const pin = z.string().regex(PIN_PATTERN, "PIN must be exactly 4 digits");
@@ -24,6 +24,27 @@ export const inviteAcceptSchema = z.object({
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().transform((value) => value || undefined);
 
+/**
+ * GST as Settings sends it. The rate and the mode are validated even when
+ * `enabled` is false, because they are kept for the next time it is on.
+ * GSTIN is checked for shape only (15 characters, state code + PAN + 3) —
+ * nobody here can verify it against the GST portal, and a typo that blocks a
+ * settle would be worse than one printed on an invoice.
+ */
+const gstSchema = z.object({
+  enabled: z.boolean(),
+  percent: z.number().min(0).max(28).refine((value) => Number.isFinite(value) && Math.round(value * 100) === value * 100, "Enter the rate as a number"),
+  mode: z.enum(GST_MODES),
+  gstin: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .max(15)
+    .optional()
+    .transform((value) => value || undefined)
+    .refine((value) => !value || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{3}$/.test(value), "Enter the 15-character GSTIN"),
+});
+
 export const restaurantSchema = z.object({
   restaurantName,
   address: optionalText(160),
@@ -36,6 +57,7 @@ export const restaurantSchema = z.object({
     .optional()
     .transform((value) => value || undefined)
     .refine((value) => !value || /^https:\/\/\S+$/.test(value), "Enter a link that starts with https://"),
+  gst: gstSchema,
 });
 
 export const changePinSchema = z

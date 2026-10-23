@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GuestHeader } from "@/components/guest/GuestHeader";
 import { VegMark } from "@/components/menu/VegMark";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { SearchField } from "@/components/ui/SearchField";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { GuestCartBar } from "@/components/guest/GuestCartBar";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { DishPhoto } from "@/components/menu/DishPhoto";
@@ -51,6 +55,7 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
   }, [menu, q]);
 
   const currentCat = sections.some((s) => s.category.id === activeCat) ? activeCat : sections[0]?.category.id;
+  const matchCount = sections.reduce((sum, section) => sum + section.items.length, 0);
 
   // The chip of the section being read turns dark (scroll-spy inside the list, not the page).
   useEffect(() => {
@@ -92,10 +97,10 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
       <GuestHeader restaurantName={restaurantName} subtitle={subtitle} showLang />
 
       <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 px-4 pb-3 pt-3">
-        {readOnly ? <div className="rounded-[14px] bg-brand-light px-4 py-2.5 text-sm font-semibold text-orange-900">{t("guest.browseOnly")}</div> : null}
+        {readOnly ? <Alert tone="warning">{t("guest.browseOnly")}</Alert> : null}
 
         {state.orders.length > 0 && !readOnly ? (
-          <button type="button" onClick={onOrders} className="flex h-11 items-center justify-between rounded-xl border border-brand bg-orange-50 px-4 text-sm font-bold text-brand-dark">
+          <button type="button" onClick={onOrders} className="flex h-11 items-center justify-between rounded-xl border border-brand bg-brand-light px-4 text-sm font-bold text-brand-dark">
             {t("guest.myOrders", { n: state.orders.length })}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="m9 6 6 6-6 6" />
@@ -103,20 +108,14 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
           </button>
         ) : null}
 
-        <label className="flex h-12 items-center gap-2.5 rounded-[14px] border border-border bg-surface px-3.5 text-text-muted">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" />
-          </svg>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label={t("guest.search")}
-            placeholder={t("guest.search")}
-            className="flex-grow bg-transparent text-[15px] text-foreground outline-none"
-          />
-        </label>
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          label={t("guest.search")}
+          clearLabel={t("pos.searchClear")}
+          resultCount={matchCount}
+          resultLabel={matchCount === 1 ? t("pos.searchResultsOne") : t("pos.searchResults", { n: matchCount })}
+        />
 
         {menus.length > 1 ? (
           <SegmentedControl
@@ -139,7 +138,7 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
                   data-cat={category.id}
                   aria-pressed={on}
                   onClick={() => jumpTo(category.id)}
-                  className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-semibold ${on ? "border-stone-900 bg-stone-900 text-white" : "border-border bg-surface text-foreground"}`}
+                  className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-semibold ${on ? "border-ink bg-ink text-white" : "border-border bg-surface text-foreground"}`}
                 >
                   {name(category)}
                 </button>
@@ -163,7 +162,11 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
                   <div className="flex min-w-0 flex-grow flex-col gap-[3px]">
                     <div className="flex items-center gap-2">
                       <VegMark isVeg={item.isVeg} label={item.isVeg ? t("menu.veg") : t("menu.nonVeg")} />
-                      {item.isBestseller ? <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-800">{t("guest.bestseller")}</span> : null}
+                      {item.isBestseller ? (
+                        <Badge tone="orange" size="sm">
+                          {t("guest.bestseller")}
+                        </Badge>
+                      ) : null}
                     </div>
                     <span className="text-base font-bold leading-snug">{name(item)}</span>
                     {other(item) ? <span className="text-[13px] text-text-muted">{other(item)}</span> : null}
@@ -193,36 +196,8 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
         </p>
       </div>
 
-      {/* max() keeps the bar clear of the home indicator when the guest page runs as an installed app. */}
-      <div className="absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30">
-        {count > 0 && !readOnly ? (
-          <button
-            type="button"
-            onClick={onCart}
-            className="flex min-h-[60px] w-full items-center justify-between gap-3 rounded-2xl bg-brand px-[18px] py-3 text-white shadow-[0_10px_24px_rgba(154,52,18,0.32)]"
-          >
-            <span className="flex flex-col items-start">
-              <span className="text-[13px] font-semibold">{count === 1 ? t("guest.itemsOne") : t("guest.items", { n: count })}</span>
-              <span className="text-[19px] font-extrabold">₹{total}</span>
-            </span>
-            <span className="flex items-center gap-1.5 text-base font-extrabold">
-              {t("guest.viewCart")}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M5 12h14" />
-                <path d="m13 6 6 6-6 6" />
-              </svg>
-            </span>
-          </button>
-        ) : (
-          <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface px-4 py-3.5 text-sm text-text-muted shadow-sm">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="3" y="6" width="18" height="12" rx="2" />
-              <path d="M3 10h18" />
-            </svg>
-            {t("guest.payNote")}
-          </div>
-        )}
-      </div>
+      {/* Browsing someone else's QR: no cart, but the bar still says where to pay. */}
+      <GuestCartBar count={readOnly ? 0 : count} total={total} onOpen={onCart} />
     </div>
   );
 }

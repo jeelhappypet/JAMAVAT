@@ -10,6 +10,7 @@ import { AccountMenu, logoutThisDevice } from "@/components/shell/AccountMenu";
 import { useAppPath } from "@/components/shell/RestaurantProvider";
 import { SoldOutList, withSoldOut } from "@/components/menu/SoldOutList";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
+import { useArrivals } from "@/components/orders/useArrivals";
 import { useRealtime } from "@/lib/realtime/useRealtime";
 import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { POLL_MS, SAFETY_RESYNC_MS } from "@/lib/realtime/polling";
@@ -23,23 +24,38 @@ import type { KitchenScopeDTO, KitchenTicketDTO, MenuDTO, StaffRole } from "@/ty
 interface KitchenScreenProps {
   staffName: string;
   role: StaffRole;
+  /**
+   * The tickets the page already rendered. A kitchen login lands here
+   * straight after its PIN, and asking for them again from the browser put a
+   * skeleton and another round trip between the cook and the screen.
+   */
+  initialTickets?: KitchenTicketDTO[];
+  initialScope?: KitchenScopeDTO;
 }
 
 const LATE_AFTER_MINUTES = 12;
 
 /** The Kitchen artboard: only this login's categories, one ticket per order, sold-out switches on the side. */
-export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
+export function KitchenScreen({ staffName, role, initialTickets, initialScope }: KitchenScreenProps) {
   const path = useAppPath();
   const { t, lang } = useI18n();
-  const [tickets, setTickets] = useState<KitchenTicketDTO[]>([]);
-  const [scope, setScope] = useState<KitchenScopeDTO | null>(null);
+  const [tickets, setTickets] = useState<KitchenTicketDTO[]>(initialTickets ?? []);
+  // A cook is at the pass, not watching the screen — a ticket that simply
+  // appears is one that gets missed. The chime already plays; this is the
+  // same news for anyone who glances up a second later.
+  const arrived = useArrivals(tickets.map((ticket) => ticket.orderId));
+  const [scope, setScope] = useState<KitchenScopeDTO | null>(initialScope ?? null);
   const [menus, setMenus] = useState<MenuDTO[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialTickets);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [loggingOut, setLoggingOut] = useState(false);
   const [soundOn, toggleSound] = useSoundPref(KITCHEN_SOUND);
-  const knownIds = useRef<Set<string> | null>(null);
+  // Seeded from the page's copy, so the next refresh only chimes for tickets
+  // that arrived after the screen opened.
+  const knownIds = useRef<Set<string> | null>(initialTickets ? new Set(initialTickets.map((ticket) => ticket.orderId)) : null);
+  /** True until the mount effect has decided not to refetch what the page already sent. */
+  const seeded = useRef(Boolean(initialTickets));
   const soundRef = useRef(soundOn);
   useUnlockAlertsOnFirstTap();
 
@@ -80,9 +96,14 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
   }, [loadTickets, loadMenus]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
+    if (seeded.current) {
+      // The page handed over the tickets; only the sold-out list is missing.
+      seeded.current = false;
+      void loadMenus();
+      return;
+    }
     resync();
-  }, [resync]);
+  }, [resync, loadMenus]);
 
   useEffect(() => {
     soundRef.current = soundOn;
@@ -164,15 +185,15 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-surface-muted">
-      <header className="bg-stone-900 text-white">
+      <header className="site-ink text-white">
         <div className="mx-auto flex max-w-[1360px] flex-wrap items-center gap-x-5 gap-y-3 px-[clamp(16px,3vw,32px)] py-3.5">
           <div className="flex min-w-0 flex-grow flex-col gap-0.5">
-            <span className="text-xs font-bold tracking-wide text-orange-300">{t("kitchen.eyebrow")}</span>
+            <span className="text-xs font-bold tracking-wide text-brand-strong">{t("kitchen.eyebrow")}</span>
             <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[13px] text-stone-300">{t("kitchen.showing")}</span>
+            <span className="text-[13px] text-white/65">{t("kitchen.showing")}</span>
             {scope?.all ? (
               <Chip>{t("kitchen.allCategories")}</Chip>
             ) : scope && scope.categories.length > 0 ? (
@@ -207,7 +228,7 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
       </header>
 
       <main className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col gap-[18px] px-[clamp(16px,3vw,32px)] pb-10 pt-5">
-        <div className="flex items-start gap-2.5 rounded-[14px] border border-border bg-surface px-4 py-3 text-sm leading-relaxed text-stone-700">
+        <div className="flex items-start gap-2.5 rounded-[14px] border border-border bg-surface px-4 py-3 text-sm leading-relaxed text-text-muted">
           <svg className="mt-0.5 shrink-0 text-brand" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M16 3h5v5M8 3H3v5M12 22v-8.3a4 4 0 0 0-1.17-2.83L3 3M15 9l6-6" />
           </svg>
@@ -227,12 +248,15 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
             ) : tickets.length === 0 ? (
               <EmptyState title={t("kitchen.empty")} hint={t("kitchen.emptyHint")} />
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-3">
                 {tickets.map((ticket) => {
                   const age = ageMinutes(ticket.createdAt);
                   const late = age >= LATE_AFTER_MINUTES;
                   return (
-                    <article key={ticket.orderId} className={`flex flex-col gap-3 rounded-[18px] border-2 bg-surface p-4 ${late ? "border-danger" : "border-border"}`}>
+                    <article
+                      key={ticket.orderId}
+                      className={`flex flex-col gap-3 rounded-[18px] border-2 bg-surface p-4 ${late ? "border-danger" : "border-border"} ${arrived.has(ticket.orderId) ? "motion-safe:animate-line-in" : ""}`}
+                    >
                       <div className="flex items-start justify-between gap-2.5 border-b border-border pb-3">
                         <div className="flex flex-col gap-0.5">
                           <span className="text-[32px] font-extrabold leading-none tracking-tight text-brand">
@@ -243,7 +267,7 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
                             {ticket.customerName ? ` · ${ticket.customerName}` : ""}
                           </span>
                         </div>
-                        <span className={`rounded-full px-2.5 py-1.5 text-[13px] font-extrabold ${late ? "bg-danger-light text-red-800" : "bg-surface-muted text-stone-700"}`}>
+                        <span className={`rounded-full px-2.5 py-1.5 text-[13px] font-extrabold ${late ? "bg-danger-light text-danger" : "bg-surface-muted text-text-muted"}`}>
                           {age === 0 ? t("kitchen.justNow") : t("kitchen.minutes", { n: age })}
                         </span>
                       </div>
@@ -256,7 +280,7 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
                         ))}
                       </ul>
                       {ticket.note ? (
-                        <div className="rounded-[10px] bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900">{t("kitchen.note", { note: ticket.note })}</div>
+                        <div className="rounded-[10px] bg-brand-light px-3 py-2 text-sm font-semibold text-brand-dark">{t("kitchen.note", { note: ticket.note })}</div>
                       ) : null}
                       {ticket.otherPendingCount > 0 ? (
                         <span className="text-[13px] text-text-muted">
@@ -300,5 +324,5 @@ export function KitchenScreen({ staffName, role }: KitchenScreenProps) {
 }
 
 function Chip({ children }: { children: React.ReactNode }) {
-  return <span className="rounded-full border border-stone-700 bg-stone-800 px-2.5 py-1.5 text-[13px] font-semibold">{children}</span>;
+  return <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1.5 text-[13px] font-semibold">{children}</span>;
 }

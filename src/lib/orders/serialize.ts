@@ -31,6 +31,39 @@ export interface OrderLean {
   cancelledAt?: Date;
 }
 
+/**
+ * The fields `serializeOrder` reads, and no others: `seatId`,
+ * `guestSessionId`, `clientRequestId`, `paymentMode` and each item's
+ * `readyAt` never reach a screen, and this is the call every counter and
+ * kitchen screen repeats all day. Every query whose rows go through
+ * `serializeOrder` selects these — keep the two lists together.
+ */
+export const ORDER_FIELDS = {
+  tokenNumber: 1,
+  businessDate: 1,
+  source: 1,
+  seatCode: 1,
+  guestEmail: 1,
+  note: 1,
+  customerName: 1,
+  totalAmount: 1,
+  status: 1,
+  createdAt: 1,
+  readyAt: 1,
+  completedAt: 1,
+  cancelledAt: 1,
+  "items.menuItemId": 1,
+  "items.nameSnapshot": 1,
+  "items.nameGuSnapshot": 1,
+  "items.categoryId": 1,
+  "items.categorySnapshot": 1,
+  "items.kitchenSnapshot": 1,
+  "items.quantity": 1,
+  "items.unitPrice": 1,
+  "items.lineTotal": 1,
+  "items.status": 1,
+};
+
 /** v1 orders have no per-item status — it follows the order's own status. */
 export function itemStatus(item: OrderItemLean, orderStatus: string): OrderItemStatus {
   if (item.status === "READY" || item.status === "PENDING") return item.status;

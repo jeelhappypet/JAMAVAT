@@ -17,6 +17,13 @@ interface Needs {
   tables?: boolean;
   /** Menu tree, only to name each item's kitchen. */
   menus?: boolean;
+  /**
+   * What the page already rendered on the server. With this the screen opens
+   * with its data instead of fetching it again on mount — the first screen
+   * after the PIN used to cost a document and two API calls before anything
+   * but a skeleton was on it.
+   */
+  initial?: { orders?: OrderDTO[]; tables?: TableDTO[] };
 }
 
 /**
@@ -27,15 +34,21 @@ interface Needs {
 export function useCounterData(needs: Needs = {}) {
   const wantTables = needs.tables === true;
   const wantMenus = needs.menus === true;
+  const { initial } = needs;
   const { t, lang } = useI18n();
-  const [orders, setOrders] = useState<OrderDTO[]>([]);
-  const [tables, setTables] = useState<TableDTO[]>([]);
+  const [orders, setOrders] = useState<OrderDTO[]>(initial?.orders ?? []);
+  const [tables, setTables] = useState<TableDTO[]>(initial?.tables ?? []);
   const [menus, setMenus] = useState<MenuDTO[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initial);
   const [error, setError] = useState<string | null>(null);
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(() => Date.now());
-  const knownIds = useRef<Set<string> | null>(null);
+  // Seeded from the server's copy when there is one, so the first refresh
+  // after that only chimes for orders that arrived since — not for every
+  // ticket that was already on the screen.
+  const knownIds = useRef<Set<string> | null>(initial?.orders ? new Set(initial.orders.map((order) => order.id)) : null);
+  /** True until the mount effect has decided not to refetch what the server already sent. */
+  const seeded = useRef(Boolean(initial));
   const [soundOn] = useSoundPref(COUNTER_SOUND);
   const soundRef = useRef(soundOn);
   useUnlockAlertsOnFirstTap();
@@ -92,7 +105,13 @@ export function useCounterData(needs: Needs = {}) {
   }, [loadOrders, loadTables]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
+    if (seeded.current) {
+      // The page handed this screen its first copy; realtime and the periodic
+      // resync take it from here. A later run (the language changed) fetches.
+      seeded.current = false;
+      void loadMenus();
+      return;
+    }
     resync();
     void loadMenus();
   }, [resync, loadMenus]);

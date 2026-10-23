@@ -30,7 +30,12 @@ Never hand-style a button, checkbox, dropdown, text field, date field or dialog 
 
 Everything clickable gets the hand cursor from `globals.css` — don't add `cursor-pointer` per screen.
 
-Two display utilities on one element (`hidden` plus the `inline-flex` `buttonClass` already sets) are settled by stylesheet order, not by which you wrote last. Wrap the element instead.
+Two unprefixed utilities for the same property on one element are settled by
+stylesheet order, not by which you wrote last — `cn()` only joins strings, it
+does not merge Tailwind classes. This has bitten three times: `hidden` over the
+`inline-flex` `buttonClass` sets, and `w-[108px]` over the `w-full` in
+`TextField`'s base. **Wrap the element in a sized/hidden span instead.**
+Responsive prefixes (`sm:`, `lg:`) are fine — those do win.
 
 ## Website typography and motion (`src/app/(site)` only)
 
@@ -44,6 +49,10 @@ One scale, defined in `globals.css` — never a fresh `clamp()` in a screen:
 | The label above a title | `t-eyebrow` |
 
 Body text and the whole staff app stay on the sans (Schibsted Grotesk / Noto Sans Gujarati); `heading` is the website's voice only — a serif on a counter screen is decoration in someone's way.
+
+Each font is declared by the layout that needs it, never in the root layout: the body pair in `lib/fonts/sans.ts` (root), the display serif in `lib/fonts/display.ts` (`(site)` layout) and its ગુજરાતી cut in `displayGujarati.ts` (`(site)/gu` layout). Next preloads a font on every route whose imports reach it, so one import in the wrong layout puts 115KB on a guest's phone. If you add a font variable, give every `var(--font-…)` in `globals.css` a fallback — a bare `var()` that is unset on some route throws out the whole `font-family`, silently, and the heading inherits the body sans.
+
+Anything in the root layout runs for the website, the staff app *and* a guest's QR page. Per-area things (the service worker, which belongs to the installed staff app, in `r/[slug]/layout.tsx`) go in that area's layout.
 
 Motion: `animate-fade-up` / `animate-art-in` for a load-in, `<Reveal from="up|left|right|scale|wipe">` for a scroll-in, `site-lift` for a card, `site-cta` + `<Arrow />` for a button. One easing (`--ease-out-soft`) and two durations. Everything is already in the HTML — motion only animates its entrance — and every rule has a `prefers-reduced-motion` reset.
 
@@ -68,6 +77,8 @@ Views and button presses go to HQ's Website tab. Count a new button by giving it
 ## Text
 
 Every visible string is an i18n key in `src/lib/i18n/messages.ts` with English and ગુજરાતી (a missing key is a type error). Times: `formatClock()`. Money: `₹` + `toLocaleString("en-IN")`.
+
+GST is optional per restaurant (Settings → GST on bills) and off by default. Work it out with `lib/gst.ts` — `billTotals(itemsTotal, discount, gst)` — and never from a percent inside a screen: the counter panel, the stored bill and the emailed invoice have to agree to the rupee. A settled bill keeps the rate, the mode and the amount it was billed with, so a later rate change can't rewrite it.
 
 ## Before you finish
 

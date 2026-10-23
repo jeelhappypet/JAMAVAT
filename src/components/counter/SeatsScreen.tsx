@@ -31,10 +31,13 @@ const rupees = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
  * on every MENU_UPDATED event. The kitchen is now snapshotted on the order
  * item itself (`kitchenSnapshot`), so that call is gone.
  */
-export function SeatsScreen() {
+export function SeatsScreen({ initialOrders, initialTables }: { initialOrders?: OrderDTO[]; initialTables?: TableDTO[] }) {
   const path = useAppPath();
   const { t, lang } = useI18n();
-  const { orders, tables, loading, error, now } = useCounterData({ tables: true });
+  const { orders, tables, loading, error, now } = useCounterData({
+    tables: true,
+    initial: initialOrders && initialTables ? { orders: initialOrders, tables: initialTables } : undefined,
+  });
   const arrived = useArrivals(orders.map((order) => order.id));
 
   const activeTables = useMemo(

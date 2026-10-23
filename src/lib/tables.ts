@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { cache } from "react";
 import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { toObjectId, type RestaurantRef } from "@/lib/db/tenant";
@@ -8,7 +9,8 @@ import { GuestSession, type GuestSessionDocument } from "@/models/GuestSession";
 import { Order } from "@/models/Order";
 import { Category, type CategoryDocument } from "@/models/Category";
 import { Menu, type MenuDocument } from "@/models/Menu";
-import { serializeOrder, type OrderLean } from "@/lib/orders/serialize";
+import { ORDER_FIELDS, serializeOrder, type OrderLean } from "@/lib/orders/serialize";
+import { getRestaurantInfo } from "@/lib/restaurant";
 import type { OrderDTO, SeatDTO, SeatDetailDTO, SeatState, TableDTO } from "@/types";
 
 /** A seat shows "New order" on the counter for this long after its latest order. */
@@ -110,8 +112,15 @@ export interface ResolvedSeat {
   restaurantId: string;
 }
 
-/** A guest's QR token → its seat and table, or null if the QR is unknown, switched off or regenerated. */
-export async function resolveSeat(token: string): Promise<ResolvedSeat | null> {
+/**
+ * A guest's QR token → its seat and table, or null if the QR is unknown,
+ * switched off or regenerated.
+ *
+ * Read once per request: the guest page resolves the same token in
+ * `generateMetadata` (for the tab title) and again to render, which was two
+ * extra round trips on the one screen a guest waits for.
+ */
+export const resolveSeat = cache(async (token: string): Promise<ResolvedSeat | null> => {
   if (!/^[\w-]{8,64}$/.test(token)) return null;
   await connectToDatabase();
   // The only lookup that may cross restaurants: nobody has told us which one yet.
@@ -121,7 +130,7 @@ export async function resolveSeat(token: string): Promise<ResolvedSeat | null> {
   const table = await Table.findOne({ restaurantId, _id: seat.tableId, isActive: true }).lean<TableDocument>();
   if (!table) return null;
   return { seat, table, code: seatCode(table.name, seat.label), restaurantId };
-}
+});
 
 /**
  * Releases a QR's lock. Conditional on it still being that session, so it
@@ -226,7 +235,7 @@ export async function loadSeatDetail(restaurantId: RestaurantRef, seatId: string
     ? await GuestSession.findOne({ restaurantId, _id: seat.currentSessionId, status: "OPEN" }).lean<GuestSessionDocument>()
     : null;
   const orders = session
-    ? (await Order.find({ restaurantId, guestSessionId: session._id }).sort({ createdAt: 1 }).lean<OrderLean[]>()).map(serializeOrder)
+    ? (await Order.find({ restaurantId, guestSessionId: session._id }).select(ORDER_FIELDS).sort({ createdAt: 1 }).lean<OrderLean[]>()).map(serializeOrder)
     : [];
   // Name each item's kitchen here, so the page doesn't need the whole menu for one column.
   const categoryIds = [...new Set(orders.flatMap((order) => order.items.map((item) => item.categoryId).filter(Boolean)))];
@@ -245,5 +254,8 @@ export async function loadSeatDetail(restaurantId: RestaurantRef, seatId: string
     session: session ? { id: String(session._id), email: session.email || undefined, openedAt: session.createdAt.toISOString() } : undefined,
     orders,
     kitchens,
+    // The settle panel works the tax out the same way the settle call does, so
+    // the counter tells the guest the number they are about to be charged.
+    gst: (await getRestaurantInfo(restaurantId))?.gst ?? { enabled: false, percent: 0, mode: "CGST_SGST" },
   };
 }

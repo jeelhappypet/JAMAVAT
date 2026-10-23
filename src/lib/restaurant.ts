@@ -2,7 +2,7 @@ import { cache } from "react";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import type { RestaurantRef } from "@/lib/db/tenant";
 import { Restaurant, type RestaurantDocument } from "@/models/Restaurant";
-import type { BillingCycle, RestaurantSettingsDTO, RestaurantStatus } from "@/types";
+import type { BillingCycle, GstMode, GstSettingsDTO, RestaurantSettingsDTO, RestaurantStatus } from "@/types";
 
 /** What most requests need about a restaurant: who it is and whether it may take orders. */
 export interface RestaurantInfo {
@@ -15,10 +15,25 @@ export interface RestaurantInfo {
   paidUntil?: Date;
   graceDays: number;
   whatsappPhoneNumberId?: string;
+  /** Settling a bill and the guest's own total both need the tax rate. */
+  gst: GstSettingsDTO;
 }
 
-const INFO_FIELDS = { name: 1, slug: 1, status: 1, planId: 1, billingCycle: 1, paidUntil: 1, graceDays: 1, whatsappPhoneNumberId: 1 };
-type InfoDoc = Pick<RestaurantDocument, "_id" | "name" | "slug" | "status" | "planId" | "billingCycle" | "paidUntil" | "graceDays" | "whatsappPhoneNumberId">;
+const INFO_FIELDS = { name: 1, slug: 1, status: 1, planId: 1, billingCycle: 1, paidUntil: 1, graceDays: 1, whatsappPhoneNumberId: 1, gstEnabled: 1, gstPercent: 1, gstMode: 1, gstin: 1 };
+type InfoDoc = Pick<
+  RestaurantDocument,
+  "_id" | "name" | "slug" | "status" | "planId" | "billingCycle" | "paidUntil" | "graceDays" | "whatsappPhoneNumberId" | "gstEnabled" | "gstPercent" | "gstMode" | "gstin"
+>;
+
+/** A restaurant that has never been near the GST fields pays no tax. */
+function toGst(doc: Pick<InfoDoc, "gstEnabled" | "gstPercent" | "gstMode" | "gstin">): GstSettingsDTO {
+  return {
+    enabled: doc.gstEnabled === true,
+    percent: doc.gstPercent ?? 0,
+    mode: (doc.gstMode ?? "CGST_SGST") as GstMode,
+    gstin: doc.gstin || undefined,
+  };
+}
 
 function toInfo(doc: InfoDoc): RestaurantInfo {
   return {
@@ -31,6 +46,7 @@ function toInfo(doc: InfoDoc): RestaurantInfo {
     paidUntil: doc.paidUntil ?? undefined,
     graceDays: doc.graceDays ?? 7,
     whatsappPhoneNumberId: doc.whatsappPhoneNumberId || undefined,
+    gst: toGst(doc),
   };
 }
 
@@ -79,29 +95,46 @@ export const getRestaurantName = cache(async (id: RestaurantRef): Promise<string
   return (await getRestaurantInfo(id))?.name ?? null;
 });
 
-/** Name plus the details printed in the thank-you email. */
+/** Name plus the details printed on the invoice: footer, review link and GST. */
 export async function getRestaurantSettings(id: RestaurantRef): Promise<RestaurantSettingsDTO> {
   await connectToDatabase();
-  const restaurant = await Restaurant.findById(id).select({ name: 1, address: 1, phone: 1, reviewUrl: 1 }).lean<RestaurantDocument>();
+  const restaurant = await Restaurant.findById(id)
+    .select({ name: 1, address: 1, phone: 1, reviewUrl: 1, gstEnabled: 1, gstPercent: 1, gstMode: 1, gstin: 1 })
+    .lean<RestaurantDocument>();
   return {
     name: restaurant?.name ?? "Jamavat",
     address: restaurant?.address || undefined,
     phone: restaurant?.phone || undefined,
     reviewUrl: restaurant?.reviewUrl || undefined,
+    gst: restaurant ? toGst(restaurant) : { enabled: false, percent: 0, mode: "CGST_SGST" },
   };
 }
 
-export async function saveRestaurantSettings(id: RestaurantRef, { name, address, phone, reviewUrl }: RestaurantSettingsDTO): Promise<RestaurantSettingsDTO> {
+export async function saveRestaurantSettings(id: RestaurantRef, { name, address, phone, reviewUrl, gst }: RestaurantSettingsDTO): Promise<RestaurantSettingsDTO> {
   await connectToDatabase();
   // Empty optional fields are removed, not stored as "".
   const unset = Object.fromEntries(
-    Object.entries({ address, phone, reviewUrl })
+    Object.entries({ address, phone, reviewUrl, gstin: gst.gstin })
       .filter(([, value]) => !value)
       .map(([key]) => [key, ""])
   );
   await Restaurant.updateOne(
     { _id: id },
-    { $set: { name, ...(address ? { address } : {}), ...(phone ? { phone } : {}), ...(reviewUrl ? { reviewUrl } : {}) }, ...(Object.keys(unset).length ? { $unset: unset } : {}) }
+    {
+      $set: {
+        name,
+        ...(address ? { address } : {}),
+        ...(phone ? { phone } : {}),
+        ...(reviewUrl ? { reviewUrl } : {}),
+        // The rate and the mode are kept even when GST is switched off, so
+        // switching it back on doesn't ask the owner to fill them in again.
+        gstEnabled: gst.enabled,
+        gstPercent: gst.percent,
+        gstMode: gst.mode,
+        ...(gst.gstin ? { gstin: gst.gstin } : {}),
+      },
+      ...(Object.keys(unset).length ? { $unset: unset } : {}),
+    }
   );
   forgetRestaurantInfo(id);
   return getRestaurantSettings(id);

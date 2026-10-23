@@ -2,14 +2,17 @@
 
 import { GuestHeader } from "@/components/guest/GuestHeader";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { formatClock } from "@/lib/utils/time";
 import { localName } from "@/lib/i18n/messages";
-import type { GuestStateDTO, MenuDTO, OrderDTO } from "@/types";
+import type { GstSettingsDTO, GuestStateDTO, MenuDTO, OrderDTO } from "@/types";
 
 interface GuestStatusViewProps {
   restaurantName: string;
   state: GuestStateDTO;
+  /** Adds "GST x% is added at the counter" under the running total. */
+  gst: GstSettingsDTO;
   /** Current menu — names each item's kitchen in the guest's language. */
   menus: MenuDTO[];
   onOrderMore: () => void;
@@ -22,7 +25,7 @@ const rupees = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
  * status — the owner wants it simple), the newest order's items per kitchen,
  * earlier orders, and the running total.
  */
-export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: GuestStatusViewProps) {
+export function GuestStatusView({ restaurantName, state, gst, menus, onOrderMore }: GuestStatusViewProps) {
   const { t, lang } = useI18n();
   const orders = [...state.orders].reverse();
   const latest = orders[0];
@@ -45,10 +48,10 @@ export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: G
   if (!latest) {
     const settled = state.ended?.reason === "SETTLED";
     return (
-      <div className="flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
+      <div className="flex min-h-dvh w-full flex-col bg-background">
         <GuestHeader restaurantName={restaurantName} subtitle={[t("guest.table", { code: state.seatCode }), state.area].filter(Boolean).join(" · ")} />
         <main className="flex flex-1 flex-col items-center gap-[18px] px-6 pb-6 pt-10 text-center">
-          <span className={`flex h-[84px] w-[84px] items-center justify-center rounded-[26px] ${settled ? "bg-success-light text-green-700" : "bg-brand-light text-brand"}`}>
+          <span className={`flex h-[84px] w-[84px] items-center justify-center rounded-[26px] ${settled ? "bg-success-light text-success" : "bg-brand-light text-brand"}`}>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               {settled ? <path d="M5 13l4 4L19 7" /> : <path d="M12 8v4l3 3M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />}
             </svg>
@@ -67,22 +70,22 @@ export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: G
   const cancelled = latest.status === "CANCELLED";
 
   return (
-    <div className="flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
+    <div className="flex min-h-dvh w-full flex-col bg-background">
       <GuestHeader
         restaurantName={restaurantName}
         title={t("guest.orderTitle", { n: latest.tokenNumber })}
         subtitle={`${restaurantName} · ${t("guest.table", { code: state.seatCode })}`}
         trailing={
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface-muted px-2.5 py-1.5 text-xs font-semibold text-stone-700">
-            <span className="h-2 w-2 rounded-full bg-green-700" aria-hidden />
+          <Badge>
+            <span className="h-2 w-2 rounded-full bg-success" aria-hidden />
             {t("realtime.live")}
-          </span>
+          </Badge>
         }
       />
 
       <main className="flex flex-1 flex-col gap-3.5 px-4 pb-6 pt-4">
         <section className="flex items-start gap-3.5 rounded-[18px] border border-border bg-surface p-[18px]">
-          <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${cancelled ? "bg-danger-light text-red-700" : "bg-brand-light text-brand"}`}>
+          <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${cancelled ? "bg-danger-light text-danger" : "bg-brand-light text-brand"}`}>
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               {cancelled ? <path d="M18 6 6 18M6 6l12 12" /> : <><path d="M3 18h18" /><path d="M5 18a7 7 0 0 1 14 0" /><path d="M12 8V6M10 6h4" /></>}
             </svg>
@@ -107,7 +110,7 @@ export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: G
             </div>
           ))}
           {latest.note ? (
-            <div className="rounded-[10px] bg-orange-50 px-3 py-2 text-[13px] text-orange-900">
+            <div className="rounded-[10px] bg-brand-light px-3 py-2 text-[13px] text-brand-dark">
               <strong>{t("guest.yourNote")}</strong> {latest.note}
             </div>
           ) : null}
@@ -137,20 +140,25 @@ export function GuestStatusView({ restaurantName, state, menus, onOrderMore }: G
                   <span className="text-sm font-extrabold">
                     {t("guest.orderTitle", { n: order.tokenNumber })} <span className="font-semibold text-text-muted">· {clock(order.createdAt)}</span>
                   </span>
-                  {order.status === "CANCELLED" ? <span className="rounded-full bg-danger-light px-2.5 py-0.5 text-xs font-bold text-red-800">{t("guest.cancelledTag")}</span> : null}
+                  {order.status === "CANCELLED" ? (
+                    <Badge tone="red" size="sm">
+                      {t("guest.cancelledTag")}
+                    </Badge>
+                  ) : null}
                 </div>
-                <span className="text-[13px] text-stone-700">{order.items.map((item) => `${itemName(item)} × ${item.quantity}`).join(", ")}</span>
+                <span className="text-[13px] text-text-muted">{order.items.map((item) => `${itemName(item)} × ${item.quantity}`).join(", ")}</span>
               </div>
             ))}
           </section>
         ) : null}
 
         {billable.length > 0 ? (
-          <div className="flex flex-col gap-1.5 rounded-[14px] bg-surface-muted px-4 py-3.5 text-[13px] leading-relaxed text-stone-700">
+          <div className="flex flex-col gap-1.5 rounded-[14px] bg-surface-muted px-4 py-3.5 text-[13px] leading-relaxed text-text-muted">
             <span className="flex justify-between text-[15px] text-foreground">
               <strong>{t("guest.totalSoFar")}</strong>
               <strong>{rupees(total)}</strong>
             </span>
+            {gst.enabled && gst.percent > 0 ? <span>{t("tax.guestNote", { p: gst.percent })}</span> : null}
             <span>{t("guest.payAndEmail", { email: state.verifiedEmail ?? latest.guestEmail ?? "" })}</span>
           </div>
         ) : null}

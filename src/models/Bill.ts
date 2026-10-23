@@ -1,5 +1,5 @@
 import { Schema, model, models, type InferSchemaType, type Types } from "mongoose";
-import { PAYMENT_MODES } from "@/types";
+import { GST_MODES, PAYMENT_MODES } from "@/types";
 import { tenantField, tenantGuard } from "@/lib/db/tenant";
 
 const billLineSchema = new Schema(
@@ -31,6 +31,16 @@ const billSchema = new Schema(
     lines: { type: [billLineSchema], default: [] },
     itemsTotal: { type: Number, required: true, min: 0 },
     discount: { type: Number, default: 0, min: 0 },
+    /**
+     * The GST that was on this bill, as it was when the guest paid — a rate
+     * the admin changes next month must never rewrite an invoice already
+     * sent. Absent on bills settled with GST switched off (every bill before
+     * the setting existed), and then `total` is simply items − discount.
+     */
+    taxPercent: { type: Number, min: 0, max: 28 },
+    taxMode: { type: String, enum: GST_MODES },
+    taxAmount: { type: Number, min: 0 },
+    /** What the guest paid: items − discount + tax. */
     total: { type: Number, required: true, min: 0 },
     paymentMode: { type: String, enum: PAYMENT_MODES, required: true },
     emailStatus: { type: String, enum: ["SENT", "FAILED", "SKIPPED"], default: "SKIPPED" },

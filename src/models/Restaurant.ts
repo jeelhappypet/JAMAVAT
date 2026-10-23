@@ -1,5 +1,5 @@
 import { Schema, model, models, type InferSchemaType, type Types } from "mongoose";
-import { BILLING_CYCLES, RESTAURANT_STATUSES } from "@/types";
+import { BILLING_CYCLES, GST_MODES, RESTAURANT_STATUSES } from "@/types";
 
 /**
  * One customer of Jamavat. Everything a restaurant owns (menus, staff,
@@ -25,6 +25,18 @@ const restaurantSchema = new Schema(
     paidUntil: { type: Date },
     /** Days after `paidUntil` the restaurant keeps working while the payment comes in. */
     graceDays: { type: Number, default: 7, min: 0, max: 60 },
+
+    /**
+     * GST on the bill. Off by default and off for every restaurant that
+     * existed before this: a bill then adds no tax at all, exactly as before.
+     * `percent` is the full GST rate (5, 12, 18…); CGST_SGST splits it in
+     * half on the invoice, IGST shows it as one line. See lib/gst.ts.
+     */
+    gstEnabled: { type: Boolean, default: false },
+    gstPercent: { type: Number, default: 0, min: 0, max: 28 },
+    gstMode: { type: String, enum: GST_MODES, default: "CGST_SGST" },
+    /** Printed on the invoice when set — without it the email stays an order summary. */
+    gstin: { type: String, trim: true, uppercase: true },
 
     /** Footer of the thank-you email. */
     address: { type: String, trim: true },

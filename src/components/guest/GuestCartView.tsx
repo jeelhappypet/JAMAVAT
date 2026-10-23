@@ -8,11 +8,13 @@ import { Alert } from "@/components/ui/Alert";
 import { TextArea } from "@/components/ui/TextField";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { localName } from "@/lib/i18n/messages";
-import type { GuestStateDTO, MenuDTO } from "@/types";
+import type { GstSettingsDTO, GuestStateDTO, MenuDTO } from "@/types";
 
 interface GuestCartViewProps {
   restaurantName: string;
   state: GuestStateDTO;
+  /** When the restaurant charges GST, the cart says so instead of quoting a total without it. */
+  gst: GstSettingsDTO;
   menus: MenuDTO[];
   cart: Record<string, number>;
   note: string;
@@ -28,7 +30,7 @@ interface GuestCartViewProps {
 }
 
 /** "2 · Cart" artboard: dishes grouped by the kitchen (menu) they go to, plus the cooking note. */
-export function GuestCartView({ restaurantName, state, menus, cart, note, onNote, onQty, count, total, placing, error, onBack, onPlace, onForget }: GuestCartViewProps) {
+export function GuestCartView({ restaurantName, state, gst, menus, cart, note, onNote, onQty, count, total, placing, error, onBack, onPlace, onForget }: GuestCartViewProps) {
   const { t, lang } = useI18n();
 
   const groups = menus
@@ -39,10 +41,10 @@ export function GuestCartView({ restaurantName, state, menus, cart, note, onNote
     .filter((group) => group.items.length > 0);
 
   return (
-    <div className="relative flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
+    <div className="relative flex min-h-dvh w-full flex-col bg-background">
       <GuestHeader restaurantName={restaurantName} title={t("guest.yourOrder")} subtitle={`${t("guest.table", { code: state.seatCode })} · ${restaurantName}`} onBack={onBack} />
 
-      <main className="flex flex-1 flex-col gap-3.5 px-4 pb-32 pt-4">
+      <main className="flex flex-1 flex-col gap-3.5 px-4 pb-5 pt-4">
         {count === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <p className="text-lg font-bold">{t("guest.cartEmpty")}</p>
@@ -97,15 +99,21 @@ export function GuestCartView({ restaurantName, state, menus, cart, note, onNote
                 <span>{t("guest.toPay")}</span>
                 <span>₹{total}</span>
               </div>
+              {/* The tax goes on the whole table's bill at the counter, not on
+                  this one order — so this says what will happen rather than
+                  quoting a figure for a bill that isn't finished. */}
+              {gst.enabled && gst.percent > 0 ? <span className="text-[13px] text-text-muted">{t("tax.guestNote", { p: gst.percent })}</span> : null}
             </section>
 
-            <div className="flex items-start gap-2.5 rounded-[14px] bg-brand-light px-3.5 py-3 text-[13px] leading-relaxed text-orange-900">
-              <svg className="mt-px shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 8h.01M11 12h1v5h1" />
-              </svg>
-              <span>{t("guest.confirmInfo")}</span>
-            </div>
+            <Alert tone="warning">
+              <span className="flex items-start gap-2.5">
+                <svg className="mt-px shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8h.01M11 12h1v5h1" />
+                </svg>
+                {t("guest.confirmInfo")}
+              </span>
+            </Alert>
 
             {error ? <Alert>{error}</Alert> : null}
           </>
@@ -113,7 +121,7 @@ export function GuestCartView({ restaurantName, state, menus, cart, note, onNote
       </main>
 
       {count > 0 ? (
-        <div className="fixed bottom-0 left-1/2 z-30 flex w-full max-w-[480px] -translate-x-1/2 flex-col gap-2 border-t border-border bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="sticky bottom-0 z-30 flex flex-col gap-2 border-t border-border bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           {state.verifiedEmail ? (
             <p className="text-center text-xs text-text-muted">
               {t("guest.verifiedAs", { email: state.verifiedEmail })} ·{" "}

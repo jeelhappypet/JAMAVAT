@@ -35,10 +35,29 @@ describe("menu item update", () => {
 });
 
 describe("restaurant settings", () => {
+  const gst = { enabled: false, percent: 0, mode: "CGST_SGST" as const };
+  const base = { restaurantName: "GuruKrupa", gst };
+
   it("only takes https review links", () => {
-    expect(restaurantSchema.safeParse({ restaurantName: "GuruKrupa", reviewUrl: "http://g.page/x" }).success).toBe(false);
-    expect(restaurantSchema.parse({ restaurantName: "GuruKrupa", reviewUrl: "https://g.page/x" }).reviewUrl).toBe("https://g.page/x");
-    expect(restaurantSchema.parse({ restaurantName: "GuruKrupa", reviewUrl: "" }).reviewUrl).toBeUndefined();
+    expect(restaurantSchema.safeParse({ ...base, reviewUrl: "http://g.page/x" }).success).toBe(false);
+    expect(restaurantSchema.parse({ ...base, reviewUrl: "https://g.page/x" }).reviewUrl).toBe("https://g.page/x");
+    expect(restaurantSchema.parse({ ...base, reviewUrl: "" }).reviewUrl).toBeUndefined();
+  });
+
+  it("needs the GST block — a stale client must not silently switch GST off", () => {
+    expect(restaurantSchema.safeParse({ restaurantName: "GuruKrupa" }).success).toBe(false);
+  });
+
+  it("takes a GSTIN in the right shape, upper-cased, and refuses a typo", () => {
+    expect(restaurantSchema.parse({ ...base, gst: { ...gst, gstin: "24aaaaa0000a1z5" } }).gst.gstin).toBe("24AAAAA0000A1Z5");
+    expect(restaurantSchema.parse({ ...base, gst: { ...gst, gstin: "" } }).gst.gstin).toBeUndefined();
+    expect(restaurantSchema.safeParse({ ...base, gst: { ...gst, gstin: "24AAAAA0000A1" } }).success).toBe(false);
+  });
+
+  it("keeps the rate inside 0–28", () => {
+    expect(restaurantSchema.safeParse({ ...base, gst: { ...gst, enabled: true, percent: 5 } }).success).toBe(true);
+    expect(restaurantSchema.safeParse({ ...base, gst: { ...gst, enabled: true, percent: 30 } }).success).toBe(false);
+    expect(restaurantSchema.safeParse({ ...base, gst: { ...gst, enabled: true, percent: -1 } }).success).toBe(false);
   });
 });
 

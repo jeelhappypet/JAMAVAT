@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { billNumber, renderBillEmail, rupees } from "@/lib/billEmail";
 
-const restaurant = { name: "Guru <Krupa>", address: "Main road", phone: "98765 43210", reviewUrl: "https://g.page/r/test" };
+const noGst = { enabled: false, percent: 0, mode: "CGST_SGST" } as const;
+const restaurant = { name: "Guru <Krupa>", address: "Main road", phone: "98765 43210", reviewUrl: "https://g.page/r/test", gst: noGst };
 
-const email = () =>
+const email = (over: Partial<Parameters<typeof renderBillEmail>[0]> = {}) =>
   renderBillEmail({
     restaurant,
     billNo: 7,
@@ -17,6 +18,7 @@ const email = () =>
     discount: 30,
     total: 400,
     paymentMode: "UPI",
+    ...over,
   });
 
 describe("bill email", () => {
@@ -42,5 +44,40 @@ describe("bill email", () => {
 
   it("prints the time in India, with capital AM/PM", () => {
     expect(email().html).toMatch(/8:00\s?PM/);
+  });
+
+  it("says it is only a summary when GST is off", () => {
+    const { html, text } = email();
+    expect(html).toContain("not a tax invoice");
+    expect(text).toContain("not a tax invoice");
+    expect(html).not.toContain("CGST");
+  });
+
+  it("splits CGST and SGST, and adds them to the total paid", () => {
+    const tax = { percent: 5, mode: "CGST_SGST", amount: 20, cgst: 10, sgst: 10 } as const;
+    const { html, text } = email({ tax, total: 420 });
+    expect(html).toContain("CGST 2.5%");
+    expect(html).toContain("SGST 2.5%");
+    expect(text).toContain("CGST 2.5% ₹10");
+    expect(html).toContain("₹420");
+  });
+
+  it("shows IGST as one line", () => {
+    const { html } = email({ tax: { percent: 5, mode: "IGST", amount: 20 }, total: 420 });
+    expect(html).toContain("IGST 5%");
+    expect(html).not.toContain("CGST");
+  });
+
+  it("only calls itself a tax invoice once the GSTIN is there", () => {
+    const tax = { percent: 5, mode: "IGST", amount: 20 } as const;
+    const withoutNumber = email({ tax, total: 420 });
+    expect(withoutNumber.html).toContain("not a tax invoice");
+
+    const gst = { enabled: true, percent: 5, mode: "IGST", gstin: "24AAAAA0000A1Z5" } as const;
+    const withNumber = email({ tax, total: 420, restaurant: { ...restaurant, gst } });
+    expect(withNumber.html).toContain("GSTIN 24AAAAA0000A1Z5");
+    expect(withNumber.html).toContain("Tax invoice");
+    expect(withNumber.html).not.toContain("not a tax invoice");
+    expect(withNumber.text).toContain("Tax invoice · GSTIN 24AAAAA0000A1Z5");
   });
 });

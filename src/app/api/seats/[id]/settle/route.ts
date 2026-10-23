@@ -18,6 +18,7 @@ import { REALTIME_EVENTS } from "@/lib/realtime/events";
 import { getTranslator } from "@/lib/i18n/server";
 import { jsonError, respond } from "@/lib/api";
 import { createBill } from "@/lib/bills";
+import { billTotals } from "@/lib/gst";
 import type { BillDTO, BillLineDTO } from "@/types";
 
 /** Same dish ordered twice in one sitting → one line on the bill. */
@@ -57,15 +58,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const session = await GuestSession.findOne({ restaurantId, _id: sessionId, status: "OPEN" }).lean<GuestSessionDocument>();
     if (!session) return jsonError(t("err.alreadySettled"), 409);
 
-    const orders = await Order.find({ restaurantId, guestSessionId: session._id, status: { $ne: "CANCELLED" } })
-      .sort({ createdAt: 1 })
-      .lean<OrderLean[]>();
+    // The restaurant's own details come along for the ride: the GST rate is
+    // needed to bill at all, and the rest only if an email goes out.
+    const [orders, restaurant] = await Promise.all([
+      Order.find({ restaurantId, guestSessionId: session._id, status: { $ne: "CANCELLED" } }).sort({ createdAt: 1 }).lean<OrderLean[]>(),
+      getRestaurantSettings(restaurantId),
+    ]);
     const itemsTotal = orders.reduce((sum, order) => sum + order.totalAmount, 0);
     if (discount > itemsTotal) return jsonError(t("err.discountTooHigh"), 400);
 
     const settledAt = new Date();
     const lines = billLines(orders);
-    const total = itemsTotal - discount;
+    // GST (if the admin switched it on) is worked out here and stored with the
+    // bill, so the counter screen, the stored row and the emailed invoice can
+    // never disagree — and so next month's rate change can't rewrite this one.
+    const { tax, total } = billTotals(itemsTotal, discount, restaurant.gst);
     // The bill is written before the table is freed: if it can't be written, the
     // guest's sitting stays open with its orders instead of vanishing unbilled.
     // One bill per sitting (unique guestSessionId), so a double tap can't bill twice.
@@ -80,6 +87,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       lines,
       itemsTotal,
       discount,
+      ...(tax ? { taxPercent: tax.percent, taxMode: tax.mode, taxAmount: tax.amount } : {}),
       total,
       paymentMode,
       settledBy: staff.id,
@@ -102,10 +110,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     let emailStatus: BillDTO["emailStatus"] = "SKIPPED";
     if (sendEmail && session.email && isMailConfigured()) {
       try {
-        const restaurant = await getRestaurantSettings(restaurantId);
         await sendMail({
           to: session.email,
-          ...renderBillEmail({ restaurant, billNo: bill.billNo, seatCode: session.seatCode, settledAt, lines, itemsTotal, discount, total, paymentMode }),
+          ...renderBillEmail({ restaurant, billNo: bill.billNo, seatCode: session.seatCode, settledAt, lines, itemsTotal, discount, tax, total, paymentMode }),
         });
         emailStatus = "SENT";
       } catch (error) {
@@ -131,6 +138,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       lines,
       itemsTotal,
       discount,
+      tax,
       total,
       paymentMode,
       settledAt: settledAt.toISOString(),

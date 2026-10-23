@@ -3,7 +3,7 @@ import { resolveSeat } from "@/lib/tables";
 import { getGuest } from "@/lib/guest/session";
 import { getGuestState } from "@/lib/guest/state";
 import { loadMenuTree } from "@/lib/menu/structure";
-import { getRestaurantName } from "@/lib/restaurant";
+import { getRestaurantInfo } from "@/lib/restaurant";
 import { GuestApp } from "@/components/guest/GuestApp";
 import { viewFromSearch } from "@/lib/guest/view";
 import { InvalidQr } from "@/components/guest/InvalidQr";
@@ -17,7 +17,7 @@ import { InvalidQr } from "@/components/guest/InvalidQr";
 export async function generateMetadata({ params }: PageProps<"/t/[token]">): Promise<Metadata> {
   const { token } = await params;
   const resolved = await resolveSeat(token);
-  return { title: (resolved ? await getRestaurantName(resolved.restaurantId) : null) ?? "Jamavat" };
+  return { title: (resolved ? (await getRestaurantInfo(resolved.restaurantId))?.name : null) ?? "Jamavat" };
 }
 
 export default async function GuestTablePage({ params, searchParams }: PageProps<"/t/[token]">) {
@@ -25,12 +25,24 @@ export default async function GuestTablePage({ params, searchParams }: PageProps
   const { v } = await searchParams;
   const resolved = await resolveSeat(token);
   if (!resolved) return <InvalidQr restaurantName="Jamavat" />;
-  const restaurantName = (await getRestaurantName(resolved.restaurantId)) ?? "Jamavat";
+  const restaurant = await getRestaurantInfo(resolved.restaurantId);
+  const restaurantName = restaurant?.name ?? "Jamavat";
 
   const [menus, state] = await Promise.all([
     loadMenuTree(resolved.restaurantId, { activeOnly: true }),
     getGuestState(resolved, await getGuest()),
   ]);
   // The step comes from the URL so a reloaded back-navigation renders it straight away.
-  return <GuestApp token={token} restaurantName={restaurantName} initialMenus={menus} initialState={state} initialView={viewFromSearch(typeof v === "string" ? v : undefined)} />;
+  return (
+    <GuestApp
+      token={token}
+      restaurantName={restaurantName}
+      // Whether the counter adds GST, so the cart doesn't quote a total the
+      // guest won't be asked for.
+      gst={restaurant?.gst ?? { enabled: false, percent: 0, mode: "CGST_SGST" }}
+      initialMenus={menus}
+      initialState={state}
+      initialView={viewFromSearch(typeof v === "string" ? v : undefined)}
+    />
+  );
 }

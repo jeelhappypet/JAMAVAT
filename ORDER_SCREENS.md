@@ -184,15 +184,222 @@ was wrong.
 Verified at 1440 and 390 with two real orders on the screen. API calls:
 `/counter` asks for orders + tables, `/counter/orders` asks for orders only.
 
-### Phase 5 — seat bill and kitchen  ◀ **next**
+### Speed, after Phase 4  ☑ done
 
-- `SeatBillScreen` (361 lines, the biggest) split up; settle flow unchanged —
-  it is a conditional `findOneAndUpdate` and must stay one.
-- `KitchenScreen`: ticket arrival animation, column layout at 1440.
+The Vercel region move is live — `x-vercel-id` now reads `bom1::bom1`. An API
+call that needs the database went from **505ms to ~128ms**, and a single query
+from ~200ms to ~20ms.
 
-### Phase 6 — responsive and motion pass  ▢ not started
+Two code fixes on top of it:
 
-Every screen at 390 / 834 / 1440, then the motion rules from `CLAUDE.md`.
+- **`useRealtime` fired `onReconnect` on the *first* subscription**, not only on
+  a genuine reconnect. Every staff screen therefore asked for its data twice on
+  every load — two `/api/reports/today` on the admin's landing page, two
+  `/api/orders/live` on the counter's. Measured in a browser: now one.
+- **`getCurrentStaff` read the staff, then the restaurant.** The cookie already
+  names the restaurant and the staff query is scoped to it, so the two go in
+  parallel now — one round trip less on every staff page *and* every API call.
+
+Warm landing page after these: TTFB ~55ms, load ~290ms (was ~80ms TTFB with the
+double fetch). The remaining wait staff notice is **cold start** — a Vercel
+instance that has been idle pays for a new Node process plus `mongoose.connect`.
+`maxPoolSize: 5` and `serverSelectionTimeoutMS: 8000` are set for that; the
+bigger lever would be a non-SRV connection string, which skips two DNS lookups
+on every cold connect, but that is an env change for the owner to make.
+
+### Phase 5 — seat bill and kitchen  ☑ done
+
+`SeatBillScreen` 361 → 230 lines, now the data and the decisions only:
+
+| New file | Holds |
+|---|---|
+| `SeatOrderList` | the table's orders |
+| `SettlePanel` | total, discount, paid-by, email, the settle button |
+| `SeatBillOutcome` | the settled card and the free-seat card |
+
+The settle call is untouched — still one conditional `findOneAndUpdate`, so two
+people settling the same table at once still produce one bill.
+
+Two bugs fixed on the way, both found by rendering the screen rather than
+reading it:
+
+- The orders list was a `<table>` with a 460px minimum, so every phone got a
+  sideways scrollbar *inside* the card. It is a list now; the kitchen sits
+  under the dish name instead of in its own column.
+- The discount field was full width and pushed its label onto two lines.
+  `TextField`'s base styles include `w-full`, and `className="w-[108px]"`
+  cannot reliably beat it — two unprefixed width utilities on one element are
+  settled by stylesheet order. It is sized by a wrapper now. (Third time this
+  class-collision has bitten; it is in `CLAUDE.md`.)
+
+`KitchenScreen`: warm `site-ink` header instead of `stone-900`, raw
+`orange-*`/`red-*`/`stone-*` onto tokens, tickets 236px so a wall screen holds
+more per row, and new tickets arrive with `useArrivals` — a cook is at the
+pass, not watching the screen.
+
+Verified at 1440 and 390. No duplicate API calls on either screen. The
+occupied-table branch was checked by answering `/api/seats/{id}` with a
+made-up table in Playwright — **nothing was written to the database**.
+
+### Phase 6 — responsive and motion pass  ☑ done
+
+All 23 screens — public, staff, guest-facing and HQ — swept at 390 / 834 /
+1440 with `scripts/audit-screens.mjs`, which is kept for exactly this and
+signs its own staff/HQ cookies so the screens behind a PIN are included.
+
+Found and fixed:
+
+| | |
+|---|---|
+| `/gu` was **12px wider than a 390px phone** | `Reveal from="left"` starts its content 28px outside the column, which widened the page until the animation finished. The site wrapper is `overflow-x-clip` now — `clip`, not `hidden`, because `hidden` creates a scroll container and silently breaks the sticky header. |
+| Footer links were 21px tall | `py-2` → ~37px. They were under the 24px WCAG minimum, on every public page at every width. |
+| The language chip was 34px | `py-2` → 37px. |
+| `/tables` table name (opens the editor) was 24px | `py-1.5` → 36px. |
+
+Motion was checked by loading the site with `prefers-reduced-motion: reduce`
+and counting what still moves: **44 elements animated or offset normally, 2
+with the preference on** — the top progress bar, which has to keep indicating
+progress, and the honeypot, which is deliberately `opacity: 0`.
+
+Three findings are expected and documented in the script's own header: the
+honeypot, `/privacy`'s inline mailto (inline links are exempt from target
+size), and `/today`'s bar-chart columns.
+
+### Phase 7 — the guest screens, and the load they arrive with  ☑ done
+
+The screens a guest meets after scanning a QR had been through none of the
+passes above, and they are the ones loaded on someone else's phone, on mobile
+data, once. Two halves: what they're built from, and what the browser has to
+fetch before they appear.
+
+**Built from the kit now, not from markup:**
+
+| Was | Is |
+|---|---|
+| A hand-rolled search `<label>` with its own icon and no clear button | `SearchField` (its match count is announced, and the clear cross is a thumb-sized button) |
+| A bestseller pill, a "cancelled" pill and the live dot, each with their own `orange-100`/`red-800`/`green-700` | `Badge` |
+| Three notice boxes in `brand-light`/`orange-50`/dashed `amber-500` | `Alert` |
+| The cart bar written inline in the menu screen | `GuestCartBar` — its own component, because a two-line button with a shadow is not something `Button` can be made to do from outside (`justify-center` on its base would fight a `justify-between` passed in) |
+| `bg-stone-900` on the selected category chip | `bg-ink`, the same warm near-black the kitchen header moved to |
+| `max-w-[480px]` repeated in five screens, and a cart footer `fixed` to the window and re-centred with a copy of that width | the width lives in the guest layout alone; the footer is `sticky bottom-0` inside the column |
+
+**What a guest's phone downloads.** The root layout declared all four fonts,
+so every page preloaded all four — including the website's display serif,
+which only the website ever draws:
+
+| Route | Fonts preloaded, before → after |
+|---|---|
+| `/t/{token}` (guest) | 334KB → **155KB** |
+| `/r/{slug}/…` (staff) | 334KB → **155KB** |
+| `/` and the English keyword pages | 334KB → **191KB** |
+| `/gu` and its mirrors | 334KB → 306KB |
+
+Three changes, all of them "declare the font where it is used":
+`src/lib/fonts/sans.ts` (root layout) carries the body pair, `display.ts` is
+imported by `(site)/layout.tsx` and `displayGujarati.ts` by a new
+`(site)/gu/layout.tsx` — a `display: contents` wrapper, so it hands the custom
+property down without becoming a box the pages below would have to lay
+themselves out against. Noto Sans Gujarati also dropped its Latin subset
+(30KB): Latin never reaches that family, Schibsted Grotesk is ahead of it in
+every stack.
+
+**This nearly shipped with every website heading in the body sans.** Caught by
+reading the computed style in a browser rather than the diff: `.heading` was
+`font-family: var(--font-display-latin), var(--font-display-gujarati), …`,
+and on an English page the Gujarati variable is now simply not set. A bare
+`var()` with nothing set is invalid *at computed-value time* — the browser
+does not skip that one entry, it throws out the whole declaration and the
+element inherits. Both vars carry a fallback now.
+
+**And the service worker.** It was registered in the root layout, so a guest
+who scans one QR, and every visitor reading the website, installed an offline
+shell for an app they will never open — against what `(site)/layout.tsx`'s own
+comment said it did. It is registered in `r/[slug]/layout.tsx` now: the staff
+app is the thing that gets installed.
+
+**Server side**, on the one screen a guest waits for:
+
+- `resolveSeat` is `cache()`d. The guest page resolved the same token twice —
+  once in `generateMetadata` for the tab title, once to render — which was two
+  round trips (seat + table) spent on nothing.
+- `getGuestState` costs two round trips instead of four. The orders, the
+  "your bill is settled" card and the verified-email check used to run one
+  after the other; they go out together now, and the email check skips Mongo
+  entirely when the QR is ours — an OPEN sitting of this device is exactly
+  what it was about to ask for, and `session` already proves it. This is the
+  call a phone repeats every 10 seconds while Pusher has no keys.
+- `loadMenuTree` and `getCounterOrders` `.select()` only what their DTOs
+  carry. The order field list lives next to `serializeOrder`, which is what
+  decides it. (Both were carried-over items from Phase 2 and the list above.)
+- The other carried-over item, the `useCounterData({...})` call sites: there
+  are two, `{ tables: true }` on the seat grid and no options at all on
+  `/counter/orders`. Nothing asks for the menu. Nothing to fix.
+
+Verified in a real browser at 375 and 1440: `/` loads Fraunces and no Gujarati
+serif, `/gu` loads both, `/t/{dead token}` loads two fonts and registers no
+worker, and neither page scrolls sideways. `npx tsc --noEmit`, `npx eslint
+src`, `npm test` and `npm run build` are clean.
+
+**Not verified here:** the guest screens with real data. They need a seat
+token from a database, and this session had no throwaway one to read — run
+`node scripts/audit-screens.mjs`, which now picks a free QR itself and sweeps
+`/t/{token}` plus its `?v=cart`, `?v=verify` and `?v=status` steps at 390 /
+834 / 1440.
+
+### Phase 8 — the first screen after the PIN  ☑ done
+
+Staff said the app felt slowest exactly where it is least forgivable: typing
+the PIN and waiting for the screen behind it. What they were waiting for was
+three round trips, not one — the page, and then the screen's own two API calls
+for the data the page had just been to the database for anyway.
+
+Every screen a login lands on now renders with its data in it:
+
+| Screen | Calls on open, before → after |
+|---|---|
+| `/counter` (counter's landing) | page + `/api/orders/live` + `/api/tables` → **page** |
+| `/kitchen` (kitchen's landing) | page + `/api/orders/pending` + `/api/menu` → **page + `/api/menu`** (the sold-out list is beside the tickets, not in front of them) |
+| `/today` (admin's landing) | page + `/api/reports/today` → **page** |
+| `/counter/orders` | page + `/api/orders/live` → **page** |
+
+The hooks take an `initial` and skip only their *first* fetch; realtime,
+polling and a language change all still reload as before. The chime's "seen"
+set is seeded from that first copy too, or the first refresh would have rung
+for every ticket already on the screen.
+
+Two more on the way in:
+
+- The login screen read **every** category and menu of the restaurant to put
+  a station name under the kitchen logins. It reads only the categories those
+  logins actually point at, and only when one of them is a kitchen.
+- `getKitchenTickets`, `loadSeatDetail` and the login's own staff lookup
+  `.select()` their fields now, like `getCounterOrders` does.
+
+**Not changed, deliberately:** the login still finishes with
+`window.location.assign`, a full document load. A client navigation would
+save re-parsing the bundle, but the cookie was just set by a route handler
+and the comment on that line says a full load is what makes the proxy and
+every page see it — not something to change without being able to log in and
+watch it work.
+
+### Phase 9 — anything after this  ▢ not started
+
+Candidates, in rough order of value:
+
+- A non-SRV MongoDB connection string would cut two DNS lookups from every
+  cold connect — the biggest remaining win on post-PIN speed, and an env
+  change the owner has to make.
+- Dish photos are one 480×400 file each, shown in a 96×80 box: a menu of 30
+  dishes is over a megabyte on a guest's phone (lazily, and cached for a
+  year). A second browser-made thumbnail at upload time would cut that five-
+  fold, at the cost of a field, a fallback for photos already uploaded, and
+  twice the Blob writes — worth agreeing with the owner first (`DISH_PHOTOS.md`).
+- `messages.ts` ships both languages and every area's keys to every client
+  (~23KB gzipped). Splitting it by area would cut what a guest downloads,
+  but the single typed dictionary is what makes a missing key a type error —
+  don't trade that away cheaply.
+- A GST report for the accountant: `Bill.taxAmount` is stored, nothing reads
+  it yet, and "sales" in the reports is money collected (GST included).
 
 ---
 
