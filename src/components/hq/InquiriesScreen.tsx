@@ -8,11 +8,12 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SkeletonCards } from "@/components/ui/Skeleton";
-import { TextArea } from "@/components/ui/TextField";
+import { DateInput, TextArea, TextField } from "@/components/ui/TextField";
 import { formatDate } from "@/components/hq/bits";
 import type { InquiryDTO, InquiryStatus } from "@/types";
 
 const FILTERS: { value: string; label: string }[] = [
+  { value: "DUE", label: "Due" },
   { value: "NEW", label: "New" },
   { value: "CONTACTED", label: "Contacted" },
   { value: "CONVERTED", label: "Converted" },
@@ -27,9 +28,37 @@ const TONE: Record<InquiryStatus, "orange" | "stone" | "green" | "red"> = {
   LOST: "red",
 };
 
-/** The demo requests from the website, and what HQ did with each one. */
+/** Today, in Surat — what a date field and a "due" list are both measured against. */
+function todayInIndia(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+}
+
+/**
+ * The first WhatsApp message, in ગુજરાતી, because that is what the person
+ * reading it speaks. It opens WhatsApp with the text filled in — HQ reads it,
+ * edits it if they want and presses send themselves. Nothing is ever sent
+ * from here on its own.
+ */
+function whatsappLink(inquiry: InquiryDTO, site: string): string {
+  const who = inquiry.restaurantName ? ` ${inquiry.restaurantName}` : "";
+  const text = [
+    `નમસ્તે${who} 🙏`,
+    "",
+    "હું જમાવટમાંથી. તમારી રેસ્ટોરન્ટ માટે QR મેનુ: ગ્રાહક ટેબલ પરથી જ ઓર્ડર આપે, ઓર્ડર સીધો કિચનમાં જાય, અને જમ્યા પછી બિલ કાઉન્ટર પર તૈયાર — વેઇટરને વારંવાર બોલાવવાની જરૂર નહીં.",
+    "",
+    `એપ ડાઉનલોડ કરવાની જરૂર નથી, English + ગુજરાતી બંનેમાં ચાલે છે. 10 મિનિટનો ડેમો બતાવું? ${site}`,
+  ].join("\n");
+  return `https://wa.me/91${inquiry.phone.replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(text)}`;
+}
+
+const EMPTY_LEAD = { restaurantName: "", phone: "", city: "", tables: "", notes: "", followUpAt: "" };
+
+/** The demo requests from the website, the leads HQ added itself, and what happened to each. */
 export function InquiriesScreen() {
-  const [filter, setFilter] = useState("NEW");
+  const [filter, setFilter] = useState("DUE");
+  const [adding, setAdding] = useState(false);
+  const [lead, setLead] = useState(EMPTY_LEAD);
+  const [saving, setSaving] = useState(false);
   const [inquiries, setInquiries] = useState<InquiryDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +83,27 @@ export function InquiriesScreen() {
     void load();
   }, [load]);
 
+  /** HQ's own browser origin is Jamavat's website, so the pitch links to it. */
+  const site = typeof window === "undefined" ? "" : window.location.origin;
+
+  async function addLead(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/hq/inquiries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lead) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "Couldn't save that lead");
+      setLead(EMPTY_LEAD);
+      setAdding(false);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save that lead");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function update(id: string, body: Record<string, unknown>) {
     const res = await fetch(`/api/hq/inquiries/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await res.json().catch(() => null);
@@ -64,16 +114,72 @@ export function InquiriesScreen() {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[26px] font-extrabold tracking-tight">Inquiries</h1>
-        <SegmentedControl label="Filter inquiries" value={filter} onChange={setFilter} options={FILTERS} />
+        <h1 className="text-[26px] font-extrabold tracking-tight">Leads</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <SegmentedControl label="Filter leads" value={filter} onChange={setFilter} options={FILTERS} />
+          <Button variant={adding ? "secondary" : "primary"} size="md" onClick={() => setAdding((on) => !on)}>
+            {adding ? "Cancel" : "Add a lead"}
+          </Button>
+        </div>
       </div>
 
       {error ? <Alert>{error}</Alert> : null}
 
+      {adding ? (
+        <Card>
+          {/* A restaurant someone walked into or found on the map. The same
+              pipeline as a website inquiry — a lead is a lead. */}
+          <form onSubmit={addLead} className="flex flex-col gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <TextField
+                label="Restaurant"
+                placeholder="Gopi Dining Hall"
+                required
+                value={lead.restaurantName}
+                onChange={(e) => setLead((prev) => ({ ...prev, restaurantName: e.target.value }))}
+              />
+              <TextField
+                label="Phone"
+                type="tel"
+                inputMode="numeric"
+                placeholder="98765 43210"
+                required
+                value={lead.phone}
+                onChange={(e) => setLead((prev) => ({ ...prev, phone: e.target.value }))}
+              />
+              <TextField label="Area" placeholder="Adajan, Surat" value={lead.city} onChange={(e) => setLead((prev) => ({ ...prev, city: e.target.value }))} />
+              <TextField label="Tables" placeholder="12" value={lead.tables} onChange={(e) => setLead((prev) => ({ ...prev, tables: e.target.value }))} />
+            </div>
+            <TextArea
+              label="What they said"
+              rows={2}
+              placeholder="Owner was busy, said call back after 4pm. Two kitchens, no POS yet."
+              value={lead.notes}
+              onChange={(e) => setLead((prev) => ({ ...prev, notes: e.target.value }))}
+            />
+            <DateInput
+              label="Come back on"
+              hint="The second call is the one that sells — give it a date now."
+              min={todayInIndia()}
+              value={lead.followUpAt}
+              onChange={(value) => setLead((prev) => ({ ...prev, followUpAt: value }))}
+            />
+            <div>
+              <Button type="submit" size="lg" disabled={saving || !lead.restaurantName.trim() || !lead.phone.trim()}>
+                {saving ? "Saving…" : "Save lead"}
+              </Button>
+            </div>
+          </form>
+        </Card>
+      ) : null}
+
       {!inquiries ? (
         <SkeletonCards count={3} minWidth={320} />
       ) : inquiries.length === 0 ? (
-        <EmptyState title="Nothing here" hint="Demo requests from the website land here." />
+        <EmptyState
+          title={filter === "DUE" ? "Nothing due today" : "Nothing here"}
+          hint={filter === "DUE" ? "Leads whose follow-up day has come show up here." : "Demo requests from the website land here, and so do the leads you add."}
+        />
       ) : (
         <div className="flex flex-col gap-3">
           {inquiries.map((inquiry) => (
@@ -85,7 +191,13 @@ export function InquiriesScreen() {
                     {inquiry.restaurantName ? ` · ${inquiry.restaurantName}` : ""}
                   </span>
                   <span className="text-[13px] text-text-muted">
-                    {[inquiry.city, inquiry.tables && `${inquiry.tables} tables`, inquiry.kitchens && `${inquiry.kitchens} kitchen`, formatDate(inquiry.createdAt)]
+                    {[
+                      inquiry.city,
+                      inquiry.tables && `${inquiry.tables} tables`,
+                      inquiry.kitchens && `${inquiry.kitchens} kitchen`,
+                      formatDate(inquiry.createdAt),
+                      inquiry.followUpAt && `come back ${formatDate(inquiry.followUpAt)}`,
+                    ]
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
@@ -105,6 +217,9 @@ export function InquiriesScreen() {
                 <Button href={`tel:${inquiry.phone.replace(/\s/g, "")}`} variant="dark" size="md">
                   Call
                 </Button>
+                <Button href={whatsappLink(inquiry, site)} variant="success" size="md">
+                  WhatsApp
+                </Button>
                 {inquiry.status === "NEW" ? (
                   <Button variant="secondary" size="md" onClick={() => void update(inquiry.id, { status: "CONTACTED" })}>
                     Mark contacted
@@ -122,12 +237,20 @@ export function InquiriesScreen() {
                 ) : null}
               </div>
 
-              <TextArea
-                label="Notes"
-                rows={2}
-                defaultValue={inquiry.notes ?? ""}
-                onBlur={(e) => e.target.value !== (inquiry.notes ?? "") && void update(inquiry.id, { notes: e.target.value })}
-              />
+              <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
+                <TextArea
+                  label="Notes"
+                  rows={2}
+                  defaultValue={inquiry.notes ?? ""}
+                  onBlur={(e) => e.target.value !== (inquiry.notes ?? "") && void update(inquiry.id, { notes: e.target.value })}
+                />
+                <DateInput
+                  label="Come back on"
+                  min={todayInIndia()}
+                  value={inquiry.followUpAt ? inquiry.followUpAt.slice(0, 10) : ""}
+                  onChange={(value) => void update(inquiry.id, { followUpAt: value })}
+                />
+              </div>
             </Card>
           ))}
         </div>

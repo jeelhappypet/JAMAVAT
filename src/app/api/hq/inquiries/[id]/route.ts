@@ -27,7 +27,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
           // "Contacted" remembers when, so a lead that's been sitting shows.
           ...(patch.status === "CONTACTED" ? { contactedAt: new Date() } : {}),
+          // A date in IST, because "tomorrow" means tomorrow in Surat.
+          ...(patch.followUpAt ? { followUpAt: new Date(`${patch.followUpAt}T00:00:00+05:30`) } : {}),
         },
+        ...(patch.followUpAt === "" ? { $unset: { followUpAt: 1 } } : {}),
       },
       { returnDocument: "after" }
     ).lean<InquiryDocument>();

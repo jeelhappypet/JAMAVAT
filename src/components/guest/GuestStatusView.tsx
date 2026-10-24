@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { formatClock } from "@/lib/utils/time";
 import { localName } from "@/lib/i18n/messages";
+import { billTotals, halfPercent } from "@/lib/gst";
 import type { GstSettingsDTO, GuestStateDTO, MenuDTO, OrderDTO } from "@/types";
 
 interface GuestStatusViewProps {
@@ -30,7 +31,11 @@ export function GuestStatusView({ restaurantName, state, gst, menus, onOrderMore
   const orders = [...state.orders].reverse();
   const latest = orders[0];
   const billable = state.orders.filter((order) => order.status !== "CANCELLED");
-  const total = billable.reduce((sum, order) => sum + order.totalAmount, 0);
+  const itemsTotal = billable.reduce((sum, order) => sum + order.totalAmount, 0);
+  // Worked out on the whole sitting, which is what the counter settles — so
+  // this is the figure the guest will be asked for (less any discount the
+  // counter gives them).
+  const { tax, total } = billTotals(itemsTotal, 0, gst);
   const clock = (iso: string) => formatClock(iso, lang);
 
   const kitchenOf = new Map<string, string>();
@@ -154,11 +159,35 @@ export function GuestStatusView({ restaurantName, state, gst, menus, onOrderMore
 
         {billable.length > 0 ? (
           <div className="flex flex-col gap-1.5 rounded-[14px] bg-surface-muted px-4 py-3.5 text-[13px] leading-relaxed text-text-muted">
+            {tax ? (
+              <>
+                <span className="flex justify-between">
+                  <span>{t("guest.itemTotal")}</span>
+                  <span>{rupees(itemsTotal)}</span>
+                </span>
+                {tax.mode === "CGST_SGST" ? (
+                  <>
+                    <span className="flex justify-between">
+                      <span>{t("tax.cgst", { p: halfPercent(tax.percent) })}</span>
+                      <span>{rupees(tax.cgst ?? 0)}</span>
+                    </span>
+                    <span className="flex justify-between">
+                      <span>{t("tax.sgst", { p: halfPercent(tax.percent) })}</span>
+                      <span>{rupees(tax.sgst ?? 0)}</span>
+                    </span>
+                  </>
+                ) : (
+                  <span className="flex justify-between">
+                    <span>{t("tax.igst", { p: tax.percent })}</span>
+                    <span>{rupees(tax.amount)}</span>
+                  </span>
+                )}
+              </>
+            ) : null}
             <span className="flex justify-between text-[15px] text-foreground">
               <strong>{t("guest.totalSoFar")}</strong>
               <strong>{rupees(total)}</strong>
             </span>
-            {gst.enabled && gst.percent > 0 ? <span>{t("tax.guestNote", { p: gst.percent })}</span> : null}
             <span>{t("guest.payAndEmail", { email: state.verifiedEmail ?? latest.guestEmail ?? "" })}</span>
           </div>
         ) : null}

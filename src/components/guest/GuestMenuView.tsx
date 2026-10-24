@@ -13,11 +13,13 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { DishPhoto } from "@/components/menu/DishPhoto";
 import { localName } from "@/lib/i18n/messages";
-import type { GuestStateDTO, MenuDTO } from "@/types";
+import type { GstSettingsDTO, GuestStateDTO, MenuDTO } from "@/types";
 
 interface GuestMenuViewProps {
   restaurantName: string;
   state: GuestStateDTO;
+  /** Names the GST on the cart bar, so the cart screen's total isn't a jump. */
+  gst: GstSettingsDTO;
   menus: MenuDTO[];
   cart: Record<string, number>;
   onQty: (id: string, delta: number) => void;
@@ -34,7 +36,7 @@ interface GuestMenuViewProps {
  * only the dish list scrolls (the page itself never does). Menu tabs only
  * when there's more than one menu.
  */
-export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count, total, readOnly, onCart, onOrders }: GuestMenuViewProps) {
+export function GuestMenuView({ restaurantName, state, gst, menus, cart, onQty, count, total, readOnly, onCart, onOrders }: GuestMenuViewProps) {
   const { t, lang } = useI18n();
   const [activeMenuId, setActiveMenuId] = useState(menus[0]?.id);
   const [query, setQuery] = useState("");
@@ -197,7 +199,7 @@ export function GuestMenuView({ restaurantName, state, menus, cart, onQty, count
       </div>
 
       {/* Browsing someone else's QR: no cart, but the bar still says where to pay. */}
-      <GuestCartBar count={readOnly ? 0 : count} total={total} onOpen={onCart} />
+      <GuestCartBar count={readOnly ? 0 : count} total={total} gst={gst} onOpen={onCart} />
     </div>
   );
 }

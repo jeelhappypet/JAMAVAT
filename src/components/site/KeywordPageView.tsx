@@ -5,7 +5,8 @@ import { InquiryForm } from "@/components/site/InquiryForm";
 import { InstagramBand } from "@/components/site/InstagramBand";
 import { Reveal } from "@/components/site/Reveal";
 import { Arrow, Tick } from "@/components/site/SiteIcon";
-import { INQUIRY, KEYWORD_PAGES, NAV, SECTIONS, pick, type KeywordPage } from "@/lib/site/content";
+import { CONTACT, INQUIRY, KEYWORD_PAGES, NAV, SECTIONS, internationalPhone, pick, type KeywordPage } from "@/lib/site/content";
+import { SiteIcon } from "@/components/site/SiteIcon";
 import { sitePath } from "@/lib/site/urls";
 import type { Lang } from "@/lib/i18n/messages";
 
@@ -23,7 +24,9 @@ const section = "mx-auto w-full max-w-[1340px] px-[clamp(16px,3.5vw,44px)]";
  * a page people read are worth more than the same links in a sitemap.
  */
 export function KeywordPageView({ page, lang }: { page: KeywordPage; lang: Lang }) {
-  const others = KEYWORD_PAGES.filter((other) => other.slug !== page.slug);
+  // Three siblings, not all seven: a reader follows one link, and a grid of
+  // eight cards at the foot of every page is a sitemap with rounded corners.
+  const others = KEYWORD_PAGES.filter((other) => other.slug !== page.slug).slice(0, 3);
 
   return (
     <>
@@ -103,6 +106,23 @@ export function KeywordPageView({ page, lang }: { page: KeywordPage; lang: Lang 
           <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-3">
             <h2 className="heading t-h2">{pick(INQUIRY.title, lang)}</h2>
             <p className="t-lead text-text-muted">{pick(INQUIRY.body, lang)}</p>
+            {/* The home page has had these two since day one; a reader who
+                landed here from a search had only the form. A restaurant
+                owner answers WhatsApp long before he fills in a form. */}
+            <div className="mt-1 flex flex-wrap gap-2.5">
+              {CONTACT.whatsapp ? (
+                <a href={`https://wa.me/${CONTACT.whatsapp}`} data-track="whatsapp" rel="noopener" target="_blank" className={buttonClass({ variant: "secondary", size: "md" })}>
+                  <SiteIcon name="whatsapp" size={17} />
+                  {pick(INQUIRY.whatsapp, lang)}
+                </a>
+              ) : null}
+              {CONTACT.phone ? (
+                <a href={`tel:${internationalPhone(CONTACT.phone)}`} data-track="phone" className={buttonClass({ variant: "secondary", size: "md" })}>
+                  <SiteIcon name="phone" size={17} />
+                  {CONTACT.phone}
+                </a>
+              ) : null}
+            </div>
           </div>
           <div className="min-w-0 flex-[1_1_440px]">
             <InquiryForm lang={lang} />

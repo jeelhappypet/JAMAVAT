@@ -22,15 +22,22 @@ export const metadata: Metadata = {
   // Google shows a site's favicon only if it's a square multiple of 48px, and draws it in a circle on light
   // and dark results — so these are opaque white squares with the mark inset, not the transparent PWA icons.
   //
-  // The .ico (16/32/48, for browser tabs) is served from `public/`, not from
-  // `app/favicon.ico`: the app-folder convention appends a build hash to the
-  // URL (`/favicon.ico?favicon.1g7wuota.ico`), and Google asks for a site's
-  // favicon to live at a stable URL — a link that changes with every deploy
-  // sends it back to square one each time.
+  // Two things were wrong here, both found by comparing a result that does
+  // show its icon with ours, which showed Vercel's:
+  //
+  // 1. The .ico came from `app/favicon.ico`, which Next serves with a build
+  //    hash in the query (`/favicon.ico?favicon.1g7wuota.ico`). Google asks
+  //    for a favicon at a *stable* URL and only looks when it crawls the home
+  //    page, so every deploy sent it back to the start. It is a plain
+  //    `/favicon.ico` out of `public/` now.
+  // 2. The .ico held 16/32/48 only. The site whose icon Google does show
+  //    carries 16 → 256 in one file, so this one now carries 16 → 192
+  //    (`scripts/make-favicon.py`), and 96px is offered as a PNG as well.
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
+      { url: "/favicon.ico", sizes: "48x48 96x96 192x192", type: "image/x-icon" },
       { url: "/icons/favicon-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/icons/favicon-96.png", sizes: "96x96", type: "image/png" },
       { url: "/icons/favicon-192.png", sizes: "192x192", type: "image/png" },
     ],
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],

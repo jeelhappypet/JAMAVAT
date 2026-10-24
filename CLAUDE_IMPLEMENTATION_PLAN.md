@@ -223,12 +223,45 @@ every deploy moved the goalposts. The file is `public/favicon.ico` now (16/32
 /48 in one .ico, plus the 48 and 192 PNGs) and the link is a plain
 `/favicon.ico`.
 
-That is the half that is in the code. The rest is Google's: a favicon only
-appears once the site is indexed and the icon has been crawled, which on a
-`jamavat.vercel.app` subdomain can take weeks and is one more reason for the
-custom domain in 5F. Search Console has no favicon report — if the site
-itself is missing there, it is an indexing matter (URL Inspection → Request
-indexing, and check the sitemap is submitted), not an icon one.
+**Then we looked at the actual result** (2026-10-25, in Google and in Search
+Console) and the code was never the problem:
+
+- The result for "jamavat software" is there, first organic — titled
+  correctly, crawled two days before. It is **not** deindexed; `site:` returns
+  every page.
+- But the result is labelled **"Vercel"** and carries **Vercel's triangle
+  icon**. The owner then showed the result for their other site
+  (`labospare.vercel.app` → LaboSphere), which proved half of that wrong and
+  is worth writing down: it is labelled "Vercel" too, **but it shows its own
+  logo**. So on a `*.vercel.app` subdomain the *site name* comes from the host
+  and only a custom domain fixes it — the *favicon* is ours to win.
+
+  Comparing the two, the icon that Google shows differs in exactly two ways:
+
+  | | LaboSphere (icon shows) | Jamavat (it didn't) |
+  |---|---|---|
+  | `/favicon.ico` | 16, 32, 48, 64, 128, **256** in one file (108KB) | 16, 32, 48 only (4KB) |
+  | Icon URL | stable since early October | **changed on every deploy** until the fix above |
+  | PNG `rel="icon"` | 16, 32, 48, 96, 192 | 48, 192 |
+
+  Both are now matched: `public/favicon.ico` carries 16 → 192 (rebuilt by
+  `scripts/make-favicon.py`, committed) and 96px is offered as a PNG as well.
+  Google re-reads a favicon when it next crawls the home page, so this is a
+  wait-and-see, not an instant change.
+- Search Console (property added 19 Oct): sitemap read successfully, 8 pages
+  discovered; 28 days = 20 impressions, 10 clicks, average position 26 — and
+  the only queries with impressions are `site:vercel.app`, `site:vercel.app
+  free`, `site:vercel.app demo`. The site ranks for nothing of its own yet,
+  which at three weeks old with no links is what you would expect.
+- One real gap found by comparing the two: the public pages set no
+  `max-image-preview`, so Google may not put a thumbnail beside the result.
+  `siteMetadata` now sends `googleBot: max-image-preview: large` (plus
+  `max-snippet: -1`), which is what the other site has.
+
+So the favicon in results, the site name, and ranking for anything that isn't
+"vercel.app" all wait on the same thing: the custom domain in 5F. The .ico fix
+above is still right — it is what makes the icon correct once the domain is
+Jamavat's own.
 
 ## GST on bills (2026-10-23)
 
@@ -242,15 +275,74 @@ a bill is items minus discount and the email says it is an order summary.
   three numbers always tally.
 - The rate, the mode and the amount are **stored on the bill**: changing the
   rate next month never rewrites an invoice already sent.
-- The guest's cart and order screen say "GST x% is added at the counter"
-  rather than quoting a figure — the tax lands on the table's whole bill at
-  settle, not on one order.
+- The guest sees the figure, not a promise: the cart bar names it
+  ("3 items · + ₹38 GST"), the cart screen breaks it out (item total → CGST +
+  SGST or IGST → to pay) and the order screen does the same on the sitting's
+  running total, which is the base the counter actually settles. A first
+  version only said "GST is added at the counter" — the owner's point was that
+  a guest then hears "₹238" at the counter having last read "₹200".
 - The email only calls itself a **tax invoice** once a GSTIN is saved. Without
   the number on it, it isn't one.
 - **Reports are unchanged:** `Bill.total` is what the guest paid, GST
   included, so "sales" is the money that came in. Turnover net of GST (and a
   GST report for the accountant) is a separate job — `Bill.taxAmount` is
   stored for it.
+
+## Pages that bring leads (2026-10-25)
+
+Four new public pages, in both languages, built on the same `KEYWORD_PAGES`
+entry → route → sitemap → tracked-path machinery as the first four (so each
+one is in `sitemap.xml`, the footer, the Website tab's counters and its
+siblings' related links automatically):
+
+| Path | The search behind it |
+|---|---|
+| `/restaurant-bill-format` | "restaurant bill format" — owners looking for a template are restaurant owners; the page answers the question and then shows the bill building itself |
+| `/kot-format` | "KOT format" — what belongs on a kitchen order ticket, and why ours is a screen |
+| `/gst-invoice-for-restaurant` | "GST invoice format restaurant" — the rate, the CGST/SGST split, the GSTIN, and plainly what Jamavat does *not* do (file returns) |
+| `/restaurant-software-surat` | Local intent, which is where the first customers actually come from |
+
+The pattern is borrowed from the owner's other site (`SEO.md` there): its
+report-format pages are what brings it traffic, because people search for the
+document, not for software.
+
+Also: a keyword page's demo section now carries the **WhatsApp and phone
+buttons** the home page always had. Someone landing from a search had a form
+and nothing else, and a restaurant owner answers WhatsApp long before he fills
+in a form. Related links are capped at three — eight cards at the foot of
+every page was a sitemap with rounded corners.
+
+Still Google's half, and not automatable from here: the new URLs need
+requesting in Search Console, and ranking for anything that isn't
+"vercel.app" still waits on the custom domain (5F).
+
+## Outbound leads, and selling in Surat (2026-10-25)
+
+The website brings inquiries; the first customers come from walking into
+restaurants. HQ's Inquiries tab is now **Leads** and does both:
+
+- **Add a lead** — restaurant, phone, area, tables, what they said, and the
+  day to come back. Same `Inquiry` row as a website demo request (one
+  pipeline, not two) and the same phone de-dupe, so walking into a place that
+  already asked for a demo updates that row instead of starting a second one.
+  The restaurant's name is the required field, not a person's: on the road you
+  have the board over the door long before you have the owner's name.
+- **Due** tab — everything still open whose follow-up day has come, oldest
+  first. That is the morning list.
+- **WhatsApp** on every lead opens the chat with a ગુજરાતી pitch already
+  written. It never sends anything by itself — the link opens WhatsApp and the
+  owner presses send.
+
+Two documents go with it, both for the owner rather than for the code:
+
+- `MARKETING_VIDEO.md` — the reference video, shot by shot, with narration in
+  English and ગુજરાતી, plus a 45-second WhatsApp cut. One screen recording,
+  two audio tracks.
+- `SALES_SURAT.md` — who to walk into first (8+ tables, two kitchens, no POS,
+  owner on the floor), a starter list of real Surat restaurants by area, how
+  to pull their numbers off Google Maps, the doorstep script, the four
+  objections with honest answers, and the follow-up rhythm. Deliberately no
+  phone numbers in the file — stale directory numbers are worse than none.
 
 ## Known non-blocking items
 

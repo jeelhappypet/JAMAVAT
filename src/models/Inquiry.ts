@@ -27,6 +27,13 @@ const inquirySchema = new Schema(
     notes: { type: String, trim: true },
     restaurantId: { type: Schema.Types.ObjectId, ref: "Restaurant" },
 
+    /**
+     * The day HQ means to come back to this one. Website inquiries get it
+     * when HQ sets it; a lead HQ added itself usually gets it straight away,
+     * because the whole job of outbound selling is the second call.
+     */
+    followUpAt: { type: Date },
+
     /** Which page and campaign the form was filled from, for knowing what works. */
     source: { type: String, trim: true },
     utm: { type: Map, of: String },
@@ -40,6 +47,8 @@ const inquirySchema = new Schema(
 inquirySchema.index({ status: 1, createdAt: -1 });
 inquirySchema.index({ createdAt: -1 });
 inquirySchema.index({ phoneKey: 1, status: 1 });
+// "What do I have to do today" — the list HQ opens in the morning.
+inquirySchema.index({ followUpAt: 1, status: 1 });
 
 export type InquiryDocument = InferSchemaType<typeof inquirySchema> & { _id: Types.ObjectId; createdAt: Date };
 

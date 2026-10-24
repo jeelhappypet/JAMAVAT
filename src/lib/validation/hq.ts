@@ -150,4 +150,11 @@ export const planSchema = z.object({
 export const updateInquirySchema = z.object({
   status: z.enum(INQUIRY_STATUSES).optional(),
   notes: optional(1000),
+  /** YYYY-MM-DD, or "" to clear it. */
+  followUpAt: z
+    .string()
+    .trim()
+    .max(10)
+    .optional()
+    .refine((value) => value === undefined || value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value), "Pick a date"),
 });

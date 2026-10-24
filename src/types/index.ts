@@ -160,6 +160,8 @@ export interface InquiryDTO {
   lang: "en" | "gu";
   createdAt: string;
   contactedAt?: string;
+  /** The day HQ means to go back to this one (YYYY-MM-DD at the day's start). */
+  followUpAt?: string;
 }
 
 export interface StaffDTO {

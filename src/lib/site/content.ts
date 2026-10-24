@@ -615,6 +615,198 @@ export const KEYWORD_PAGES: KeywordPage[] = [
       },
     ],
   },
+  {
+    slug: "restaurant-bill-format",
+    label: L("Restaurant bill format", "રેસ્ટોરન્ટ બિલ ફોર્મેટ"),
+    title: L("Restaurant bill format: what a dine-in bill must show", "રેસ્ટોરન્ટ બિલ ફોર્મેટ: ડાઇન-ઇન બિલમાં શું હોવું જોઈએ"),
+    description: L(
+      "The lines a restaurant bill needs — dishes, quantity, discount, GST and the total — and how Jamavat builds one from the table's own orders.",
+      "રેસ્ટોરન્ટના બિલમાં જે લીટીઓ જોઈએ — વાનગી, નંગ, ડિસ્કાઉન્ટ, GST અને કુલ — અને જમાવટ એ બિલ ટેબલના ઓર્ડરમાંથી જાતે કેવી રીતે બનાવે છે."
+    ),
+    eyebrow: L("Bill format", "બિલ ફોર્મેટ"),
+    teaser: L("Every line a dine-in bill needs, and who fills each one in.", "ડાઇન-ઇન બિલની દરેક લીટી, અને એ કોણ ભરે છે."),
+    heading: L("A dine-in bill that writes itself from the table's orders", "ટેબલના ઓર્ડરમાંથી જાતે બનતું ડાઇન-ઇન બિલ"),
+    intro: L(
+      "A restaurant bill is not a form to fill in — it is a record of what that table ate. The fields are always the same: the restaurant's name and address, the bill number, the table, the date and time, then each dish with its quantity and amount, the discount if any, GST if you charge it, and what the guest actually pays. Jamavat fills every one of them from the orders that table already sent to the kitchen.",
+      "રેસ્ટોરન્ટનું બિલ ભરવાનું ફોર્મ નથી — એ તો ટેબલે શું જમ્યું તેની નોંધ છે. લીટીઓ હંમેશાં એ જ હોય: રેસ્ટોરન્ટનું નામ અને સરનામું, બિલ નંબર, ટેબલ, તારીખ-સમય, પછી દરેક વાનગી તેના નંગ અને રકમ સાથે, ડિસ્કાઉન્ટ હોય તો એ, GST લેતા હો તો એ, અને ગ્રાહક ખરેખર જેટલું ચૂકવે એ રકમ. જમાવટ આ બધી લીટીઓ એ જ ઓર્ડરમાંથી ભરે છે જે ટેબલે કિચનમાં મોકલ્યા હતા."
+    ),
+    image: "/site/hero-counter.png",
+    imageShape: "screen",
+    imageAlt: L("The counter's bill for one table, ready to settle", "એક ટેબલનું બિલ, કાઉન્ટર પર સેટલ કરવા તૈયાર"),
+    highlights: [
+      L("Dish, quantity and amount per line", "દરેક લીટીમાં વાનગી, નંગ અને રકમ"),
+      L("Discount before tax, never after", "ટેક્સ પહેલાં ડિસ્કાઉન્ટ, પછી નહીં"),
+      L("Bill numbers run on across days", "બિલ નંબર રોજેરોજ આગળ વધે"),
+      L("One bill per sitting, not per order", "એક બેઠકનું એક બિલ, ઓર્ડર દીઠ નહીં"),
+    ],
+    sections: [
+      {
+        heading: L("What the bill has to show", "બિલમાં શું હોવું જોઈએ"),
+        body: L(
+          "Your name, address and phone at the top; the bill number, table and time next to them; then the dishes. Repeat orders of the same dish become one line with the quantity added up, so a table that ordered rotli three times reads as one line, not three.",
+          "ઉપર તમારું નામ, સરનામું અને ફોન; તેની સાથે બિલ નંબર, ટેબલ અને સમય; પછી વાનગીઓ. એક જ વાનગી વારંવાર મંગાવી હોય તો એની એક જ લીટી બને અને નંગ ઉમેરાઈ જાય — ત્રણ વાર રોટલી મંગાવી હોય તો એક લીટી, ત્રણ નહીં."
+        ),
+      },
+      {
+        heading: L("Discount, then GST, then the total", "ડિસ્કાઉન્ટ, પછી GST, પછી કુલ"),
+        body: L(
+          "The order matters. The discount comes off the items total, and GST is worked out on what is left — not on the amount before the discount. Jamavat does it in that order and shows all three lines, so the guest can see where the figure came from.",
+          "ક્રમ મહત્ત્વનો છે. ડિસ્કાઉન્ટ વાનગીઓના કુલમાંથી બાદ થાય, અને GST બાકી રહેલી રકમ પર ગણાય — ડિસ્કાઉન્ટ પહેલાંની રકમ પર નહીં. જમાવટ આ જ ક્રમમાં ગણે છે અને ત્રણેય લીટી બતાવે છે, જેથી ગ્રાહકને ખબર પડે કે આંકડો ક્યાંથી આવ્યો."
+        ),
+      },
+      {
+        heading: L("One bill per sitting", "એક બેઠકનું એક બિલ"),
+        body: L(
+          "A table that orders four times gets one bill, not four. The bill stays open while they eat and closes when the counter settles it — and two people settling the same table at the same moment still produce one bill, with a number that never repeats.",
+          "ચાર વાર ઓર્ડર આપનાર ટેબલનું એક જ બિલ બને, ચાર નહીં. જમતાં હોય ત્યાં સુધી બિલ ખુલ્લું રહે અને કાઉન્ટર સેટલ કરે ત્યારે બંધ થાય — અને બે જણ એકસાથે એ જ ટેબલ સેટલ કરે તોય બિલ એક જ બને, એવા નંબર સાથે જે ફરી ન આવે."
+        ),
+      },
+    ],
+  },
+  {
+    slug: "kot-format",
+    label: L("KOT format", "KOT ફોર્મેટ"),
+    title: L("KOT format: what a kitchen order ticket should show", "KOT ફોર્મેટ: કિચન ઓર્ડર ટિકિટમાં શું હોવું જોઈએ"),
+    description: L(
+      "A kitchen order ticket needs the token, the table, the dishes with quantity and the cooking note — on a screen each kitchen can mark ready item by item.",
+      "કિચન ઓર્ડર ટિકિટમાં ટોકન, ટેબલ, નંગ સાથે વાનગીઓ અને રસોઈ નોંધ જોઈએ — એવી સ્ક્રીન પર જ્યાં દરેક કિચન વાનગી પ્રમાણે તૈયાર નોંધે."
+    ),
+    eyebrow: L("KOT format", "KOT ફોર્મેટ"),
+    teaser: L("The ticket the kitchen reads, and what belongs on it.", "કિચન જે ટિકિટ વાંચે છે, અને એમાં શું હોવું જોઈએ."),
+    heading: L("The kitchen's ticket, on a screen instead of a chit", "ચિઠ્ઠીની જગ્યાએ સ્ક્રીન પર કિચનની ટિકિટ"),
+    intro: L(
+      "A KOT — kitchen order ticket — is the slip that tells a kitchen what to cook. It needs four things and nothing else: which order it is (the token), where it goes (the table), what to make (dish and quantity) and anything the guest asked for. Everything else on a printed chit is there because paper cannot change once it is torn off.",
+      "KOT — કિચન ઓર્ડર ટિકિટ — એ ચિઠ્ઠી છે જે કિચનને કહે છે કે શું રાંધવાનું છે. એમાં ચાર જ વસ્તુ જોઈએ: કયો ઓર્ડર (ટોકન), ક્યાં જવાનો (ટેબલ), શું બનાવવાનું (વાનગી અને નંગ) અને ગ્રાહકે કંઈ કહ્યું હોય તે. છાપેલી ચિઠ્ઠી પરનું બાકીનું બધું એટલા માટે હોય છે કે કાગળ ફાટી ગયા પછી બદલાતો નથી."
+    ),
+    image: "/site/hero-kitchen.png",
+    imageShape: "screen",
+    imageAlt: L("Kitchen tickets on a screen, newest first", "સ્ક્રીન પર કિચનની ટિકિટો, નવી પહેલાં"),
+    highlights: [
+      L("Token and table on every ticket", "દરેક ટિકિટ પર ટોકન અને ટેબલ"),
+      L("Only this kitchen's dishes", "ફક્ત આ કિચનની વાનગીઓ"),
+      L("The guest's cooking note, as written", "ગ્રાહકની રસોઈ નોંધ, જેમ લખી તેમ"),
+      L("A sound when a new one arrives", "નવી આવે ત્યારે અવાજ"),
+    ],
+    sections: [
+      {
+        heading: L("Four fields, in this order", "ચાર ખાનાં, આ જ ક્રમમાં"),
+        body: L(
+          "Token number first — it is what the counter calls out. Then the table, so a runner knows where it goes. Then the dishes with quantities. The cooking note goes last, under the dishes, where a cook reads it after knowing what to make.",
+          "પહેલાં ટોકન નંબર — કાઉન્ટર એ જ પોકારે છે. પછી ટેબલ, જેથી લઈ જનારને ખબર પડે ક્યાં જવાનું. પછી નંગ સાથે વાનગીઓ. રસોઈ નોંધ છેલ્લે, વાનગીઓની નીચે — જ્યાં રસોઇયો શું બનાવવાનું એ જાણ્યા પછી વાંચે."
+        ),
+      },
+      {
+        heading: L("A chit for each kitchen, from one order", "એક ઓર્ડરમાંથી દરેક કિચનની પોતાની ચિઠ્ઠી"),
+        body: L(
+          "One table's order usually belongs to more than one kitchen. Jamavat splits it by category, so the Gujarati screen gets a ticket with only the Gujarati dishes on it and the Punjabi screen gets its own — the same order, read twice, with nothing to skip past.",
+          "એક ટેબલનો ઓર્ડર મોટે ભાગે એકથી વધુ કિચનનો હોય છે. જમાવટ એને કેટેગરી પ્રમાણે વહેંચે છે — ગુજરાતી સ્ક્રીન પર ફક્ત ગુજરાતી વાનગીવાળી ટિકિટ, પંજાબી સ્ક્રીન પર એની પોતાની. એક જ ઓર્ડર, બે વાર વંચાય, વચ્ચે કશું કૂદવાનું નહીં."
+        ),
+      },
+      {
+        heading: L("Why no printer", "પ્રિન્ટર કેમ નહીં"),
+        body: L(
+          "A printed chit cannot be corrected, cannot say it is twelve minutes old, and cannot be marked ready. The screen does all three: tickets age in front of the cook, a cancelled order disappears, and each kitchen taps its own dishes done.",
+          "છાપેલી ચિઠ્ઠી સુધારી શકાતી નથી, પોતે બાર મિનિટ જૂની છે એમ કહી શકતી નથી, અને તૈયાર નોંધી શકાતી નથી. સ્ક્રીન ત્રણેય કરે છે: ટિકિટની ઉંમર રસોઇયા સામે દેખાય, રદ થયેલો ઓર્ડર હટી જાય, અને દરેક કિચન પોતાની વાનગી તૈયાર નોંધે."
+        ),
+      },
+    ],
+  },
+  {
+    slug: "gst-invoice-for-restaurant",
+    label: L("GST invoice for restaurants", "રેસ્ટોરન્ટ માટે GST ઇન્વૉઇસ"),
+    title: L("GST invoice for a restaurant: CGST, SGST and the bill", "રેસ્ટોરન્ટ માટે GST ઇન્વૉઇસ: CGST, SGST અને બિલ"),
+    description: L(
+      "How GST sits on a restaurant bill: the rate on the amount after discount, CGST and SGST as half each, your GSTIN on the invoice — worked out at settle.",
+      "રેસ્ટોરન્ટના બિલ પર GST કેવી રીતે બેસે: ડિસ્કાઉન્ટ પછીની રકમ પર દર, CGST અને SGST અડધા-અડધા, ઇન્વૉઇસ પર તમારો GSTIN — સેટલ વખતે ગણાઈ જાય."
+    ),
+    eyebrow: L("GST on the bill", "બિલ પર GST"),
+    teaser: L("The rate, the split, and where the GSTIN goes.", "દર, વિભાજન, અને GSTIN ક્યાં આવે."),
+    heading: L("GST that is worked out once, at the counter", "કાઉન્ટર પર એક જ વાર ગણાતો GST"),
+    intro: L(
+      "If you charge GST, the bill has to show it as its own line — not folded into the dish prices. Jamavat asks for the rate once in Settings, and from then on every bill shows the items total, the tax, and what the guest pays. Switch it off and the bill is exactly what it was before: items minus discount.",
+      "જો તમે GST લેતા હો, તો બિલમાં એ પોતાની અલગ લીટીમાં દેખાવો જોઈએ — વાનગીના ભાવમાં ભેળવેલો નહીં. જમાવટ સેટિંગમાં એક વાર દર પૂછે છે, અને પછી દરેક બિલમાં વાનગીઓનો કુલ, ટેક્સ અને ગ્રાહક જેટલું ચૂકવે એ દેખાય છે. બંધ કરી દો તો બિલ પહેલાં જેવું જ — વાનગીઓ ઓછું ડિસ્કાઉન્ટ."
+    ),
+    image: "/site/hero-counter.png",
+    imageShape: "screen",
+    imageAlt: L("The counter's bill, where the tax is added before settling", "કાઉન્ટરનું બિલ, જ્યાં સેટલ કરતાં પહેલાં ટેક્સ ઉમેરાય છે"),
+    highlights: [
+      L("One rate, set once in Settings", "એક દર, સેટિંગમાં એક વાર"),
+      L("CGST + SGST, or IGST as one line", "CGST + SGST, કે એક લીટીમાં IGST"),
+      L("Tax on the amount after discount", "ડિસ્કાઉન્ટ પછીની રકમ પર ટેક્સ"),
+      L("GSTIN printed on the emailed invoice", "ઇમેઇલ ઇન્વૉઇસ પર GSTIN"),
+    ],
+    sections: [
+      {
+        heading: L("CGST and SGST, half each", "CGST અને SGST, અડધા-અડધા"),
+        body: L(
+          "A guest from your own state pays the rate as two halves — CGST and SGST — and both belong on the invoice as separate lines. Jamavat rounds each half to the rupee and adds them up, so the two halves and the total always agree. Across states it is IGST instead, as one line at the full rate.",
+          "તમારા જ રાજ્યનો ગ્રાહક દર બે ભાગમાં ચૂકવે છે — CGST અને SGST — અને બંને ઇન્વૉઇસ પર અલગ લીટીમાં હોવા જોઈએ. જમાવટ દરેક અડધો ભાગ રૂપિયામાં રાઉન્ડ કરીને સરવાળો કરે છે, એટલે બે ભાગ અને કુલ હંમેશાં મળતા આવે. બીજા રાજ્ય માટે IGST — આખા દરની એક જ લીટી."
+        ),
+      },
+      {
+        heading: L("The guest sees it before the counter does", "કાઉન્ટર પહેલાં ગ્રાહકને દેખાય"),
+        body: L(
+          "The tax is on the guest's own screen while they are still ordering: dishes, GST, and what it comes to. A guest who read ₹400 on their phone and hears ₹420 at the counter argues about ₹20 — and about everything else after that.",
+          "ગ્રાહક ઓર્ડર આપતો હોય ત્યારે જ એની સ્ક્રીન પર ટેક્સ દેખાય છે: વાનગીઓ, GST, અને કુલ કેટલું થયું. જે ગ્રાહકે ફોન પર ₹400 વાંચ્યા હોય અને કાઉન્ટર પર ₹420 સાંભળે, એ ₹20 માટે દલીલ કરે — અને પછી બાકીના બધા માટે પણ."
+        ),
+      },
+      {
+        heading: L("What Jamavat does not do", "જમાવટ શું નથી કરતું"),
+        body: L(
+          "It puts GST on the bill and keeps the rate, the split and the amount with that bill, so a rate you change next month never rewrites an invoice already sent. It does not file your returns and it is not your accountant — your CA still files, from figures that now add up.",
+          "એ બિલ પર GST મૂકે છે અને દર, વિભાજન તથા રકમ એ જ બિલ સાથે સાચવે છે — એટલે આવતા મહિને તમે દર બદલો તોય મોકલાયેલું ઇન્વૉઇસ બદલાતું નથી. એ તમારું રિટર્ન ભરતું નથી અને તમારો CA નથી — રિટર્ન તો તમારા CA જ ભરશે, પણ હવે મળતા આવતા આંકડા પરથી."
+        ),
+      },
+    ],
+  },
+  {
+    slug: "restaurant-software-surat",
+    label: L("Restaurant software in Surat", "સુરતમાં રેસ્ટોરન્ટ સોફ્ટવેર"),
+    title: L("Restaurant billing & QR ordering software in Surat", "સુરતમાં રેસ્ટોરન્ટ બિલિંગ અને QR ઓર્ડરિંગ સોફ્ટવેર"),
+    description: L(
+      "QR table ordering, kitchen screens and billing for Surat restaurants — Gujarati and English, set up at your tables in Adajan, Vesu, Ring Road or Varachha.",
+      "સુરતની રેસ્ટોરન્ટ માટે QR ટેબલ ઓર્ડરિંગ, કિચન સ્ક્રીન અને બિલિંગ — ગુજરાતી અને English, અડાજણ, વેસુ, રિંગ રોડ કે વરાછામાં તમારા ટેબલ પર સેટ કરી આપીએ."
+    ),
+    eyebrow: L("Surat", "સુરત"),
+    teaser: L("Set up at your tables, in Gujarati, by someone in Surat.", "તમારા ટેબલ પર, ગુજરાતીમાં, સુરતના જ માણસ દ્વારા સેટ."),
+    heading: L("For a Surat restaurant, in the language your guests read", "સુરતની રેસ્ટોરન્ટ માટે, તમારા ગ્રાહકની ભાષામાં"),
+    intro: L(
+      "Most restaurant software is built for a chain in a metro and translated afterwards, if at all. Jamavat is built in Surat for the restaurants here: a thali hall with two kitchens, a family multi-cuisine place on Ring Road, a dining hall that fills up between one and three. Your guests read the menu in ગુજરાતી or English, whichever they tap, and your staff work the same way they already do.",
+      "મોટા ભાગનું રેસ્ટોરન્ટ સોફ્ટવેર મેટ્રોની ચેઇન માટે બને છે અને ભાષાંતર પછી થાય છે — થાય તો. જમાવટ સુરતમાં, અહીંની રેસ્ટોરન્ટ માટે બન્યું છે: બે કિચનવાળો થાળી હૉલ, રિંગ રોડ પરની ફેમિલી મલ્ટિ-ક્વિઝીન જગ્યા, એકથી ત્રણ વાગ્યે ભરાઈ જતો ડાઇનિંગ હૉલ. તમારા ગ્રાહક મેનુ ગુજરાતી કે English — જે દબાવે એમાં વાંચે, અને તમારો સ્ટાફ જેમ કામ કરે છે એમ જ કરે."
+    ),
+    image: "/site/hero-guest-menu.png",
+    imageShape: "phone",
+    imageAlt: L("The guest menu on a phone, in Gujarati", "ફોન પર ગુજરાતીમાં ગ્રાહકનું મેનુ"),
+    highlights: [
+      L("Gujarati and English, dish by dish", "ગુજરાતી અને English, વાનગી પ્રમાણે"),
+      L("Thali halls with two kitchens", "બે કિચનવાળા થાળી હૉલ"),
+      L("We come and set it up", "અમે આવીને સેટ કરી આપીએ"),
+      L("A week on two tables, free", "બે ટેબલ પર એક અઠવાડિયું, મફત"),
+    ],
+    sections: [
+      {
+        heading: L("Built for how Surat eats", "સુરત જેમ જમે છે એ પ્રમાણે"),
+        body: L(
+          "An unlimited thali, a Punjabi counter and a live Chinese counter under one roof is normal here and awkward for software built elsewhere. Jamavat routes each dish to the kitchen that cooks it, and the guest who asks for one more rotli sends it from the phone already in their hand.",
+          "અનલિમિટેડ થાળી, પંજાબી કાઉન્ટર અને લાઇવ ચાઇનીઝ કાઉન્ટર — એક જ છત નીચે. અહીં આ સામાન્ય છે, અને બીજે બનેલા સોફ્ટવેર માટે અઘરું. જમાવટ દરેક વાનગી એ જ કિચનમાં મોકલે છે જે એને બનાવે છે, અને વધુ એક રોટલી માગતો ગ્રાહક હાથમાં રહેલા ફોનથી જ એ મોકલે છે."
+        ),
+      },
+      {
+        heading: L("Set up at your own tables", "તમારા પોતાના ટેબલ પર સેટ"),
+        body: L(
+          "We put your real menu in, print the QRs for two tables and stay while the first few orders go through — Adajan, Vesu, Piplod, Ring Road, Varachha, Katargam. Not a form on a website and a login mailed to you.",
+          "અમે તમારું સાચું મેનુ નાખીએ, બે ટેબલના QR છાપીએ અને પહેલા થોડા ઓર્ડર પસાર થાય ત્યાં સુધી સાથે રહીએ — અડાજણ, વેસુ, પીપલોદ, રિંગ રોડ, વરાછા, કતારગામ. વેબસાઇટ પરનું ફોર્મ અને ઇમેઇલમાં આવતું લોગિન નહીં."
+        ),
+      },
+      {
+        heading: L("Try it on two tables first", "પહેલાં બે ટેબલ પર અજમાવો"),
+        body: L(
+          "Keep your menu cards and your chits. Put the QR on two tables for a week and see what the guests do with it. If it does not earn its place in that week, nothing changes and nothing is owed.",
+          "તમારા મેનુ કાર્ડ અને ચિઠ્ઠીઓ રાખો જ. એક અઠવાડિયા માટે બે ટેબલ પર QR મૂકો અને જુઓ કે ગ્રાહક શું કરે છે. એ અઠવાડિયામાં જો એ પોતાની જગ્યા ન બનાવે, તો કશું બદલવાનું નથી અને કશું ચૂકવવાનું નથી."
+        ),
+      },
+    ],
+  },
 ];
 
 export function keywordPage(slug: string): KeywordPage | undefined {

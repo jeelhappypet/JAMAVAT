@@ -8,9 +8,9 @@ const OG_IMAGE = { url: `${siteOrigin()}/site/og.png`, width: 1200, height: 630,
 
 /**
  * Metadata for one public page in one language: its own canonical, hreflang
- * to the other language, and the Open Graph / Twitter card. `title` goes
- * through the root layout's "%s · Jamavat" template unless `absoluteTitle`
- * (the home page leads with the brand instead).
+ * to the other language, the Open Graph / Twitter card, and the crawl limits
+ * below. `title` goes through the root layout's "%s · Jamavat" template
+ * unless `absoluteTitle` (the home page leads with the brand instead).
  */
 export function siteMetadata({
   lang,
@@ -35,6 +35,19 @@ export function siteMetadata({
     title: absoluteTitle ? { absolute: title } : title,
     description,
     alternates: hasGujarati ? alternates : { canonical: alternates.canonical },
+    /**
+     * Indexing is the default, so this line is really about the three limits
+     * after it: without `max-image-preview: large` Google will not put a
+     * picture next to the result, and a search result with a screenshot of
+     * the product beside it is a different thing to look at than four lines
+     * of text. `-1` lifts the snippet and video caps for the same reason.
+     * (The app and the guest pages set `noindex` of their own.)
+     */
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 },
+    },
     openGraph: {
       title: fullTitle,
       description,

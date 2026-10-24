@@ -8,6 +8,7 @@ import { Alert } from "@/components/ui/Alert";
 import { TextArea } from "@/components/ui/TextField";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { localName } from "@/lib/i18n/messages";
+import { billTotals, halfPercent } from "@/lib/gst";
 import type { GstSettingsDTO, GuestStateDTO, MenuDTO } from "@/types";
 
 interface GuestCartViewProps {
@@ -32,6 +33,10 @@ interface GuestCartViewProps {
 /** "2 · Cart" artboard: dishes grouped by the kitchen (menu) they go to, plus the cooking note. */
 export function GuestCartView({ restaurantName, state, gst, menus, cart, note, onNote, onQty, count, total, placing, error, onBack, onPlace, onForget }: GuestCartViewProps) {
   const { t, lang } = useI18n();
+  // The same arithmetic the counter settles with, so the guest reads the
+  // figure they will be asked for — "₹200 + ₹38" rather than a promise that
+  // GST happens later.
+  const { tax, total: toPay } = billTotals(total, 0, gst);
 
   const groups = menus
     .map((menu) => ({
@@ -95,14 +100,29 @@ export function GuestCartView({ restaurantName, state, gst, menus, cart, note, o
                 <span>{t("guest.itemTotal")}</span>
                 <span>₹{total}</span>
               </div>
+              {tax ? (
+                tax.mode === "CGST_SGST" ? (
+                  <>
+                    <div className="flex justify-between text-sm text-text-muted">
+                      <span>{t("tax.cgst", { p: halfPercent(tax.percent) })}</span>
+                      <span>₹{tax.cgst}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-text-muted">
+                      <span>{t("tax.sgst", { p: halfPercent(tax.percent) })}</span>
+                      <span>₹{tax.sgst}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-sm text-text-muted">
+                    <span>{t("tax.igst", { p: tax.percent })}</span>
+                    <span>₹{tax.amount}</span>
+                  </div>
+                )
+              ) : null}
               <div className="flex justify-between border-t border-dashed border-border pt-2.5 text-[17px] font-extrabold">
                 <span>{t("guest.toPay")}</span>
-                <span>₹{total}</span>
+                <span>₹{toPay}</span>
               </div>
-              {/* The tax goes on the whole table's bill at the counter, not on
-                  this one order — so this says what will happen rather than
-                  quoting a figure for a bill that isn't finished. */}
-              {gst.enabled && gst.percent > 0 ? <span className="text-[13px] text-text-muted">{t("tax.guestNote", { p: gst.percent })}</span> : null}
             </section>
 
             <Alert tone="warning">
@@ -131,7 +151,7 @@ export function GuestCartView({ restaurantName, state, gst, menus, cart, note, o
             </p>
           ) : null}
           <Button size="xl" fullWidth onClick={onPlace} disabled={placing}>
-            {placing ? t("guest.placing") : t("guest.placeOrder", { total })}
+            {placing ? t("guest.placing") : t("guest.placeOrder", { total: toPay })}
           </Button>
         </div>
       ) : null}

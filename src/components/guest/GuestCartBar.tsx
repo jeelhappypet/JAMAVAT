@@ -1,6 +1,8 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { billTax } from "@/lib/gst";
+import type { GstSettingsDTO } from "@/types";
 
 /**
  * The bar pinned to the bottom of the guest's menu: what's in the cart and
@@ -13,8 +15,12 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
  * outside, and unprefixed utilities are settled by stylesheet order, not by
  * the caller — see CLAUDE.md).
  */
-export function GuestCartBar({ count, total, onOpen }: { count: number; total: number; onOpen: () => void }) {
+export function GuestCartBar({ count, total, gst, onOpen }: { count: number; total: number; gst: GstSettingsDTO; onOpen: () => void }) {
   const { t } = useI18n();
+  // The bar's big figure stays the dish prices added up — that is what the
+  // guest just picked. The tax is named next to it so the total on the cart
+  // screen is not a surprise.
+  const tax = billTax(total, gst);
 
   return (
     // max() keeps the bar clear of the home indicator when the guest page runs as an installed app.
@@ -26,7 +32,10 @@ export function GuestCartBar({ count, total, onOpen }: { count: number; total: n
           className="animate-line-in flex min-h-[60px] w-full items-center justify-between gap-3 rounded-2xl bg-brand px-[18px] py-3 text-white shadow-[0_10px_24px_rgba(154,52,18,0.32)] transition-colors active:bg-brand-dark"
         >
           <span className="flex flex-col items-start">
-            <span className="text-[13px] font-semibold">{count === 1 ? t("guest.itemsOne") : t("guest.items", { n: count })}</span>
+            <span className="text-[13px] font-semibold">
+              {count === 1 ? t("guest.itemsOne") : t("guest.items", { n: count })}
+              {tax ? ` · ${t("tax.plus", { amount: `₹${tax.amount}` })}` : ""}
+            </span>
             <span className="text-[19px] font-extrabold">₹{total}</span>
           </span>
           <span className="flex items-center gap-1.5 text-base font-extrabold">
