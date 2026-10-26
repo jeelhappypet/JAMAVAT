@@ -17,6 +17,8 @@ export type SendFailure =
   | "rate"
   /** The template is missing, paused for poor quality, or the parameters don't match it (132xxx). */
   | "template"
+  /** One of Meta's own demo templates, which only its test number may send (131058). */
+  | "sample"
   | "timeout"
   | "other";
 
@@ -30,6 +32,7 @@ function categorise(code: number | undefined, subcode: number | undefined, httpS
   // 100/33: the token can't see this phone number or account (granted for another WABA).
   if (code === 190 || code === 10 || code === 200 || code === 131005 || httpStatus === 401 || (code === 100 && subcode === 33)) return "auth";
   if (code === 4 || code === 80007 || code === 130429 || code === 131056 || httpStatus === 429) return "rate";
+  if (code === 131058) return "sample";
   // 132000-132016: template missing, parameters that don't match it, or one
   // Meta has paused or disabled because its quality rating fell.
   if (code !== undefined && code >= 132000 && code <= 132099) return "template";
@@ -159,6 +162,10 @@ export async function listTemplates(config: WhatsAppSendConfig, wabaId: string):
   if (!result.ok) return [];
   const data = result.data as { data?: { name: string; status: string; language: string; category?: string; components?: { type: string; text?: string }[] }[] };
   return (data.data ?? [])
+    // Meta's demo templates (hello_world and the jaspers_market samples) are
+    // approved but can only be sent from its public test number — offering
+    // them here is a button that always fails with a 131058.
+    .filter((one) => one.name !== "hello_world" && !one.name.startsWith("jaspers_market"))
     .map((one) => {
       const body = one.components?.find((part) => part.type === "BODY")?.text ?? "";
       return { name: one.name, language: one.language, status: one.status, category: one.category, body, params: new Set(body.match(/\{\{\d+\}\}/g) ?? []).size };

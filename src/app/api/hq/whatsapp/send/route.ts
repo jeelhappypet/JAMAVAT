@@ -41,6 +41,7 @@ const FAILURES: Record<SendFailure, { message: string; status: number }> = {
   auth: { message: "WhatsApp refused our access. Check the token and permissions in Meta.", status: 502 },
   rate: { message: "WhatsApp is limiting messages right now. Try again in a minute.", status: 429 },
   template: { message: "WhatsApp refused the template. Check it is approved and that the placeholders match.", status: 502 },
+  sample: { message: "That is one of Meta's demo templates — it only works from their test number, never from yours. Use one of your own approved templates.", status: 400 },
   timeout: { message: "WhatsApp didn't answer in time. Check the chat before sending again.", status: 504 },
   other: { message: "The message couldn't be sent.", status: 502 },
 };

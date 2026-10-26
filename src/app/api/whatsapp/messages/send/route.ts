@@ -20,6 +20,7 @@ const FAILURES: Record<SendFailure, { key: MessageKey; status: number }> = {
   auth: { key: "wa.err.metaAuth", status: 502 },
   rate: { key: "wa.err.rateLimited", status: 429 },
   template: { key: "wa.err.templateRejected", status: 502 },
+  sample: { key: "wa.err.sampleTemplate", status: 400 },
   timeout: { key: "wa.err.timeout", status: 504 },
   other: { key: "wa.err.sendFailed", status: 502 },
 };
