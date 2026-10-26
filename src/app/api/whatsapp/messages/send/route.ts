@@ -19,6 +19,7 @@ const FAILURES: Record<SendFailure, { key: MessageKey; status: number }> = {
   recipient: { key: "wa.err.invalidRecipient", status: 400 },
   auth: { key: "wa.err.metaAuth", status: 502 },
   rate: { key: "wa.err.rateLimited", status: 429 },
+  template: { key: "wa.err.templateRejected", status: 502 },
   timeout: { key: "wa.err.timeout", status: 504 },
   other: { key: "wa.err.sendFailed", status: 502 },
 };

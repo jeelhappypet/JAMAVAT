@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/client";
-import { useRealtime } from "@/lib/realtime/useRealtime";
+import { useRealtime, useRealtimeChannels } from "@/lib/realtime/useRealtime";
 import { WHATSAPP_EVENTS, whatsAppChannel } from "@/lib/realtime/events";
 import { POLL_MS, SAFETY_RESYNC_MS } from "@/lib/realtime/polling";
 import { usePeriodicRefresh } from "@/lib/utils/usePeriodicRefresh";
@@ -27,9 +27,45 @@ const visible = () => document.visibilityState === "visible";
  * a time on a phone). Pusher's private-whatsapp channel brings new messages,
  * sends from other screens and delivery ticks; polling is only the fallback.
  */
-export function WhatsAppInbox({ canSend, homeHref }: { canSend: boolean; homeHref: string }) {
+export interface WhatsAppInboxProps {
+  canSend: boolean;
+  /** Where the back arrow goes. Omitted in HQ, which has its own header. */
+  homeHref?: string;
+  /**
+   * HQ's view: every restaurant's chats in one list, on HQ's own endpoints
+   * and guarded by an HQ session. It can also send photos and approved
+   * templates, which is how a chat past its 24-hour window gets reopened.
+   * Left out, this is one restaurant's own screen.
+   */
+  hq?: boolean;
+}
+
+/** The restaurant's own routes, or HQ's, which are not tenant-scoped. */
+function endpoints(hq?: boolean) {
+  if (!hq) {
+    return {
+      list: (q: string) => `/api/whatsapp/conversations${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+      messages: (id: string, before?: string) => `/api/whatsapp/conversations/${id}/messages${before ? `?before=${encodeURIComponent(before)}` : ""}`,
+      read: (id: string) => `/api/whatsapp/conversations/${id}/read`,
+      send: () => "/api/whatsapp/messages/send",
+    };
+  }
+  return {
+    list: (q: string) => `/api/hq/whatsapp/conversations${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+    messages: (id: string, before?: string) => `/api/hq/whatsapp/conversations/${id}/messages${before ? `?before=${encodeURIComponent(before)}` : ""}`,
+    read: (id: string) => `/api/hq/whatsapp/conversations/${id}/read`,
+    send: () => "/api/hq/whatsapp/send",
+  };
+}
+
+export function WhatsAppInbox({ canSend, homeHref, hq }: WhatsAppInboxProps) {
   const { t } = useI18n();
+  // Memoised: it goes in the data callbacks' dependency lists, and a fresh
+  // object every render would re-create every one of them on every keystroke.
+  const api = useMemo(() => endpoints(hq), [hq]);
   const [conversations, setConversations] = useState<WhatsAppConversationDTO[]>([]);
+  // HQ only: the restaurants whose WhatsApp channels this screen listens on.
+  const [restaurantIds, setRestaurantIds] = useState<string[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -49,29 +85,30 @@ export function WhatsAppInbox({ canSend, homeHref }: { canSend: boolean; homeHre
     const q = queryRef.current;
     lastListLoad.current = Date.now();
     try {
-      const res = await fetch(`/api/whatsapp/conversations${q ? `?q=${encodeURIComponent(q)}` : ""}`, { cache: "no-store" });
+      const res = await fetch(api.list(q), { cache: "no-store" });
       if (redirectToLoginIfUnauthorized(res)) return;
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error);
       if (q !== queryRef.current) return; // a newer search already went out
       setConversations(data.conversations);
+      if (Array.isArray(data.restaurantIds)) setRestaurantIds(data.restaurantIds);
       setListError(null);
     } catch (err) {
       setListError(err instanceof Error && err.message ? err.message : t("wa.loadFailed"));
     } finally {
       setListLoading(false);
     }
-  }, [t]);
+  }, [api, t]);
 
   const fetchChat = useCallback(
     async (id: string, before?: string): Promise<ChatData | null> => {
-      const res = await fetch(`/api/whatsapp/conversations/${id}/messages${before ? `?before=${encodeURIComponent(before)}` : ""}`, { cache: "no-store" });
+      const res = await fetch(api.messages(id, before), { cache: "no-store" });
       if (redirectToLoginIfUnauthorized(res)) return null;
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? t("wa.loadFailed"));
       return data;
     },
-    [t]
+    [api, t]
   );
 
   /** Puts a changed chat in the list (newest first) and in the open chat's header. */
@@ -86,12 +123,12 @@ export function WhatsAppInbox({ canSend, homeHref }: { canSend: boolean; homeHre
 
   const markRead = useCallback(
     async (id: string) => {
-      const res = await fetch(`/api/whatsapp/conversations/${id}/read`, { method: "POST" });
+      const res = await fetch(api.read(id), { method: "POST" });
       if (!res.ok) return;
       const data = await res.json().catch(() => null);
       if (data?.conversation) upsertConversation(data.conversation);
     },
-    [upsertConversation]
+    [api, upsertConversation]
   );
 
   async function openChat(id: string) {
@@ -186,16 +223,22 @@ export function WhatsAppInbox({ canSend, homeHref }: { canSend: boolean; homeHre
     [upsertConversation]
   );
 
-  const { state: realtimeState } = useRealtime(
-    {
+  const handlers = useMemo(
+    () => ({
       [WHATSAPP_EVENTS.MESSAGE_NEW]: onMessage,
       [WHATSAPP_EVENTS.MESSAGE_SENT]: onMessage,
       [WHATSAPP_EVENTS.MESSAGE_STATUS]: onStatus,
       [WHATSAPP_EVENTS.CONVERSATION_UPDATED]: onConversation,
-    },
-    resync,
-    whatsAppChannel
+    }),
+    [onMessage, onStatus, onConversation]
   );
+
+  // One restaurant's screen listens on its own channel; HQ's list listens on
+  // every restaurant's, all over the one shared connection.
+  const hqChannels = useMemo(() => (hq ? restaurantIds.map(whatsAppChannel) : []), [hq, restaurantIds]);
+  const own = useRealtime(handlers, resync, whatsAppChannel, hq ? null : undefined);
+  const across = useRealtimeChannels(hqChannels, handlers, resync);
+  const realtimeState = hq ? across.state : own.state;
 
   // First load, and the search box (debounced).
   useEffect(() => {
@@ -208,27 +251,60 @@ export function WhatsAppInbox({ canSend, homeHref }: { canSend: boolean; homeHre
   usePeriodicRefresh(resync, realtimeState === "connected" ? SAFETY_RESYNC_MS : POLL_MS);
 
   // ---- send
+  /** One POST for every kind of reply; the body shape is what differs. */
+  const post = useCallback(
+    async (body: Record<string, unknown>): Promise<boolean> => {
+      setSending(true);
+      setSendError(null);
+      try {
+        const res = await fetch(api.send(), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (redirectToLoginIfUnauthorized(res)) return false;
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error ?? t("wa.err.sendFailed"));
+        onMessage(data);
+        return true;
+      } catch (err) {
+        setSendError(err instanceof Error ? err.message : t("wa.err.sendFailed"));
+        return false;
+      } finally {
+        setSending(false);
+      }
+    },
+    [api, onMessage, t]
+  );
+
   async function send(text: string): Promise<boolean> {
+    if (!chat) return false;
+    const id = chat.conversation.id;
+    return hq
+      ? post({ conversationId: id, kind: "text", message: text })
+      : post({ conversationId: id, to: chat.conversation.waId, message: text });
+  }
+
+  /** HQ only: upload the photo to Meta first, then send the id it hands back. */
+  async function sendPhoto(file: File, caption: string): Promise<boolean> {
     if (!chat) return false;
     setSending(true);
     setSendError(null);
     try {
-      const res = await fetch("/api/whatsapp/messages/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId: chat.conversation.id, to: chat.conversation.waId, message: text }),
-      });
-      if (redirectToLoginIfUnauthorized(res)) return false;
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/hq/whatsapp/media", { method: "POST", body: form });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? t("wa.err.sendFailed"));
-      onMessage(data);
-      return true;
-    } catch (err) {
-      setSendError(err instanceof Error ? err.message : t("wa.err.sendFailed"));
-      return false;
-    } finally {
+      if (!res.ok) throw new Error(data?.error ?? "The photo didn't upload");
       setSending(false);
+      return post({ conversationId: chat.conversation.id, kind: "image", mediaId: data.mediaId, ...(caption ? { caption } : {}) });
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "The photo didn't upload");
+      setSending(false);
+      return false;
     }
+  }
+
+  /** HQ only: the one kind of message WhatsApp delivers past the 24-hour window. */
+  async function sendTemplate(name: string, language: string, params: string[], preview: string): Promise<boolean> {
+    if (!chat) return false;
+    return post({ conversationId: chat.conversation.id, kind: "template", name, language, params, preview });
   }
 
   function closeChat() {
@@ -241,14 +317,23 @@ export function WhatsAppInbox({ canSend, homeHref }: { canSend: boolean; homeHre
   const openConversation = chat?.conversation ?? selectedFromList;
 
   return (
-    <div className="flex h-dvh flex-col bg-surface-muted">
+    <div
+      className={cn(
+        "flex flex-col bg-surface-muted",
+        // The restaurant's own screen owns the whole viewport. Inside HQ it
+        // sits under the panel header, so it takes what is left.
+        hq ? "h-[calc(100dvh-190px)] min-h-[480px] overflow-hidden rounded-[18px] border border-border" : "h-dvh"
+      )}
+    >
       <header className="flex items-center gap-3 border-b border-border bg-surface px-[clamp(12px,2vw,24px)] py-3">
-        <IconButton href={homeHref} label={t("wa.back")} size="md">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M19 12H5" />
-            <path d="m11 6-6 6 6 6" />
-          </svg>
-        </IconButton>
+        {homeHref ? (
+          <IconButton href={homeHref} label={t("wa.back")} size="md">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M19 12H5" />
+              <path d="m11 6-6 6 6 6" />
+            </svg>
+          </IconButton>
+        ) : null}
         <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3 3Z" />
@@ -289,6 +374,8 @@ export function WhatsAppInbox({ canSend, homeHref }: { canSend: boolean; homeHre
                 onBack={closeChat}
                 onLoadEarlier={() => void loadEarlier()}
                 onSend={send}
+                onSendPhoto={hq ? sendPhoto : undefined}
+                onSendTemplate={hq ? sendTemplate : undefined}
               />
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-2 bg-[#efeae2] px-6 text-center">

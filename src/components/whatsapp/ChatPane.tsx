@@ -12,6 +12,8 @@ import { TextArea } from "@/components/ui/TextField";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { Modal } from "@/components/ui/Modal";
+import { TextField } from "@/components/ui/TextField";
 import type { WhatsAppConversationDTO, WhatsAppMessageDTO, WhatsAppMessageStatus } from "@/types";
 import { Avatar } from "./ConversationList";
 import { dayLabel, sameDay } from "./format";
@@ -29,6 +31,10 @@ interface ChatPaneProps {
   onLoadEarlier: () => void;
   /** Resolves true when Meta accepted the message (the composer then clears). */
   onSend: (text: string) => Promise<boolean>;
+  /** HQ only: send a photo. Absent on a restaurant's own screen. */
+  onSendPhoto?: (file: File, caption: string) => Promise<boolean>;
+  /** HQ only: send an approved template — the only thing that reopens a closed window. */
+  onSendTemplate?: (name: string, language: string, params: string[], preview: string) => Promise<boolean>;
 }
 
 const STATUS_LABEL: Record<WhatsAppMessageStatus, MessageKey> = {
@@ -67,14 +73,31 @@ function Ticks({ status, label }: { status: WhatsAppMessageStatus; label: string
   );
 }
 
-function Composer({ disabled, sending, onSend }: { disabled: boolean; sending: boolean; onSend: (text: string) => Promise<boolean> }) {
+function Composer({
+  disabled,
+  sending,
+  onSend,
+  onSendPhoto,
+}: {
+  disabled: boolean;
+  sending: boolean;
+  onSend: (text: string) => Promise<boolean>;
+  onSendPhoto?: (file: File, caption: string) => Promise<boolean>;
+}) {
   const { t } = useI18n();
   const [draft, setDraft] = useState("");
-  const ready = draft.trim().length > 0 && !disabled && !sending;
+  const [photo, setPhoto] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const ready = (draft.trim().length > 0 || Boolean(photo)) && !disabled && !sending;
 
   async function submit() {
     if (!ready) return;
-    if (await onSend(draft.trim())) setDraft("");
+    // A photo carries the typed text as its caption, so one send covers both.
+    const done = photo && onSendPhoto ? await onSendPhoto(photo, draft.trim()) : await onSend(draft.trim());
+    if (!done) return;
+    setDraft("");
+    setPhoto(null);
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   return (
@@ -85,9 +108,27 @@ function Composer({ disabled, sending, onSend }: { disabled: boolean; sending: b
         void submit();
       }}
     >
+      {onSendPhoto ? (
+        <>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+          />
+          <IconButton label={photo ? `Photo: ${photo.name}` : "Attach a photo"} size="md" onClick={() => fileRef.current?.click()} disabled={disabled}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path d="m21 15-5-5L5 21" />
+            </svg>
+          </IconButton>
+        </>
+      ) : null}
       <TextArea
         aria-label={t("wa.placeholder")}
-        placeholder={t("wa.placeholder")}
+        placeholder={photo ? "Caption (optional)" : t("wa.placeholder")}
         rows={Math.min(5, Math.max(1, draft.split("\n").length))}
         maxLength={4096}
         value={draft}
@@ -109,7 +150,146 @@ function Composer({ disabled, sending, onSend }: { disabled: boolean; sending: b
   );
 }
 
-export function ChatPane({ conversation, messages, hasMore, loading, error, canSend, sending, sendError, onBack, onLoadEarlier, onSend }: ChatPaneProps) {
+interface TemplateSummary {
+  name: string;
+  language: string;
+  status: string;
+  body: string;
+  params: number;
+}
+
+/** `{{1}}` … replaced by what was typed, so the preview is what the customer will read. */
+function fill(body: string, values: string[]): string {
+  return values.reduce((text, value, index) => text.replaceAll(`{{${index + 1}}}`, value || `{{${index + 1}}}`), body);
+}
+
+/**
+ * The approved templates, to reopen a chat whose 24-hour window has closed.
+ * Only approved ones can be sent — the rest are listed greyed out so it is
+ * clear something is waiting on Meta rather than missing.
+ */
+function TemplatePicker({
+  open,
+  sending,
+  onClose,
+  onSend,
+}: {
+  open: boolean;
+  sending: boolean;
+  onClose: () => void;
+  onSend: (name: string, language: string, params: string[], preview: string) => Promise<boolean>;
+}) {
+  const [templates, setTemplates] = useState<TemplateSummary[] | null>(null);
+  const [picked, setPicked] = useState<TemplateSummary | null>(null);
+  const [values, setValues] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || templates) return;
+    void (async () => {
+      try {
+        const res = await fetch("/api/hq/whatsapp/templates");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error ?? "Couldn't load the templates");
+        setTemplates(data.templates);
+        setError(data.error ?? null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't load the templates");
+        setTemplates([]);
+      }
+    })();
+  }, [open, templates]);
+
+  function choose(template: TemplateSummary) {
+    setPicked(template);
+    setValues(Array.from({ length: template.params }, () => ""));
+  }
+
+  async function submit() {
+    if (!picked) return;
+    if (await onSend(picked.name, picked.language, values, fill(picked.body, values))) {
+      setPicked(null);
+      setValues([]);
+      onClose();
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      title="Send a template"
+      onClose={onClose}
+      footer={
+        picked ? (
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setPicked(null)}>
+              Back
+            </Button>
+            <Button variant="success" size="sm" onClick={() => void submit()} disabled={sending || values.some((value) => !value.trim())}>
+              {sending ? "Sending…" : "Send"}
+            </Button>
+          </>
+        ) : null
+      }
+    >
+      {error ? <Alert>{error}</Alert> : null}
+      {templates === null ? (
+        <LoadingState />
+      ) : picked ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-extrabold">
+            {picked.name} <span className="font-semibold text-text-muted">· {picked.language}</span>
+          </p>
+          {values.map((value, index) => (
+            <TextField
+              key={index}
+              label={`{{${index + 1}}}`}
+              value={value}
+              onChange={(e) => setValues((prev) => prev.map((old, at) => (at === index ? e.target.value : old)))}
+            />
+          ))}
+          <div>
+            <p className="mb-1 text-xs font-bold text-text-muted">What they will read</p>
+            <pre className="whitespace-pre-wrap break-words rounded-[12px] bg-[#d9fdd3] p-3 font-sans text-[14px] leading-relaxed">{fill(picked.body, values)}</pre>
+          </div>
+        </div>
+      ) : templates.length === 0 ? (
+        <p className="text-sm text-text-muted">No templates on this WhatsApp account yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {templates.map((template) => {
+            const approved = template.status === "APPROVED";
+            return (
+              <li key={`${template.name}-${template.language}`}>
+                <button
+                  type="button"
+                  disabled={!approved}
+                  onClick={() => choose(template)}
+                  className={cn(
+                    "w-full rounded-[12px] border border-border p-3 text-left",
+                    approved ? "bg-surface hover:border-stone-300" : "cursor-not-allowed bg-surface-muted opacity-60"
+                  )}
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-extrabold">
+                      {template.name} <span className="font-semibold text-text-muted">· {template.language}</span>
+                    </span>
+                    <Badge tone={approved ? "green" : "orange"} size="sm">
+                      {template.status}
+                    </Badge>
+                  </span>
+                  <span className="mt-1 block line-clamp-2 text-xs text-text-muted">{template.body}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Modal>
+  );
+}
+
+export function ChatPane({ conversation, messages, hasMore, loading, error, canSend, sending, sendError, onBack, onLoadEarlier, onSend, onSendPhoto, onSendTemplate }: ChatPaneProps) {
   const { t, lang } = useI18n();
   const scroller = useRef<HTMLDivElement>(null);
   const lastId = messages[messages.length - 1]?.id;
@@ -130,6 +310,7 @@ export function ChatPane({ conversation, messages, hasMore, loading, error, canS
   const windowEnds = conversation.replyWindowEndsAt ? new Date(conversation.replyWindowEndsAt).getTime() : 0;
   const timeLeft = (ms: number) => (ms >= 60 * 60 * 1000 ? t("wa.hours", { n: Math.floor(ms / (60 * 60 * 1000)) }) : t("wa.minutes", { n: Math.max(1, Math.ceil(ms / 60000)) }));
   const windowOpen = windowEnds > now;
+  const [templateOpen, setTemplateOpen] = useState(false);
   const title = conversation.customerName || formatWaNumber(conversation.waId);
 
   return (
@@ -144,7 +325,10 @@ export function ChatPane({ conversation, messages, hasMore, loading, error, canS
         <Avatar name={conversation.customerName} waId={conversation.waId} size={40} />
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-base font-extrabold">{title}</span>
-          <span className="truncate text-xs text-text-muted">{formatWaNumber(conversation.waId)}</span>
+          <span className="truncate text-xs text-text-muted">
+            {formatWaNumber(conversation.waId)}
+            {conversation.restaurantName ? ` · ${conversation.restaurantName}` : ""}
+          </span>
         </div>
         <span className="hidden sm:block">
           <Badge tone={windowOpen ? "green" : "stone"} size="sm">
@@ -209,7 +393,16 @@ export function ChatPane({ conversation, messages, hasMore, loading, error, canS
           </Alert>
         ) : null}
         {sendError ? <Alert>{sendError}</Alert> : null}
-        <Composer disabled={!canSend || !windowOpen} sending={sending} onSend={onSend} />
+        {onSendTemplate ? (
+          <div className="mb-2 flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setTemplateOpen(true)} disabled={!canSend}>
+              Template
+            </Button>
+            {!windowOpen ? <span className="text-xs text-text-muted">The 24-hour window is closed — a template is the only thing that gets through.</span> : null}
+          </div>
+        ) : null}
+        <Composer disabled={!canSend || !windowOpen} sending={sending} onSend={onSend} onSendPhoto={onSendPhoto} />
+        {onSendTemplate ? <TemplatePicker open={templateOpen} sending={sending} onClose={() => setTemplateOpen(false)} onSend={onSendTemplate} /> : null}
         {canSend && windowOpen ? <p className="hidden text-xs text-text-muted sm:block">{t("wa.enterHint")}</p> : null}
       </div>
     </div>

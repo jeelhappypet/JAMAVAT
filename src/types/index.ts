@@ -140,6 +140,84 @@ export interface SiteStatsDTO {
   byLang: { lang: "en" | "gu"; views: number }[];
 }
 
+export const SPONSOR_LEAD_STATUSES = ["TODO", "ACTIVE", "REPLIED", "WON", "DEAD"] as const;
+export type SponsorLeadStatus = (typeof SPONSOR_LEAD_STATUSES)[number];
+
+export const OUTREACH_CHANNELS = ["email", "whatsapp", "visit"] as const;
+export type OutreachChannel = (typeof OUTREACH_CHANNELS)[number];
+
+/** One line of the morning digest: what the bot did, or what is waiting for a tap. */
+export interface OutreachTaskDTO {
+  id: string;
+  business: string;
+  category: string;
+  area: string;
+  channel: OutreachChannel;
+  /** Set for a WhatsApp step — the wa.me link with the message already written. */
+  link?: string;
+  /** The text the link carries, so the digest can show it before it is sent. */
+  message?: string;
+}
+
+/** One thing that was sent (or tried), as HQ's thread shows it. */
+export interface OutreachTouchDTO {
+  channel: OutreachChannel;
+  step: number;
+  at: string;
+  /** Subject line for an email, first line for a WhatsApp. */
+  summary?: string;
+  /** The whole message as it went out. */
+  text?: string;
+  /** WhatsApp only, and exact. */
+  deliveredAt?: string;
+  /** WhatsApp: exact. Email: the tracking pixel fired, which is a guess. */
+  readAt?: string;
+  failure?: string;
+}
+
+export interface SponsorLeadDTO {
+  id: string;
+  business: string;
+  category: string;
+  area: string;
+  ownerName?: string;
+  email?: string;
+  phone?: string;
+  phoneKey?: string;
+  instagram?: string;
+  sessionsInArea: number;
+  lang: "en" | "gu";
+  status: SponsorLeadStatus;
+  step: number;
+  nextActionAt?: string;
+  repliedAt?: string;
+  closedReason?: string;
+  notes?: string;
+  maps?: string;
+  touches: OutreachTouchDTO[];
+  /** The wa.me link for the next WhatsApp, when the bot is not sending them itself. */
+  whatsappLink?: string;
+}
+
+export interface OutreachRunSummary {
+  /** Emails the bot sent itself. */
+  emailsSent: number;
+  /** Emails it meant to send and could not — address missing, SMTP refused, cap hit. */
+  emailsFailed: number;
+  /** WhatsApp templates the bot sent itself. */
+  whatsappSent: number;
+  /** WhatsApp sends Meta refused, or the cap stopped. */
+  whatsappFailed: number;
+  /** Steps that need a human: WhatsApp taps and door visits. */
+  manual: OutreachTaskDTO[];
+  /** Leads that replied since the last run, so the sequence stopped. */
+  replied: number;
+  /** Leads that ran out of steps today. */
+  closed: number;
+  /** How many more emails today's cap allows after this run. */
+  capLeft: number;
+}
+
 export const INQUIRY_STATUSES = ["NEW", "CONTACTED", "CONVERTED", "LOST"] as const;
 export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
 
@@ -458,6 +536,8 @@ export const WHATSAPP_MESSAGE_STATUSES = ["received", "accepted", "sent", "deliv
 export type WhatsAppMessageStatus = (typeof WHATSAPP_MESSAGE_STATUSES)[number];
 
 export interface WhatsAppConversationDTO {
+  /** Which restaurant the chat belongs to — only filled on HQ's one-list view. */
+  restaurantName?: string;
   id: string;
   customerId: string;
   customerName?: string;

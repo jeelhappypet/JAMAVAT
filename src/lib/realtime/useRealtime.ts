@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Pusher, { type Channel } from "pusher-js";
 import type { RealtimeConnectionState } from "@/components/realtime/RealtimeStatus";
-import { useRestaurant } from "@/components/shell/RestaurantProvider";
+import { useOptionalRestaurantId } from "@/components/shell/RestaurantProvider";
 import { staffChannel } from "./events";
 
 type EventHandlers = Record<string, (payload: unknown) => void>;
@@ -46,12 +46,33 @@ function toState(pusherState: string, subscribed: boolean): RealtimeConnectionSt
  * Without NEXT_PUBLIC_PUSHER_* it reports "disconnected" and callers keep
  * polling.
  */
-export function useRealtime(handlers: EventHandlers, onReconnect?: () => void, channelOf?: (restaurantId: string) => string) {
-  // Channels are keyed by the restaurant's id, which never changes (a slug can be renamed).
-  const { id: restaurantId } = useRestaurant();
-  const channelName = (channelOf ?? staffChannel)(restaurantId);
+export function useRealtime(handlers: EventHandlers, onReconnect?: () => void, channelOf?: (restaurantId: string) => string, forRestaurantId?: string | null) {
+  // Channels are keyed by the restaurant's id, which never changes (a slug can
+  // be renamed). HQ passes the id in, because it has no restaurant provider.
+  const fromContext = useOptionalRestaurantId();
+  const restaurantId = forRestaurantId ?? fromContext;
+  const name = restaurantId ? (channelOf ?? staffChannel)(restaurantId) : null;
+  const names = useMemo(() => (name ? [name] : []), [name]);
+  return useRealtimeChannels(names, handlers, onReconnect);
+}
+
+/**
+ * The same thing over several channels at once, for a screen that is not one
+ * restaurant's. HQ's WhatsApp inbox lists every restaurant's chats, so it
+ * subscribes to every restaurant's channel; they all ride the one shared
+ * connection, so this costs nothing against Pusher's connection limit.
+ *
+ * It reports "connected" only when every channel is subscribed — a partly
+ * connected inbox would quietly stop showing one restaurant's messages, and
+ * the caller uses this state to decide how hard to poll.
+ */
+export function useRealtimeChannels(channelNames: string[], handlers: EventHandlers, onReconnect?: () => void) {
+  // The array identity changes on every render; its contents are what matter.
+  const key = channelNames.join(",");
+  // No channel to subscribe to is the same as no Pusher: say disconnected
+  // rather than "connecting" for ever.
   const [state, setState] = useState<RealtimeConnectionState>(() =>
-    PUSHER_KEY && PUSHER_CLUSTER ? "connecting" : "disconnected"
+    PUSHER_KEY && PUSHER_CLUSTER && channelNames.length > 0 ? "connecting" : "disconnected"
   );
   const handlersRef = useRef(handlers);
   const onReconnectRef = useRef(onReconnect);
@@ -62,41 +83,51 @@ export function useRealtime(handlers: EventHandlers, onReconnect?: () => void, c
   });
 
   useEffect(() => {
-    const connection = getShared(channelName);
-    if (!connection) return;
-    const { pusher, channel } = connection;
+    const wanted = key ? key.split(",") : [];
+    if (wanted.length === 0) return;
+    const connections = wanted.map((one) => getShared(one)).filter((one) => one !== null);
+    if (connections.length === 0) return;
+    const pusher = connections[0].pusher;
+    const subscriptions = connections.map((one) => one.channel);
 
-    const update = () => setState(toState(pusher.connection.state, channel.subscribed));
+    const update = () => setState(toState(pusher.connection.state, subscriptions.every((channel) => channel.subscribed)));
 
     // `onReconnect` exists to close the gap a dropped connection leaves. The
     // first subscription is not a gap: the screen has just mounted and
     // fetched. Calling it there meant every staff screen asked for its data
     // twice on every load — two /api/reports/today on the admin's landing
     // page, two /api/orders/live on the counter's.
-    let subscribedBefore = false;
-    const onSubscribed = () => {
+    const subscribedBefore = new Set<string>();
+    const onSubscribedFor = (channelName: string) => () => {
       update();
-      if (subscribedBefore) onReconnectRef.current?.();
-      subscribedBefore = true;
+      if (subscribedBefore.has(channelName)) onReconnectRef.current?.();
+      subscribedBefore.add(channelName);
     };
     const onEvent = (eventName: string, payload: unknown) => {
       if (eventName.startsWith("pusher:")) return;
       handlersRef.current[eventName]?.(payload);
     };
 
+    const bound = subscriptions.map((channel) => ({ channel, onSubscribed: onSubscribedFor(channel.name) }));
     pusher.connection.bind("state_change", update);
-    channel.bind("pusher:subscription_succeeded", onSubscribed);
-    channel.bind("pusher:subscription_error", update);
-    channel.bind_global(onEvent);
+    for (const { channel, onSubscribed } of bound) {
+      channel.bind("pusher:subscription_succeeded", onSubscribed);
+      channel.bind("pusher:subscription_error", update);
+      channel.bind_global(onEvent);
+    }
     update();
 
     return () => {
       pusher.connection.unbind("state_change", update);
-      channel.unbind("pusher:subscription_succeeded", onSubscribed);
-      channel.unbind("pusher:subscription_error", update);
-      channel.unbind_global(onEvent);
+      for (const { channel, onSubscribed } of bound) {
+        channel.unbind("pusher:subscription_succeeded", onSubscribed);
+        channel.unbind("pusher:subscription_error", update);
+        channel.unbind_global(onEvent);
+      }
     };
-  }, [channelName]);
+  }, [key]);
 
-  return { state };
+  // With nothing to subscribe to there is nothing to report, and the last
+  // state from a previous set of channels would be stale.
+  return { state: key ? state : ("disconnected" as RealtimeConnectionState) };
 }

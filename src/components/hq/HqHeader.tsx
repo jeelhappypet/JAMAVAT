@@ -11,6 +11,8 @@ import { ActivityPanel } from "@/components/hq/ActivityPanel";
 const TABS = [
   { href: "/hq", label: "Restaurants" },
   { href: "/hq/inquiries", label: "Leads" },
+  { href: "/hq/outreach", label: "Outreach" },
+  { href: "/hq/whatsapp", label: "WhatsApp" },
   { href: "/hq/plans", label: "Plans" },
   { href: "/hq/website", label: "Website" },
 ];

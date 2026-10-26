@@ -676,6 +676,7 @@ const en = {
   "wa.err.metaAuth": "WhatsApp refused our access (token or permission). Check the WhatsApp settings in Meta.",
   "wa.err.rateLimited": "WhatsApp is limiting messages right now. Try again in a minute.",
   "wa.err.timeout": "WhatsApp didn't answer in time. Check the chat before sending again.",
+  "wa.err.templateRejected": "WhatsApp refused the message template. Check it is approved in Meta and that its placeholders match.",
   "wa.err.sendFailed": "The message couldn't be sent. Try again.",
   "wa.err.notConfigured": "WhatsApp sending isn't set up on the server.",
 
@@ -1380,6 +1381,7 @@ const gu: Record<MessageKey, string> = {
   "wa.err.metaAuth": "WhatsApp એ access નકાર્યો (token કે permission). Meta માં WhatsApp settings તપાસો.",
   "wa.err.rateLimited": "WhatsApp હમણાં મેસેજ મર્યાદિત કરે છે. એક મિનિટ પછી ફરી પ્રયાસ કરો.",
   "wa.err.timeout": "WhatsApp એ સમયસર જવાબ ન આપ્યો. ફરી મોકલતા પહેલાં ચેટ તપાસો.",
+  "wa.err.templateRejected": "WhatsApp એ મેસેજ ટેમ્પ્લેટ નકારી. Meta માં એ મંજૂર છે કે નહીં અને એના પ્લેસહોલ્ડર મળે છે કે નહીં તે તપાસો.",
   "wa.err.sendFailed": "મેસેજ મોકલી ન શકાયો. ફરી પ્રયાસ કરો.",
   "wa.err.notConfigured": "સર્વર પર WhatsApp મોકલવાનું સેટ નથી.",
 

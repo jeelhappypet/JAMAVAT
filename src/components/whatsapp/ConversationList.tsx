@@ -69,6 +69,8 @@ export function ConversationList({ conversations, loading, error, query, onQuery
                         </span>
                       </span>
                       {conversation.customerName ? <span className="truncate text-xs text-text-muted">{formatWaNumber(conversation.waId)}</span> : null}
+                      {/* Only HQ's one-list view fills this — a restaurant's own screen has nothing to disambiguate. */}
+                      {conversation.restaurantName ? <span className="truncate text-xs font-bold text-brand-strong">{conversation.restaurantName}</span> : null}
                       <span className="flex items-center justify-between gap-2">
                         <span className="truncate text-[13px] text-stone-600">
                           {conversation.lastMessageDirection === "outbound" ? <span className="text-text-muted">{t("wa.you")} </span> : null}

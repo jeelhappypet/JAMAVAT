@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/db/mongodb";
 import { getAppSecret, getOwnPhoneNumberId, getVerifyToken } from "@/lib/whatsapp/config";
 import { isValidSignature, parseWebhook } from "@/lib/whatsapp/webhook";
 import { applyStatus, saveInboundMessage, toConversationDTO, toMessageDTO } from "@/lib/whatsapp/store";
+import { applyOutreachStatus, markReplied } from "@/lib/outreach/run";
 import { emitWhatsAppEvent } from "@/lib/realtime/server";
 import { restaurantIdForPhoneNumber } from "@/lib/whatsapp/restaurant";
 import { WHATSAPP_EVENTS } from "@/lib/realtime/events";
@@ -62,6 +63,12 @@ export async function POST(request: Request) {
     await connectToDatabase();
 
     for (const inbound of parsed.messages) {
+      // A sponsor answering the pitch is the one reply the outreach bot can
+      // notice by itself — it stops that lead's sequence before tomorrow's
+      // follow-up goes out on top of the answer.
+      if (await markReplied({ phoneKey: inbound.waId })) {
+        log({ event: "message", from: inbound.waId, result: "sponsor-replied" });
+      }
       const restaurantId = await restaurantOf(inbound.phoneNumberId);
       if (!restaurantId) {
         // e.g. the sample payload from Meta's dashboard "Test" button (dummy phone_number_id).
@@ -79,6 +86,8 @@ export async function POST(request: Request) {
     }
 
     for (const update of parsed.statuses) {
+      // A tick on an outreach template: exact, unlike an email's open pixel.
+      await applyOutreachStatus(update.whatsappMessageId, update.status);
       const restaurantId = await restaurantOf(update.phoneNumberId);
       if (!restaurantId) continue;
       let result = await applyStatus(restaurantId, update);

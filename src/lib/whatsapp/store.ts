@@ -142,9 +142,19 @@ export async function saveOutboundMessage(input: {
   restaurantId: RestaurantRef;
   conversation: WhatsAppConversationDocument;
   whatsappMessageId: string;
+  /** For a template or an image this is what the chat should show, not the wire payload. */
   text: string;
   from: string;
-  staff: { id: string; name: string };
+  /**
+   * Who sent it. `id` is a Staff document, so HQ — which is not a staff
+   * member — passes a name only. Putting a non-id there casts to ObjectId and
+   * throws *after* Meta has already delivered the message, which looks to the
+   * sender like a failure that actually went through.
+   */
+  staff: { id?: string; name: string };
+  /** "text" unless the reply was a template or an image. */
+  messageType?: string;
+  media?: { id: string; mimeType?: string };
 }): Promise<{ conversation: WhatsAppConversationDocument; message: WhatsAppMessageDocument }> {
   const now = new Date();
   const message = (await WhatsAppMessage.findOneAndUpdate(
@@ -155,11 +165,12 @@ export async function saveOutboundMessage(input: {
         conversationId: input.conversation._id,
         customerId: input.conversation.customerId,
         direction: "outbound",
-        messageType: "text",
+        messageType: input.messageType ?? "text",
         text: input.text,
+        ...(input.media ? { media: { id: input.media.id, mimeType: input.media.mimeType } } : {}),
         sender: input.from,
         recipient: input.conversation.customerWaId,
-        sentBy: { id: input.staff.id, name: input.staff.name },
+        sentBy: { ...(input.staff.id ? { id: input.staff.id } : {}), name: input.staff.name },
         timestamp: now,
       },
       $setOnInsert: { status: "accepted", statusAt: now },

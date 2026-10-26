@@ -30,6 +30,15 @@ export function useRestaurant(): RestaurantContextValue {
   return value;
 }
 
+/**
+ * The restaurant's id, or null outside a restaurant's app. HQ renders some of
+ * the same screens (the WhatsApp inbox) with the restaurant chosen from a
+ * picker rather than from the URL, and has no provider to read.
+ */
+export function useOptionalRestaurantId(): string | null {
+  return useContext(RestaurantContext)?.id ?? null;
+}
+
 /** Shorthand for the common case: `const path = useAppPath(); path("/counter")`. */
 export function useAppPath(): RestaurantContextValue["path"] {
   return useRestaurant().path;

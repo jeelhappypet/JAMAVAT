@@ -1,19 +1,13 @@
 import { NextResponse } from "next/server";
-import { isValidObjectId } from "mongoose";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { requireStaff } from "@/lib/auth/staff";
 import { ROLES } from "@/lib/auth/access";
 import { getTranslator } from "@/lib/i18n/server";
 import { jsonError, respond } from "@/lib/api";
 import { whatsappMessagesSchema } from "@/lib/validation/whatsapp";
-import { getOwnPhoneNumberId } from "@/lib/whatsapp/config";
-import { toConversationDTO, toMessageDTO } from "@/lib/whatsapp/store";
-import { WhatsAppConversation, type WhatsAppConversationDocument } from "@/models/WhatsAppConversation";
-import { WhatsAppMessage, type WhatsAppMessageDocument } from "@/models/WhatsAppMessage";
+import { loadChat } from "@/lib/whatsapp/inbox";
 
 type Params = { params: Promise<{ id: string }> };
-
-const PAGE = 50;
 
 /** One chat: its header data and the latest 50 messages (or the 50 before `?before=`), oldest first. */
 export async function GET(request: Request, { params }: Params) {
@@ -23,25 +17,9 @@ export async function GET(request: Request, { params }: Params) {
 
   return respond(t, "err.server", async () => {
     const { id } = await params;
-    if (!isValidObjectId(id)) return jsonError(t("err.notFound"), 404);
     const { before } = whatsappMessagesSchema.parse(Object.fromEntries(new URL(request.url).searchParams));
     await connectToDatabase();
-
-    const { restaurantId } = staff;
-    const conversation = await WhatsAppConversation.findOne({ restaurantId, _id: id }).lean<WhatsAppConversationDocument>();
-    const ownNumber = getOwnPhoneNumberId();
-    if (!conversation || (ownNumber && conversation.whatsappPhoneNumberId !== ownNumber)) return jsonError(t("err.notFound"), 404);
-
-    const page = await WhatsAppMessage.find({ restaurantId, conversationId: conversation._id, ...(before ? { timestamp: { $lt: new Date(before) } } : {}) })
-      .sort({ timestamp: -1 })
-      .limit(PAGE + 1)
-      .select({ rawPayload: 0, media: 0, sender: 0, recipient: 0 })
-      .lean<WhatsAppMessageDocument[]>();
-
-    return NextResponse.json({
-      conversation: toConversationDTO(conversation),
-      messages: page.slice(0, PAGE).reverse().map(toMessageDTO),
-      hasMore: page.length > PAGE,
-    });
+    const chat = await loadChat(staff.restaurantId, id, before);
+    return chat ? NextResponse.json(chat) : jsonError(t("err.notFound"), 404);
   });
 }
