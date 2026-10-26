@@ -5,6 +5,7 @@ import { dailyCap, mailerProblem, resetOutreachMailer } from "@/lib/outreach/mai
 import { digestHtml, digestText } from "@/lib/outreach/digest";
 import { TEMPLATE_BODY, renderTemplate, templateParams, whatsappProblem } from "@/lib/outreach/whatsapp";
 import { isValidOpen, openPixelUrl, signOpen } from "@/lib/outreach/tracking";
+import { parseCsv, phoneKeyOf, toRow } from "@/lib/outreach/import";
 import type { OutreachRunSummary } from "@/types";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -267,5 +268,42 @@ describe("email open tracking", () => {
   it("builds a pixel URL under /api, which robots.txt already blocks", () => {
     process.env.OUTREACH_TRACKING_SECRET = "s3cret";
     expect(openPixelUrl("https://jamavat.in/", "abc", 1)).toMatch(/^https:\/\/jamavat\.in\/api\/o\/abc\/1\/[0-9a-f]{16}\.gif$/);
+  });
+});
+
+describe("pasting a sheet", () => {
+  it("reads the columns by name, in any order", () => {
+    const rows = parseCsv("area,business,email\nAdajan,Iron Fitness,owner@iron.in");
+    expect(rows).toEqual([{ area: "Adajan", business: "Iron Fitness", email: "owner@iron.in" }]);
+  });
+
+  it("survives a comma inside a quoted field", () => {
+    const rows = parseCsv('business,notes\n"Shah & Sons, Adajan","big board outside, spends on ads"');
+    expect(rows[0].business).toBe("Shah & Sons, Adajan");
+    expect(rows[0].notes).toBe("big board outside, spends on ads");
+  });
+
+  it("handles a doubled quote and ignores blank lines", () => {
+    const rows = parseCsv('business\n"The ""Fit"" Club"\n\n');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].business).toBe('The "Fit" Club');
+  });
+
+  it("drops a row with no business name — there is nothing to file it under", () => {
+    expect(toRow({ business: "   ", email: "a@b.c" })).toBeNull();
+    expect(toRow({ business: "Iron Fitness" })?.business).toBe("Iron Fitness");
+  });
+
+  it("defaults the pitch language to ગુજરાતી", () => {
+    expect(toRow({ business: "X" })?.lang).toBe("gu");
+    expect(toRow({ business: "X", lang: "en" })?.lang).toBe("en");
+  });
+
+  it("normalises a phone to the shape an inbound WhatsApp arrives in", () => {
+    expect(phoneKeyOf("9876543210")).toBe("919876543210");
+    expect(phoneKeyOf("+91 98765 43210")).toBe("919876543210");
+    expect(phoneKeyOf("098765 43210")).toBe("919876543210");
+    expect(phoneKeyOf("12345")).toBeUndefined();
+    expect(phoneKeyOf(undefined)).toBeUndefined();
   });
 });

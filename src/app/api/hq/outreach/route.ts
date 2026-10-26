@@ -8,6 +8,8 @@ import { istDayStart } from "@/lib/outreach/run";
 import { OUTREACH_STEPS } from "@/lib/outreach/sequence";
 import { toSponsorLeadDTO } from "@/lib/outreach/dto";
 import type { SponsorLeadStatus } from "@/types";
+import { z } from "zod";
+import { importLeads, parseCsv, toRow, type LeadRow } from "@/lib/outreach/import";
 
 /** The filters HQ's tabs map to. "DUE" is the morning list, like Leads. */
 function query(filter: string): Record<string, unknown> {
@@ -60,4 +62,47 @@ export async function GET(request: Request) {
       steps: OUTREACH_STEPS,
     },
   });
+}
+
+/**
+ * Adding leads, by hand or by pasting the sheet. This is the only way in —
+ * building the list is a phone-and-Maps job done away from a laptop, so it
+ * must never need a terminal or a checkout of the code.
+ */
+const bodySchema = z.union([
+  z.object({ csv: z.string().min(1).max(500_000) }),
+  z.object({
+    lead: z.object({
+      business: z.string().trim().min(1).max(200),
+      category: z.string().trim().max(100).optional(),
+      area: z.string().trim().max(100).optional(),
+      ownerName: z.string().trim().max(120).optional(),
+      email: z.string().trim().email().optional().or(z.literal("")),
+      phone: z.string().trim().max(30).optional(),
+      instagram: z.string().trim().max(120).optional(),
+      sessionsInArea: z.coerce.number().int().min(0).max(10_000_000).optional(),
+      lang: z.enum(["en", "gu"]).optional(),
+      notes: z.string().trim().max(2000).optional(),
+    }),
+  }),
+]);
+
+export async function POST(request: Request) {
+  const hq = await requireHq();
+  if (hq instanceof NextResponse) return hq;
+
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Nothing to add" }, { status: 400 });
+
+  await connectToDatabase();
+  let rows: LeadRow[];
+  if ("csv" in parsed.data) {
+    rows = parseCsv(parsed.data.csv).map(toRow).filter((row): row is LeadRow => row !== null);
+    if (rows.length === 0) return NextResponse.json({ error: "No rows with a business name. The first line must be the column headings." }, { status: 400 });
+  } else {
+    const { email, ...rest } = parsed.data.lead;
+    rows = [{ ...rest, email: email || undefined }];
+  }
+
+  return NextResponse.json(await importLeads(rows), { status: 201 });
 }

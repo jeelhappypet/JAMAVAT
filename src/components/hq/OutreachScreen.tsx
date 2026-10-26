@@ -9,7 +9,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SidePanel } from "@/components/ui/SidePanel";
 import { SkeletonCards } from "@/components/ui/Skeleton";
-import { TextArea } from "@/components/ui/TextField";
+import { Modal } from "@/components/ui/Modal";
+import { TextArea, TextField } from "@/components/ui/TextField";
 import { formatDate } from "@/components/hq/bits";
 import type { OutreachChannel, OutreachTouchDTO, SponsorLeadDTO, SponsorLeadStatus } from "@/types";
 
@@ -123,6 +124,9 @@ export function OutreachScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ran, setRan] = useState<string | null>(null);
+  const [adding, setAdding] = useState<"one" | "paste" | null>(null);
+  const [lead, setLead] = useState({ business: "", category: "", area: "", ownerName: "", email: "", phone: "", sessionsInArea: "" });
+  const [csv, setCsv] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -166,6 +170,26 @@ export function OutreachScreen() {
     }
   }
 
+  /** Both ways in go through the same endpoint; only the body differs. */
+  async function add(body: Record<string, unknown>) {
+    setBusy(true);
+    setRan(null);
+    try {
+      const res = await fetch("/api/hq/outreach", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "That didn't save");
+      setRan(`${data.created} added, ${data.updated} updated, ${data.unchanged} already there${data.blank ? `, ${data.blank} rows skipped (no business name)` : ""}.`);
+      setAdding(null);
+      setLead({ business: "", category: "", area: "", ownerName: "", email: "", phone: "", sessionsInArea: "" });
+      setCsv("");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That didn't save");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function runNow() {
     setBusy(true);
     setRan(null);
@@ -186,9 +210,17 @@ export function OutreachScreen() {
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-[22px] font-extrabold">Sponsor outreach</h1>
-        <Button variant="secondary" size="sm" onClick={runNow} disabled={busy}>
-          {busy ? "Running…" : "Run now"}
-        </Button>
+        <span className="flex flex-wrap gap-2">
+          <Button variant="primary" size="sm" onClick={() => setAdding("one")} disabled={busy}>
+            Add a lead
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setAdding("paste")} disabled={busy}>
+            Paste a sheet
+          </Button>
+          <Button variant="secondary" size="sm" onClick={runNow} disabled={busy}>
+            {busy ? "Running…" : "Run now"}
+          </Button>
+        </span>
       </div>
 
       {error ? <Alert>{error}</Alert> : null}
@@ -279,6 +311,76 @@ export function OutreachScreen() {
           ))}
         </ul>
       )}
+
+      <Modal
+        open={adding === "one"}
+        title="Add a lead"
+        onClose={() => setAdding(null)}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void add({ lead: { ...lead, sessionsInArea: lead.sessionsInArea || "0" } });
+        }}
+        footer={
+          <Button type="submit" variant="primary" size="sm" disabled={busy || !lead.business.trim()}>
+            {busy ? "Saving…" : "Add"}
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <TextField label="Business" value={lead.business} onChange={(e) => setLead({ ...lead, business: e.target.value })} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField label="Category" hint="Gym, Dental clinic…" value={lead.category} onChange={(e) => setLead({ ...lead, category: e.target.value })} />
+            <TextField label="Area" hint="Adajan, Vesu…" value={lead.area} onChange={(e) => setLead({ ...lead, area: e.target.value })} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField label="Email" type="email" value={lead.email} onChange={(e) => setLead({ ...lead, email: e.target.value })} />
+            <TextField label="Phone" type="tel" value={lead.phone} onChange={(e) => setLead({ ...lead, phone: e.target.value })} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField label="Owner's name" value={lead.ownerName} onChange={(e) => setLead({ ...lead, ownerName: e.target.value })} />
+            <TextField
+              label="Guests a month in this area"
+              hint="Live restaurants there × 1,800. It goes into the pitch, so it has to be true."
+              type="number"
+              value={lead.sessionsInArea}
+              onChange={(e) => setLead({ ...lead, sessionsInArea: e.target.value })}
+            />
+          </div>
+          <p className="text-[12px] text-stone-500">
+            With an email or a phone the bot picks it up on its next run. With neither it waits under “No contact” until you fill one in.
+          </p>
+        </div>
+      </Modal>
+
+      <Modal
+        open={adding === "paste"}
+        title="Paste a sheet"
+        onClose={() => setAdding(null)}
+        footer={
+          <Button variant="primary" size="sm" onClick={() => void add({ csv })} disabled={busy || !csv.trim()}>
+            {busy ? "Importing…" : "Import"}
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] leading-relaxed text-stone-600">
+            Copy the rows straight out of your spreadsheet, headings and all. Columns it reads:{" "}
+            <code className="text-[12px]">business, category, area, owner_name, email, phone, instagram, sessions_in_area, notes</code> — any order, extras
+            ignored.
+          </p>
+          <TextArea
+            label="Rows"
+            rows={10}
+            value={csv}
+            onChange={(e) => setCsv(e.target.value)}
+            placeholder={"business,category,area,email,phone,sessions_in_area\nIron Fitness,Gym,Adajan,owner@iron.in,9876543210,9000"}
+            className="font-mono text-[12px]"
+          />
+          <p className="text-[12px] text-stone-500">
+            Safe to paste the same rows again: a lead already in the sequence keeps its history and only gets its blanks filled in.
+          </p>
+        </div>
+      </Modal>
 
       <SidePanel open={Boolean(open)} title={open?.business ?? ""} onClose={() => setOpen(null)}>
         {open ? (

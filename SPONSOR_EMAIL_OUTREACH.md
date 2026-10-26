@@ -343,16 +343,21 @@ before spending any cap, and each step moves on a conditional update.
 
 ### Loading the list
 
-Fill `sponsor-outreach.csv`, then:
+**HQ → Outreach → Paste a sheet.** Copy the rows out of
+`sponsor-outreach.csv` (or any spreadsheet), headings and all, and paste.
+Columns read: `business, category, area, owner_name, email, phone,
+instagram, sessions_in_area, notes` — any order, extras ignored, only
+`business` required. **Add a lead** next to it takes one at a time.
 
-```
-node scripts/import-sponsors.mjs            # dry run
-node scripts/import-sponsors.mjs --write
-```
+Building this list is a phone-and-Maps job done away from a desk, so nothing
+about it needs a terminal or a checkout of the code.
 
-Re-runnable. A row already in the sequence keeps its step and its history —
-re-importing the sheet cannot mail anyone twice. A row with no email and no
-phone comes in as `TODO` and the bot leaves it alone until you research it.
+Safe to paste the same rows again: a lead already in the sequence keeps its
+step, its status and its history, and only has blanks filled in — re-pasting
+can never mail a business twice. The one thing a re-paste does update is
+`sessions_in_area`, because that number goes verbatim into the pitch and it
+grows as restaurants go live. A row with no email and no phone lands under
+**No contact** and the bot leaves it alone until you fill one in.
 
 ## 6. Still not ready to send
 
