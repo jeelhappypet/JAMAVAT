@@ -32,7 +32,11 @@ export async function GET(request: Request) {
     SponsorLead.aggregate<{ _id: { channel: string; failed: boolean }; n: number }>([
       { $unwind: "$touches" },
       { $match: { "touches.at": { $gte: dayStart } } },
-      { $group: { _id: { channel: "$touches.channel", failed: { $ne: ["$touches.failure", null] } }, n: { $sum: 1 } } },
+      // A touch that went fine has no `failure` field at all, and a missing
+      // field is "missing" in an aggregation expression, not null — so
+      // `$ne: [field, null]` counts every success as a failure. `$ifNull`
+      // is what actually treats absent and null the same.
+      { $group: { _id: { channel: "$touches.channel", failed: { $toBool: { $ifNull: ["$touches.failure", false] } } }, n: { $sum: 1 } } },
     ]),
   ]);
 
