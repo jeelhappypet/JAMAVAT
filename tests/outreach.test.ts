@@ -5,7 +5,8 @@ import { dailyCap, mailerProblem, resetOutreachMailer } from "@/lib/outreach/mai
 import { digestHtml, digestText } from "@/lib/outreach/digest";
 import { TEMPLATE_BODY, renderTemplate, templateParams, whatsappProblem } from "@/lib/outreach/whatsapp";
 import { isValidOpen, openPixelUrl, signOpen } from "@/lib/outreach/tracking";
-import { LEAD_COLUMNS, parseCsv, phoneKeyOf, templateCsv, toCsv, toRow } from "@/lib/outreach/import";
+import { phoneKeyOf, toRow } from "@/lib/outreach/import";
+import { LEAD_COLUMNS, parseCsv, templateCsv, toCsv } from "@/lib/outreach/leadColumns";
 import type { OutreachRunSummary } from "@/types";
 
 const DAY = 24 * 60 * 60 * 1000;

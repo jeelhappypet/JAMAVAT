@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { requireHq } from "@/lib/hq/guard";
 import { SponsorLead, type SponsorLeadDocument } from "@/models/SponsorLead";
-import { templateCsv, toCsv } from "@/lib/outreach/import";
+import { templateCsv, toCsv } from "@/lib/outreach/leadColumns";
 import { getBusinessDate } from "@/lib/utils/businessDate";
 
 /**

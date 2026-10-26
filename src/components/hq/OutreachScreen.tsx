@@ -12,7 +12,7 @@ import { SkeletonCards } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
 import { TextArea, TextField } from "@/components/ui/TextField";
 import { formatDate } from "@/components/hq/bits";
-import { LEAD_COLUMNS } from "@/lib/outreach/import";
+import { LEAD_COLUMNS } from "@/lib/outreach/leadColumns";
 import type { OutreachChannel, OutreachTouchDTO, SponsorLeadDTO, SponsorLeadStatus } from "@/types";
 
 const FILTERS = [

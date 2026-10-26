@@ -9,7 +9,8 @@ import { OUTREACH_STEPS } from "@/lib/outreach/sequence";
 import { toSponsorLeadDTO } from "@/lib/outreach/dto";
 import type { SponsorLeadStatus } from "@/types";
 import { z } from "zod";
-import { importLeads, parseCsv, toRow, type LeadRow } from "@/lib/outreach/import";
+import { importLeads, toRow, type LeadRow } from "@/lib/outreach/import";
+import { parseCsv } from "@/lib/outreach/leadColumns";
 
 /** The filters HQ's tabs map to. "DUE" is the morning list, like Leads. */
 function query(filter: string): Record<string, unknown> {
