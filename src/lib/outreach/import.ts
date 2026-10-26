@@ -10,6 +10,47 @@ import { SponsorLead, type SponsorLeadDocument } from "@/models/SponsorLead";
  * filled in. Re-importing must never mail the same business twice.
  */
 
+/**
+ * The sheet's columns, defined once. The blank template HQ hands out, the
+ * export, the parser and the help text in the dialog all read this list, so
+ * a column can never exist in the template and be ignored on the way back in.
+ */
+export const LEAD_COLUMNS = [
+  { name: "business", hint: "Required. The shop's name.", example: "Iron Fitness" },
+  { name: "category", hint: "Gym, Dental clinic, Salon…  One per area gets exclusivity.", example: "Gym" },
+  { name: "area", hint: "Adajan, Vesu, Piplod…", example: "Adajan" },
+  { name: "owner_name", hint: "Who the pitch greets. Falls back to the business name.", example: "Rajesh bhai" },
+  { name: "email", hint: "Their own published address. Leave blank if there isn't one.", example: "owner@ironfitness.in" },
+  { name: "phone", hint: "Any format; 10 digits is enough.", example: "9876543210" },
+  { name: "instagram", hint: "Handle. A shop that posts weekly already buys advertising.", example: "@ironfitness.surat" },
+  { name: "sessions_in_area", hint: "Live restaurants in that area x 1800. Goes into the pitch, so it must be true.", example: "9000" },
+  { name: "lang", hint: "gu or en. Blank means ગુજરાતી.", example: "gu" },
+  { name: "notes", hint: "Anything for you. Never sent.", example: "Big board outside, spends on hoardings" },
+  { name: "maps_search", hint: "The Maps query the row came from.", example: "gym in Adajan Surat" },
+] as const;
+
+/** One CSV field, quoted only when it has to be. */
+function cell(value: string): string {
+  return /[",\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+}
+
+export function toCsv(rows: Record<string, string>[]): string {
+  const header = LEAD_COLUMNS.map((c) => c.name);
+  return [header.join(","), ...rows.map((row) => header.map((name) => cell(row[name] ?? "")).join(","))].join("\n") + "\n";
+}
+
+/**
+ * The blank sheet. Two example rows rather than none: the shape of
+ * `sessions_in_area` and an empty `email` are both easier to copy than to
+ * describe, and they are obviously placeholders to delete.
+ */
+export function templateCsv(): string {
+  return toCsv([
+    Object.fromEntries(LEAD_COLUMNS.map((c) => [c.name, c.example])),
+    { business: "Smile Dental", category: "Dental clinic", area: "Vesu", email: "", phone: "9876500000", sessions_in_area: "5400", notes: "No website — WhatsApp only" },
+  ]);
+}
+
 export interface LeadRow {
   business: string;
   category?: string;
@@ -25,7 +66,11 @@ export interface LeadRow {
 }
 
 /** Minimal RFC-4180: quoted fields, doubled quotes, commas and newlines inside them. */
-export function parseCsv(text: string): Record<string, string>[] {
+export function parseCsv(input: string): Record<string, string>[] {
+  // A sheet downloaded from here carries a BOM so Excel reads it as UTF-8;
+  // pasted back, that byte would make the first heading "\uFEFFbusiness" and
+  // every row would look like it had no business name.
+  const text = input.charCodeAt(0) === 0xfeff ? input.slice(1) : input;
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";

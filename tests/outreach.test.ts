@@ -5,7 +5,7 @@ import { dailyCap, mailerProblem, resetOutreachMailer } from "@/lib/outreach/mai
 import { digestHtml, digestText } from "@/lib/outreach/digest";
 import { TEMPLATE_BODY, renderTemplate, templateParams, whatsappProblem } from "@/lib/outreach/whatsapp";
 import { isValidOpen, openPixelUrl, signOpen } from "@/lib/outreach/tracking";
-import { parseCsv, phoneKeyOf, toRow } from "@/lib/outreach/import";
+import { LEAD_COLUMNS, parseCsv, phoneKeyOf, templateCsv, toCsv, toRow } from "@/lib/outreach/import";
 import type { OutreachRunSummary } from "@/types";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -305,5 +305,37 @@ describe("pasting a sheet", () => {
     expect(phoneKeyOf("098765 43210")).toBe("919876543210");
     expect(phoneKeyOf("12345")).toBeUndefined();
     expect(phoneKeyOf(undefined)).toBeUndefined();
+  });
+});
+
+describe("the downloadable sheet", () => {
+  it("round-trips: every column the template offers is read back", () => {
+    const rows = parseCsv(templateCsv());
+    expect(rows).toHaveLength(2);
+    for (const column of LEAD_COLUMNS) expect(Object.keys(rows[0])).toContain(column.name);
+    const lead = toRow(rows[0]);
+    expect(lead).toMatchObject({ business: "Iron Fitness", category: "Gym", area: "Adajan", ownerName: "Rajesh bhai", sessionsInArea: 9000, lang: "gu" });
+    expect(lead?.maps).toBe("gym in Adajan Surat");
+  });
+
+  it("survives the BOM Excel needs, so a downloaded sheet pastes back", () => {
+    const rows = parseCsv("\uFEFF" + templateCsv());
+    expect(toRow(rows[0])?.business).toBe("Iron Fitness");
+  });
+
+  it("quotes only what has to be quoted, and escapes a quote", () => {
+    const csv = toCsv([{ business: 'Shah & Sons, Adajan', notes: 'said "maybe"', area: "Adajan" }]);
+    expect(csv).toContain('"Shah & Sons, Adajan"');
+    expect(csv).toContain('"said ""maybe"""');
+    expect(csv).toContain(",Adajan,");
+    // And it reads back as what went in.
+    expect(parseCsv(csv)[0].notes).toBe('said "maybe"');
+  });
+
+  it("keeps a row with no email, which is the common case", () => {
+    const second = parseCsv(templateCsv())[1];
+    expect(second.email).toBe("");
+    expect(toRow(second)?.email).toBeUndefined();
+    expect(toRow(second)?.business).toBe("Smile Dental");
   });
 });

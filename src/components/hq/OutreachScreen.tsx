@@ -12,6 +12,7 @@ import { SkeletonCards } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
 import { TextArea, TextField } from "@/components/ui/TextField";
 import { formatDate } from "@/components/hq/bits";
+import { LEAD_COLUMNS } from "@/lib/outreach/import";
 import type { OutreachChannel, OutreachTouchDTO, SponsorLeadDTO, SponsorLeadStatus } from "@/types";
 
 const FILTERS = [
@@ -217,6 +218,9 @@ export function OutreachScreen() {
           <Button variant="outline" size="sm" onClick={() => setAdding("paste")} disabled={busy}>
             Paste a sheet
           </Button>
+          <Button variant="ghost" size="sm" href="/api/hq/outreach/sheet">
+            Download sheet
+          </Button>
           <Button variant="secondary" size="sm" onClick={runNow} disabled={busy}>
             {busy ? "Running…" : "Run now"}
           </Button>
@@ -364,10 +368,27 @@ export function OutreachScreen() {
       >
         <div className="flex flex-col gap-3">
           <p className="text-[13px] leading-relaxed text-stone-600">
-            Copy the rows straight out of your spreadsheet, headings and all. Columns it reads:{" "}
-            <code className="text-[12px]">business, category, area, owner_name, email, phone, instagram, sessions_in_area, notes</code> — any order, extras
-            ignored.
+            Copy the rows straight out of your spreadsheet, headings and all — any column order, extras ignored, only <code>business</code> required.
           </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" href="/api/hq/outreach/sheet?blank=1">
+              Download a blank sheet
+            </Button>
+            <Button variant="ghost" size="sm" href="/api/hq/outreach/sheet">
+              Download what is already here
+            </Button>
+          </div>
+          <details className="rounded-[12px] border border-border bg-surface-muted p-3">
+            <summary className="cursor-pointer text-[13px] font-bold">What each column is for</summary>
+            <dl className="mt-2 flex flex-col gap-1.5">
+              {LEAD_COLUMNS.map((column) => (
+                <div key={column.name} className="text-[12px] leading-relaxed">
+                  <dt className="inline font-mono font-bold">{column.name}</dt>
+                  <dd className="inline text-stone-600"> — {column.hint}</dd>
+                </div>
+              ))}
+            </dl>
+          </details>
           <TextArea
             label="Rows"
             rows={10}
